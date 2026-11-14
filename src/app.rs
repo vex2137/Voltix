@@ -5,7 +5,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::localization::{resolve_locale, Localizer};
 use crate::models::history::BoundedHistory;
@@ -37,12 +37,10 @@ struct SharedState {
     gpu_histories: HashMap<String, BoundedHistory>,
 }
 
-#[derive(Clone)]
-struct UiModels {
-    cpu_cores: Rc<VecModel<CoreRowItem>>,
-    gpus: Rc<VecModel<GpuItem>>,
-    disks: Rc<VecModel<StorageItem>>,
-    system_gpus: Rc<VecModel<SystemGpuItem>>,
+fn update_vec_model<T: 'static>(model: ModelRc<T>, items: Vec<T>) {
+    if let Some(vec_model) = model.as_any().downcast_ref::<VecModel<T>>() {
+        vec_model.set_vec(items);
+    }
 }
 
 pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError> {
@@ -53,17 +51,10 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
 
     let window = AppWindow::new()?;
 
-    let models = UiModels {
-        cpu_cores: Rc::new(VecModel::default()),
-        gpus: Rc::new(VecModel::default()),
-        disks: Rc::new(VecModel::default()),
-        system_gpus: Rc::new(VecModel::default()),
-    };
-
-    window.set_cpu_core_rows(ModelRc::from(models.cpu_cores.clone()));
-    window.set_gpus(ModelRc::from(models.gpus.clone()));
-    window.set_disks(ModelRc::from(models.disks.clone()));
-    window.set_system_gpus(ModelRc::from(models.system_gpus.clone()));
+    window.set_cpu_core_rows(ModelRc::from(Rc::new(VecModel::default())));
+    window.set_gpus(ModelRc::from(Rc::new(VecModel::default())));
+    window.set_disks(ModelRc::from(Rc::new(VecModel::default())));
+    window.set_system_gpus(ModelRc::from(Rc::new(VecModel::default())));
 
     let shared = Arc::new(Mutex::new(SharedState {
         shutdown: false,
@@ -90,12 +81,11 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     // Wire UI callbacks
     {
         let shared_c = shared.clone();
-        let models_c = models.clone();
         let weak = window.as_weak();
         window.on_select_gpu(move |idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 state.selected_gpu_index = idx.max(0) as usize;
-                render_snapshot_to_window(&win, &models_c, &state);
+                render_snapshot_to_window(&win, &state);
             }
         });
     }
@@ -119,7 +109,6 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
 
     {
         let shared_c = shared.clone();
-        let models_c = models.clone();
         let weak = window.as_weak();
         window.on_change_language(move |lang_idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
@@ -133,14 +122,13 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 persist_settings(&state);
                 apply_i18n_to_window(&win, &state.localizer);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
-                render_snapshot_to_window(&win, &models_c, &state);
+                render_snapshot_to_window(&win, &state);
             }
         });
     }
 
     {
         let shared_c = shared.clone();
-        let models_c = models.clone();
         let weak = window.as_weak();
         window.on_change_temp_unit(move |unit_idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
@@ -150,7 +138,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 };
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
-                render_snapshot_to_window(&win, &models_c, &state);
+                render_snapshot_to_window(&win, &state);
             }
         });
     }
@@ -171,8 +159,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     }
 
     // Spawn background monitoring thread
-    let monitor_handle =
-        spawn_monitor_thread(shared.clone(), condvar.clone(), models, window.as_weak());
+    let monitor_handle = spawn_monitor_thread(shared.clone(), condvar.clone(), window.as_weak());
 
     let run_result = window.run();
 
@@ -191,7 +178,6 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
 fn spawn_monitor_thread(
     shared: Arc<Mutex<SharedState>>,
     condvar: Arc<Condvar>,
-    models: UiModels,
     weak_window: slint::Weak<AppWindow>,
 ) -> std::io::Result<thread::JoinHandle<()>> {
     thread::Builder::new()
@@ -247,11 +233,10 @@ fn spawn_monitor_thread(
                 }
 
                 let shared_ui = shared.clone();
-                let models_ui = models.clone();
                 let weak_ui = weak_window.clone();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let (Ok(state), Some(win)) = (shared_ui.lock(), weak_ui.upgrade()) {
-                        render_snapshot_to_window(&win, &models_ui, &state);
+                        render_snapshot_to_window(&win, &state);
                     }
                 });
 
@@ -424,7 +409,7 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_chart_30s(SharedString::from(loc.tr("chart_30s")));
 }
 
-fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &SharedState) {
+fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     let Some(snap) = &state.latest_snapshot else {
         return;
     };
@@ -560,7 +545,7 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
             right_status: r_st,
         });
     }
-    models.cpu_cores.set_vec(core_rows);
+    update_vec_model(window.get_cpu_core_rows(), core_rows);
 
     // Memory
     let (ram_util_text, ram_util_status) =
@@ -643,8 +628,8 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
         })
         .collect();
 
-    models.gpus.set_vec(gpu_items);
-    models.system_gpus.set_vec(sys_gpus);
+    update_vec_model(window.get_gpus(), gpu_items);
+    update_vec_model(window.get_system_gpus(), sys_gpus);
     window.set_has_gpus(has_gpus);
     window.set_selected_gpu_index(selected_idx as i32);
     window.set_selected_gpu(selected_gpu_item.clone());
@@ -696,7 +681,7 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
             }
         })
         .collect();
-    models.disks.set_vec(disk_items);
+    update_vec_model(window.get_disks(), disk_items);
 
     // Real-time bounded 60s charts
     let now = snap.sampled_at;

@@ -4,6 +4,7 @@ use std::ffi::CString;
 #[cfg(not(target_os = "android"))]
 use std::fs;
 
+#[cfg(not(target_os = "android"))]
 use crate::models::metrics::MetricValue;
 use crate::models::telemetry::StorageDeviceTelemetry;
 

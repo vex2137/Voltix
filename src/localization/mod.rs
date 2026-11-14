@@ -81,7 +81,7 @@ impl Localizer {
         };
     }
 
-    pub fn tr(&self, key: &str) -> &str {
+    pub fn tr<'a>(&'a self, key: &'a str) -> &'a str {
         if let Some(val) = self.active.get(key) {
             if !val.is_empty() {
                 return val.as_str();

@@ -142,11 +142,9 @@ impl BoundedHistory {
                 .as_secs_f64();
             let x = ((1.0 - (age / window_secs)).clamp(0.0, 1.0)) * width;
 
-            let is_gap = prev_t
-                .map(|pt| {
-                    sample.timestamp.saturating_duration_since(pt).as_secs_f64() > max_gap_secs
-                })
-                .unwrap_or(false);
+            let is_gap = prev_t.is_some_and(|pt| {
+                sample.timestamp.saturating_duration_since(pt).as_secs_f64() > max_gap_secs
+            });
 
             if is_gap {
                 flush_segment(&segment_points, &mut line_commands, &mut area_commands);
