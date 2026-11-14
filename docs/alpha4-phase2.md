@@ -11,12 +11,12 @@ From a native Wayland desktop, build a release binary and run:
 
 ```sh
 cargo build --locked --release
-python3 tools/profile_memory.py --output /tmp/voltix-before.json
+python3 tools/profile_memory.py --label baseline-commit --output /tmp/voltix-before.json
 # Repeat with the changed build, same renderer, window size, polling and machine:
-python3 tools/profile_memory.py --output /tmp/voltix-after.json
+python3 tools/profile_memory.py --label changed-commit --output /tmp/voltix-after.json
 ```
 
-The default samples are at 3, 300 and 900 seconds. Keep the same desktop session,
+The default samples are at 3, 300 and 900 seconds. Output records the binary SHA-256, kernel and supplied label; record the actual renderer separately when it is auto-selected. Keep the same desktop session,
 renderer, window size and telemetry settings. The sampler terminates only the
 process it started. For CPU percentage over an interval, subtract the CPU ticks,
 divide by `clock_ticks_per_second`, then by elapsed wall seconds, and multiply by

@@ -7,6 +7,8 @@ Interact with the app while it runs to measure navigation/mode changes; annotate
 those actions separately. Window discovery is deliberately not called first frame.
 """
 import argparse
+import hashlib
+import math
 import json
 import os
 from pathlib import Path
@@ -29,12 +31,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", default="target/release/voltix")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--label", default="", help="commit or scenario label recorded in output")
     parser.add_argument("--times", default="3,300,900", help="seconds after launch, comma-separated")
     args = parser.parse_args()
     times = [float(value) for value in args.times.split(",")]
-    if not times or any(t < 0 for t in times) or times != sorted(times):
+    if not times or any(not math.isfinite(t) or t < 0 for t in times) or times != sorted(times):
         parser.error("times must be non-negative and ordered")
-    result = {"binary": str(Path(args.binary).resolve()), "display_type": os.environ.get("XDG_SESSION_TYPE"),
+    binary = Path(args.binary).resolve()
+    with binary.open("rb") as binary_file:
+        digest = hashlib.file_digest(binary_file, "sha256").hexdigest()
+    result = {"binary": str(binary), "binary_sha256": digest, "label": args.label,
+              "kernel": os.uname().release, "display_type": os.environ.get("XDG_SESSION_TYPE"),
               "slint_backend": os.environ.get("SLINT_BACKEND"), "clock_ticks_per_second": os.sysconf("SC_CLK_TCK"), "samples": []}
     start = time.monotonic()
     process = subprocess.Popen([args.binary])
