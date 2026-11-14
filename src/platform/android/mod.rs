@@ -106,10 +106,7 @@ pub fn android_cpu_temperature() -> (MetricValue<f64>, Option<String>) {
             );
         }
         Err(_) => {
-            return (
-                MetricValue::Unsupported("Thermal zones unavailable".to_string()),
-                None,
-            );
+            return (MetricValue::Unsupported("Thermal zones unavailable".to_string()), None);
         }
     };
 
@@ -158,10 +155,7 @@ pub fn android_cpu_temperature() -> (MetricValue<f64>, Option<String>) {
             None,
         )
     } else {
-        (
-            MetricValue::Unsupported("No readable CPU thermal zone".to_string()),
-            None,
-        )
+        (MetricValue::Unsupported("No readable CPU thermal zone".to_string()), None)
     }
 }
 
@@ -179,25 +173,13 @@ pub fn collect_android_gpus() -> Vec<GpuTelemetry> {
 
     let (vendor, vendor_name, display_name) = if lower.contains("adreno") || lower.contains("qcom")
     {
-        (
-            GpuVendor::Other,
-            "Qualcomm".to_string(),
-            format!("Qualcomm Adreno ({hint})"),
-        )
+        (GpuVendor::Other, "Qualcomm".to_string(), format!("Qualcomm Adreno ({hint})"))
     } else if lower.contains("mali") {
         (GpuVendor::Other, "ARM".to_string(), format!("ARM Mali ({hint})"))
     } else if lower.contains("powervr") {
-        (
-            GpuVendor::Other,
-            "Imagination".to_string(),
-            format!("PowerVR ({hint})"),
-        )
+        (GpuVendor::Other, "Imagination".to_string(), format!("PowerVR ({hint})"))
     } else {
-        (
-            GpuVendor::Other,
-            "Android".to_string(),
-            format!("Integrated GPU ({hint})"),
-        )
+        (GpuVendor::Other, "Android".to_string(), format!("Integrated GPU ({hint})"))
     };
 
     let driver = match (egl, vulkan) {

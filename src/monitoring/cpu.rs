@@ -200,10 +200,7 @@ impl CpuMonitor {
         }
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         {
-            (
-                MetricValue::Unsupported("CPU thermal sensor unsupported".to_string()),
-                None,
-            )
+            (MetricValue::Unsupported("CPU thermal sensor unsupported".to_string()), None)
         }
     }
 }
@@ -422,10 +419,7 @@ fn read_sysfs_cpu_frequencies(expected_cpus: usize) -> BTreeMap<usize, MetricVal
                 }
             }
             Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-                result.insert(
-                    id,
-                    MetricValue::PermissionError("cpufreq restricted".to_string()),
-                );
+                result.insert(id, MetricValue::PermissionError("cpufreq restricted".to_string()));
             }
             Err(_) => {}
         }

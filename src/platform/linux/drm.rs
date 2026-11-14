@@ -321,8 +321,7 @@ pub fn parse_active_dpm_mhz(content: &str) -> Option<u32> {
             continue;
         }
         for token in trimmed.split_whitespace() {
-            if let Some(mhz_str) = token.strip_suffix("Mhz").or_else(|| token.strip_suffix("MHz"))
-            {
+            if let Some(mhz_str) = token.strip_suffix("Mhz").or_else(|| token.strip_suffix("MHz")) {
                 if let Ok(mhz) = mhz_str.parse::<u32>() {
                     return Some(mhz);
                 }
