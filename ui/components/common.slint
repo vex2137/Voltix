@@ -85,7 +85,7 @@ export component KeyValueRow inherits Rectangle {
     in property <bool> show-divider: true;
     in property <bool> compact: false;
 
-    min-height: Theme.interface-mode == 1 ? 28px : 36px;
+    min-height: root.compact ? 64px : (Theme.interface-mode == 1 ? 28px : 36px);
 
     VerticalLayout {
         if !root.compact : HorizontalLayout {
