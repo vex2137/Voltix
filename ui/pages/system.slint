@@ -1,0 +1,113 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { SystemGpuItem } from "../models.slint";
+import { Card, KeyValueRow, SectionTitle } from "../components/common.slint";
+
+export component SystemPage inherits Rectangle {
+    in property <string> os-name;
+    in property <int> os-status;
+    in property <string> kernel-version;
+    in property <int> kernel-status;
+    in property <string> architecture;
+    in property <string> hostname;
+    in property <int> hostname-status;
+    in property <string> uptime-text;
+    in property <int> uptime-status;
+
+    in property <string> cpu-model;
+    in property <int> cpu-model-status;
+    in property <string> cpu-cores-threads;
+    in property <string> total-ram;
+    in property <int> total-ram-status;
+    in property <[SystemGpuItem]> gpus;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            width: max(300px, root.width - 14px);
+            alignment: start;
+            padding: 20px;
+            spacing: 16px;
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+
+                    SectionTitle {
+                        text: I18n.sys-os-section;
+                    }
+
+                    KeyValueRow {
+                        label: I18n.sys-os-name;
+                        value: root.os-name;
+                        status: root.os-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.sys-kernel;
+                        value: root.kernel-version;
+                        status: root.kernel-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.sys-arch;
+                        value: root.architecture;
+                    }
+                    KeyValueRow {
+                        label: I18n.sys-hostname;
+                        value: root.hostname;
+                        status: root.hostname-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.sys-uptime;
+                        value: root.uptime-text;
+                        status: root.uptime-status;
+                        show-divider: false;
+                    }
+                }
+            }
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+
+                    SectionTitle {
+                        text: I18n.sys-hw-section;
+                    }
+
+                    KeyValueRow {
+                        label: I18n.sys-cpu;
+                        value: root.cpu-model;
+                        status: root.cpu-model-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.cpu-cores-threads;
+                        value: root.cpu-cores-threads;
+                    }
+                    KeyValueRow {
+                        label: I18n.sys-ram;
+                        value: root.total-ram;
+                        status: root.total-ram-status;
+                        show-divider: root.gpus.length > 0;
+                    }
+
+                    if root.gpus.length == 0 : KeyValueRow {
+                        label: I18n.sys-gpus;
+                        value: I18n.gpu-none-detected;
+                        status: 1;
+                        show-divider: false;
+                    }
+
+                    for gpu[idx] in root.gpus : KeyValueRow {
+                        label: idx == 0 ? I18n.sys-gpus : "";
+                        value: gpu.name + " (" + gpu.vendor + " / " + gpu.driver + ")";
+                        show-divider: idx + 1 < root.gpus.length;
+                    }
+                }
+            }
+        }
+    }
+}

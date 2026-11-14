@@ -1,0 +1,198 @@
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+
+component NavItem inherits TouchArea {
+    in property <string> label;
+    in property <string> code;
+    in property <bool> active: false;
+
+    height: 38px;
+    mouse-cursor: pointer;
+
+    Rectangle {
+        border-radius: Theme.radius-sm;
+        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : transparent);
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 12px;
+            spacing: 10px;
+            alignment: start;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 3px;
+                    height: 18px;
+                    border-radius: 2px;
+                    background: root.active ? Theme.accent : transparent;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 24px;
+                    height: 20px;
+                    border-radius: 4px;
+                    background: root.active ? Theme.accent : Theme.bg-elevated;
+
+                    Text {
+                        text: root.code;
+                        color: root.active ? #0b0f17 : Theme.text-secondary;
+                        font-size: 9px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.label;
+                color: root.active ? Theme.text-primary : Theme.text-secondary;
+                font-size: 13px;
+                font-weight: root.active ? 600 : 500;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in-out property <int> current-page: 0;
+    in property <string> os-label: "Linux";
+    in property <string> polling-label: "1000 ms";
+
+    width: 218px;
+    background: Theme.bg-sidebar;
+
+    HorizontalLayout {
+        VerticalLayout {
+            padding: 14px;
+            spacing: 18px;
+            horizontal-stretch: 1;
+
+            // Brand header
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-top: 4px;
+                spacing: 10px;
+                alignment: start;
+
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 7px;
+                    background: Theme.accent;
+
+                    Text {
+                        text: "V";
+                        color: #0b0f17;
+                        font-size: 15px;
+                        font-weight: 800;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 1px;
+                    Text {
+                        text: I18n.app-name;
+                        color: Theme.text-primary;
+                        font-size: 15px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: I18n.app-version;
+                        color: Theme.text-muted;
+                        font-size: 10px;
+                    }
+                }
+            }
+
+            // Navigation links
+            VerticalLayout {
+                spacing: 4px;
+                vertical-stretch: 1;
+
+                NavItem {
+                    code: "OV";
+                    label: I18n.nav-dashboard;
+                    active: root.current-page == 0;
+                    clicked => { root.current-page = 0; }
+                }
+                NavItem {
+                    code: "CP";
+                    label: I18n.nav-cpu;
+                    active: root.current-page == 1;
+                    clicked => { root.current-page = 1; }
+                }
+                NavItem {
+                    code: "GP";
+                    label: I18n.nav-gpu;
+                    active: root.current-page == 2;
+                    clicked => { root.current-page = 2; }
+                }
+                NavItem {
+                    code: "RM";
+                    label: I18n.nav-memory;
+                    active: root.current-page == 3;
+                    clicked => { root.current-page = 3; }
+                }
+                NavItem {
+                    code: "DS";
+                    label: I18n.nav-storage;
+                    active: root.current-page == 4;
+                    clicked => { root.current-page = 4; }
+                }
+                NavItem {
+                    code: "SY";
+                    label: I18n.nav-system;
+                    active: root.current-page == 5;
+                    clicked => { root.current-page = 5; }
+                }
+                NavItem {
+                    code: "ST";
+                    label: I18n.nav-settings;
+                    active: root.current-page == 6;
+                    clicked => { root.current-page = 6; }
+                }
+            }
+
+            // Compact footer info
+            Rectangle {
+                border-radius: Theme.radius-sm;
+                background: Theme.bg-elevated;
+                border-width: 1px;
+                border-color: Theme.border-subtle;
+
+                VerticalLayout {
+                    padding: 10px;
+                    spacing: 4px;
+
+                    Text {
+                        text: root.os-label;
+                        color: Theme.text-primary;
+                        font-size: 11px;
+                        font-weight: 600;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: I18n.status-polling + ": " + root.polling-label;
+                        color: Theme.text-muted;
+                        font-size: 11px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: 1px;
+            background: Theme.border-subtle;
+        }
+    }
+}

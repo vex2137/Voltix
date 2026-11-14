@@ -1,0 +1,150 @@
+import { Theme } from "../themes/theme.slint";
+
+export component Card inherits Rectangle {
+    background: Theme.bg-card;
+    border-radius: Theme.radius-card;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+}
+
+export component SectionTitle inherits Text {
+    color: Theme.text-primary;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+export component ProgressBar inherits Rectangle {
+    in property <float> value: 0.0;
+    in property <color> bar-color: Theme.accent;
+    in property <bool> available: true;
+
+    height: 7px;
+    border-radius: 4px;
+    background: Theme.track-bg;
+    clip: true;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        height: parent.height;
+        width: root.available ? parent.width * clamp(root.value / 100.0, 0.0, 1.0) : 0px;
+        border-radius: 4px;
+        background: root.bar-color;
+
+        animate width { duration: 180ms; easing: ease-out; }
+    }
+}
+
+export component SummaryCard inherits Card {
+    in property <string> label;
+    in property <string> primary-value;
+    in property <string> secondary-value: "";
+    in property <float> progress: 0.0;
+    in property <bool> show-progress: true;
+    in property <int> status: 0; // 0=Available, 1=Unavailable, 2=Unsupported, 3=PermissionError
+    in property <color> accent-color: Theme.accent;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 8px;
+
+        Text {
+            text: root.label;
+            color: Theme.text-secondary;
+            font-size: 12px;
+            font-weight: 500;
+            overflow: elide;
+        }
+
+        Text {
+            text: root.primary-value;
+            color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-red : Theme.text-muted);
+            font-size: root.status == 0 ? 22px : 15px;
+            font-weight: 700;
+            overflow: elide;
+        }
+
+        if root.show-progress : ProgressBar {
+            value: root.progress;
+            bar-color: root.accent-color;
+            available: root.status == 0;
+        }
+
+        if root.secondary-value != "" : Text {
+            text: root.secondary-value;
+            color: Theme.text-muted;
+            font-size: 12px;
+            overflow: elide;
+        }
+    }
+}
+
+export component KeyValueRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <int> status: 0;
+    in property <bool> show-divider: true;
+
+    min-height: 36px;
+
+    VerticalLayout {
+        HorizontalLayout {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 12px;
+
+            Text {
+                text: root.label;
+                color: Theme.text-secondary;
+                font-size: 13px;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.value;
+                color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-red : Theme.text-muted);
+                font-size: 13px;
+                font-weight: root.status == 0 ? 600 : 400;
+                vertical-alignment: center;
+                horizontal-alignment: right;
+                overflow: elide;
+            }
+        }
+
+        if root.show-divider : Rectangle {
+            height: 1px;
+            background: Theme.border-subtle;
+        }
+    }
+}
+
+export component SegmentedOption inherits TouchArea {
+    in property <string> label;
+    in property <bool> active: false;
+
+    height: 32px;
+    mouse-cursor: pointer;
+
+    Rectangle {
+        border-radius: Theme.radius-sm;
+        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : Theme.bg-elevated);
+        border-width: 1px;
+        border-color: root.active ? Theme.accent : Theme.border-subtle;
+
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            alignment: center;
+
+            Text {
+                text: root.label;
+                color: root.active ? Theme.accent : Theme.text-primary;
+                font-size: 12px;
+                font-weight: root.active ? 600 : 500;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

@@ -1,0 +1,175 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { GpuItem } from "../models.slint";
+import { Card, KeyValueRow, SectionTitle, SegmentedOption, SummaryCard } from "../components/common.slint";
+import { TelemetryChart } from "../components/chart.slint";
+
+export component GpuPage inherits Rectangle {
+    in property <[GpuItem]> gpus;
+    in property <GpuItem> selected-gpu;
+    in property <int> selected-index: 0;
+    in property <bool> has-gpus: false;
+
+    in property <string> line-commands;
+    in property <string> area-commands;
+    in property <bool> has-history;
+    in property <string> chart-empty-text;
+
+    callback select-gpu(int);
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            width: max(300px, root.width - 14px);
+            alignment: start;
+            padding: 20px;
+            spacing: 16px;
+
+            if !root.has-gpus : Card {
+                min-height: 160px;
+
+                VerticalLayout {
+                    padding: 24px;
+                    alignment: center;
+                    spacing: 8px;
+
+                    Text {
+                        text: I18n.gpu-none-detected;
+                        color: Theme.text-secondary;
+                        font-size: 14px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: I18n.status-unavailable;
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                    }
+                }
+            }
+
+            if root.has-gpus && root.gpus.length > 1 : Card {
+                VerticalLayout {
+                    padding: 14px;
+                    spacing: 10px;
+
+                    SectionTitle {
+                        text: I18n.gpu-selector;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        for gpu[idx] in root.gpus : SegmentedOption {
+                            label: gpu.name;
+                            active: idx == root.selected-index;
+                            clicked => { root.select-gpu(idx); }
+                        }
+                    }
+                }
+            }
+
+            if root.has-gpus : VerticalLayout {
+                spacing: 16px;
+
+                HorizontalLayout {
+                    spacing: 12px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.gpu-utilization;
+                        primary-value: root.selected-gpu.util-text;
+                        progress: root.selected-gpu.util-percent;
+                        status: root.selected-gpu.util-status;
+                        accent-color: Theme.accent-purple;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.gpu-vram;
+                        primary-value: root.selected-gpu.vram-text;
+                        secondary-value: root.selected-gpu.vram-subtext;
+                        progress: root.selected-gpu.vram-percent;
+                        status: root.selected-gpu.vram-status;
+                        accent-color: Theme.accent-amber;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.gpu-temperature;
+                        primary-value: root.selected-gpu.temp-text;
+                        show-progress: false;
+                        status: root.selected-gpu.temp-status;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.gpu-power-draw;
+                        primary-value: root.selected-gpu.power-draw-text;
+                        secondary-value: root.selected-gpu.power-limit-text;
+                        show-progress: false;
+                        status: root.selected-gpu.power-draw-status;
+                    }
+                }
+
+                Card {
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 4px;
+
+                        KeyValueRow {
+                            label: I18n.gpu-name;
+                            value: root.selected-gpu.name;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-vendor;
+                            value: root.selected-gpu.vendor-name;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-driver;
+                            value: root.selected-gpu.driver-text;
+                            status: root.selected-gpu.driver-status;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-core-clock;
+                            value: root.selected-gpu.core-clock-text;
+                            status: root.selected-gpu.core-clock-status;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-mem-clock;
+                            value: root.selected-gpu.mem-clock-text;
+                            status: root.selected-gpu.mem-clock-status;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-power-limit;
+                            value: root.selected-gpu.power-limit-text;
+                            status: root.selected-gpu.power-limit-status;
+                        }
+                        KeyValueRow {
+                            label: I18n.gpu-fan-speed;
+                            value: root.selected-gpu.fan-text;
+                            status: root.selected-gpu.fan-status;
+                            show-divider: false;
+                        }
+                    }
+                }
+
+                TelemetryChart {
+                    title: I18n.gpu-history-title;
+                    current-value-text: root.selected-gpu.util-text;
+                    line-commands: root.line-commands;
+                    area-commands: root.area-commands;
+                    has-data: root.has-history;
+                    empty-text: root.chart-empty-text;
+                    line-color: Theme.accent-purple;
+                    area-color: Theme.accent-purple-soft;
+                }
+            }
+        }
+    }
+}

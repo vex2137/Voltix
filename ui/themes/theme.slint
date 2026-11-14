@@ -1,0 +1,36 @@
+export global Theme {
+    in-out property <bool> dark-mode: true;
+
+    out property <color> bg-app: root.dark-mode ? #0b0f17 : #f4f7fb;
+    out property <color> bg-sidebar: root.dark-mode ? #0e1420 : #ffffff;
+    out property <color> bg-header: root.dark-mode ? #0e1420 : #ffffff;
+    out property <color> bg-card: root.dark-mode ? #131b2b : #ffffff;
+    out property <color> bg-elevated: root.dark-mode ? #192336 : #eef2f8;
+    out property <color> bg-hover: root.dark-mode ? #1f2b42 : #e2e9f4;
+
+    out property <color> border-subtle: root.dark-mode ? #222e44 : #dbe3ef;
+    out property <color> border-strong: root.dark-mode ? #2f405e : #cbd5e1;
+
+    out property <color> text-primary: root.dark-mode ? #f1f5f9 : #0f172a;
+    out property <color> text-secondary: root.dark-mode ? #94a3b8 : #475569;
+    out property <color> text-muted: root.dark-mode ? #64748b : #64748b;
+
+    out property <color> accent: root.dark-mode ? #38bdf8 : #0284c7;
+    out property <color> accent-soft: root.dark-mode ? #38bdf824 : #0284c71c;
+
+    out property <color> accent-emerald: root.dark-mode ? #22c55e : #16a34a;
+    out property <color> accent-emerald-soft: root.dark-mode ? #22c55e24 : #16a34a1c;
+
+    out property <color> accent-amber: root.dark-mode ? #f59e0b : #d97706;
+    out property <color> accent-amber-soft: root.dark-mode ? #f59e0b24 : #d977061c;
+
+    out property <color> accent-purple: root.dark-mode ? #a78bfa : #7c3aed;
+    out property <color> accent-purple-soft: root.dark-mode ? #a78bfa24 : #7c3aed1c;
+
+    out property <color> accent-red: root.dark-mode ? #ef4444 : #dc2626;
+    out property <color> chart-grid: root.dark-mode ? #1f2b40 : #e2e8f0;
+    out property <color> track-bg: root.dark-mode ? #1e293b : #e2e8f0;
+
+    out property <length> radius-card: 10px;
+    out property <length> radius-sm: 6px;
+}

@@ -1,0 +1,15 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Environment & OS
+.env*
+!.env.example
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

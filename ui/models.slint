@@ -1,0 +1,59 @@
+export struct CoreRowItem {
+    left-label: string,
+    left-value-text: string,
+    left-freq-text: string,
+    left-percent: float,
+    left-status: int,
+    has-right: bool,
+    right-label: string,
+    right-value-text: string,
+    right-freq-text: string,
+    right-percent: float,
+    right-status: int,
+}
+
+export struct GpuItem {
+    id: string,
+    name: string,
+    vendor-name: string,
+    pci-slot: string,
+    driver-text: string,
+    driver-status: int,
+    util-text: string,
+    util-percent: float,
+    util-status: int,
+    vram-text: string,
+    vram-subtext: string,
+    vram-percent: float,
+    vram-status: int,
+    temp-text: string,
+    temp-status: int,
+    core-clock-text: string,
+    core-clock-status: int,
+    mem-clock-text: string,
+    mem-clock-status: int,
+    power-draw-text: string,
+    power-draw-status: int,
+    power-limit-text: string,
+    power-limit-status: int,
+    fan-text: string,
+    fan-status: int,
+}
+
+export struct StorageItem {
+    device: string,
+    mount-point: string,
+    filesystem: string,
+    used-text: string,
+    available-text: string,
+    total-text: string,
+    percent-text: string,
+    percent: float,
+    status: int,
+}
+
+export struct SystemGpuItem {
+    name: string,
+    vendor: string,
+    driver: string,
+}

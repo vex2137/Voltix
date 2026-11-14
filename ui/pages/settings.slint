@@ -1,0 +1,211 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
+
+export component SettingsPage inherits Rectangle {
+    in property <int> theme-mode: 1; // 0=System, 1=Dark, 2=Light
+    in property <int> language-mode: 0; // 0=System, 1=English, 2=Polish
+    in property <int> temp-unit: 0; // 0=Celsius, 1=Fahrenheit
+    in property <int> polling-ms: 1000;
+    in property <string> config-path;
+
+    callback change-theme(int);
+    callback change-language(int);
+    callback change-temp-unit(int);
+    callback change-polling-ms(int);
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            width: max(300px, root.width - 14px);
+            alignment: start;
+            padding: 20px;
+            spacing: 16px;
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    SectionTitle {
+                        text: I18n.settings-appearance;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: I18n.settings-theme;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                label: I18n.settings-theme-system;
+                                active: root.theme-mode == 0;
+                                clicked => { root.change-theme(0); }
+                            }
+                            SegmentedOption {
+                                label: I18n.settings-theme-dark;
+                                active: root.theme-mode == 1;
+                                clicked => { root.change-theme(1); }
+                            }
+                            SegmentedOption {
+                                label: I18n.settings-theme-light;
+                                active: root.theme-mode == 2;
+                                clicked => { root.change-theme(2); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 14px;
+
+                    SectionTitle {
+                        text: I18n.settings-localization;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: I18n.settings-language;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                label: I18n.settings-lang-system;
+                                active: root.language-mode == 0;
+                                clicked => { root.change-language(0); }
+                            }
+                            SegmentedOption {
+                                label: I18n.settings-lang-en;
+                                active: root.language-mode == 1;
+                                clicked => { root.change-language(1); }
+                            }
+                            SegmentedOption {
+                                label: I18n.settings-lang-pl;
+                                active: root.language-mode == 2;
+                                clicked => { root.change-language(2); }
+                            }
+                        }
+                    }
+
+                    Rectangle { height: 1px; background: Theme.border-subtle; }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: I18n.settings-temp-unit;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                label: "°C";
+                                active: root.temp-unit == 0;
+                                clicked => { root.change-temp-unit(0); }
+                            }
+                            SegmentedOption {
+                                label: "°F";
+                                active: root.temp-unit == 1;
+                                clicked => { root.change-temp-unit(1); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 14px;
+
+                    SectionTitle {
+                        text: I18n.settings-monitoring;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: I18n.settings-polling-interval;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                label: "250 ms";
+                                active: root.polling-ms == 250;
+                                clicked => { root.change-polling-ms(250); }
+                            }
+                            SegmentedOption {
+                                label: "500 ms";
+                                active: root.polling-ms == 500;
+                                clicked => { root.change-polling-ms(500); }
+                            }
+                            SegmentedOption {
+                                label: "1000 ms";
+                                active: root.polling-ms == 1000;
+                                clicked => { root.change-polling-ms(1000); }
+                            }
+                            SegmentedOption {
+                                label: "2000 ms";
+                                active: root.polling-ms == 2000;
+                                clicked => { root.change-polling-ms(2000); }
+                            }
+                            SegmentedOption {
+                                label: "5000 ms";
+                                active: root.polling-ms == 5000;
+                                clicked => { root.change-polling-ms(5000); }
+                            }
+                        }
+                    }
+
+                    Rectangle { height: 1px; background: Theme.border-subtle; }
+
+                    KeyValueRow {
+                        label: I18n.settings-config-path;
+                        value: root.config-path;
+                        show-divider: false;
+                    }
+
+                    Text {
+                        text: I18n.settings-saved-auto;
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                    }
+                }
+            }
+        }
+    }
+}

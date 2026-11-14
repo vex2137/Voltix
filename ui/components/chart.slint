@@ -1,0 +1,135 @@
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { Card } from "common.slint";
+
+export component TelemetryChart inherits Card {
+    in property <string> title;
+    in property <string> current-value-text;
+    in property <string> line-commands;
+    in property <string> area-commands;
+    in property <bool> has-data: false;
+    in property <string> empty-text;
+    in property <color> line-color: Theme.accent;
+    in property <color> area-color: Theme.accent-soft;
+    in property <string> y-max-label: "100%";
+    in property <string> y-mid-label: "50%";
+    in property <string> y-min-label: "0%";
+
+    min-height: 210px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            Text {
+                text: root.title;
+                color: Theme.text-primary;
+                font-size: 13px;
+                font-weight: 600;
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.current-value-text;
+                color: root.has-data ? root.line-color : Theme.text-muted;
+                font-size: 13px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 1;
+
+            // Y-axis scale labels
+            VerticalLayout {
+                width: 38px;
+                alignment: space-between;
+
+                Text {
+                    text: root.y-max-label;
+                    color: Theme.text-muted;
+                    font-size: 10px;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.y-mid-label;
+                    color: Theme.text-muted;
+                    font-size: 10px;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.y-min-label;
+                    color: Theme.text-muted;
+                    font-size: 10px;
+                    horizontal-alignment: right;
+                }
+            }
+
+            // Chart plot area
+            Rectangle {
+                horizontal-stretch: 1;
+                min-height: 124px;
+                background: Theme.bg-elevated;
+                border-radius: Theme.radius-sm;
+                border-width: 1px;
+                border-color: Theme.border-subtle;
+                clip: true;
+
+                // Grid lines at 0%, 25%, 50%, 75%, 100%
+                Rectangle { y: parent.height * 0.25; width: 100%; height: 1px; background: Theme.chart-grid; }
+                Rectangle { y: parent.height * 0.50; width: 100%; height: 1px; background: Theme.chart-grid; }
+                Rectangle { y: parent.height * 0.75; width: 100%; height: 1px; background: Theme.chart-grid; }
+
+                if root.has-data : Path {
+                    width: 100%;
+                    height: 100%;
+                    viewbox-x: 0;
+                    viewbox-y: 0;
+                    viewbox-width: 600;
+                    viewbox-height: 140;
+                    fill: root.area-color;
+                    stroke-width: 0px;
+                    commands: root.area-commands;
+                }
+
+                if root.has-data : Path {
+                    width: 100%;
+                    height: 100%;
+                    viewbox-x: 0;
+                    viewbox-y: 0;
+                    viewbox-width: 600;
+                    viewbox-height: 140;
+                    fill: transparent;
+                    stroke: root.line-color;
+                    stroke-width: 2px;
+                    commands: root.line-commands;
+                }
+
+                if !root.has-data : Text {
+                    text: root.empty-text;
+                    color: Theme.text-muted;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // X-axis elapsed time markers
+        HorizontalLayout {
+            padding-left: 46px;
+            alignment: space-between;
+
+            Text { text: I18n.chart-60s; color: Theme.text-muted; font-size: 10px; }
+            Text { text: I18n.chart-30s; color: Theme.text-muted; font-size: 10px; }
+            Text { text: I18n.chart-now; color: Theme.text-muted; font-size: 10px; }
+        }
+    }
+}

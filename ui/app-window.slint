@@ -1,0 +1,413 @@
+import { Palette } from "std-widgets.slint";
+import { Theme } from "themes/theme.slint";
+import { I18n } from "i18n/strings.slint";
+import { CoreRowItem, GpuItem, StorageItem, SystemGpuItem } from "models.slint";
+import { Sidebar } from "components/sidebar.slint";
+import { DashboardPage } from "pages/dashboard.slint";
+import { CpuPage } from "pages/cpu.slint";
+import { GpuPage } from "pages/gpu.slint";
+import { MemoryPage } from "pages/memory.slint";
+import { StoragePage } from "pages/storage.slint";
+import { SystemPage } from "pages/system.slint";
+import { SettingsPage } from "pages/settings.slint";
+
+export { Theme, I18n, CoreRowItem, GpuItem, StorageItem, SystemGpuItem }
+
+export component AppWindow inherits Window {
+    title: I18n.app-name + " " + I18n.app-version;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    min-width: 900px;
+    min-height: 600px;
+    background: Theme.bg-app;
+
+    in-out property <int> current-page: 0;
+
+    // Header & status properties
+    in property <string> os-badge-text: "Linux";
+    in property <string> polling-badge-text: "1000 ms";
+
+    // Dashboard & shared telemetry properties
+    in property <string> cpu-util-text: "-";
+    in property <float> cpu-util-percent: 0.0;
+    in property <int> cpu-util-status: 1;
+    in property <string> cpu-temp-text: "-";
+    in property <string> cpu-temp-source: "";
+    in property <int> cpu-temp-status: 1;
+
+    in property <string> dash-gpu-util-text: "-";
+    in property <float> dash-gpu-util-percent: 0.0;
+    in property <int> dash-gpu-util-status: 1;
+    in property <string> dash-gpu-temp-text: "-";
+
+    in property <string> dash-vram-util-text: "-";
+    in property <float> dash-vram-util-percent: 0.0;
+    in property <int> dash-vram-util-status: 1;
+    in property <string> dash-vram-detail-text: "";
+
+    in property <string> ram-util-text: "-";
+    in property <float> ram-util-percent: 0.0;
+    in property <int> ram-util-status: 1;
+    in property <string> ram-detail-text: "";
+
+    in property <string> uptime-text: "-";
+    in property <int> uptime-status: 1;
+    in property <string> kernel-text: "-";
+    in property <int> kernel-status: 1;
+
+    // Charts
+    in property <string> cpu-line-commands: "";
+    in property <string> cpu-area-commands: "";
+    in property <bool> cpu-has-history: false;
+
+    in property <string> ram-line-commands: "";
+    in property <string> ram-area-commands: "";
+    in property <bool> ram-has-history: false;
+
+    in property <string> gpu-line-commands: "";
+    in property <string> gpu-area-commands: "";
+    in property <bool> gpu-has-history: false;
+    in property <string> gpu-chart-empty-text: "";
+
+    // CPU page properties
+    in property <string> cpu-model: "-";
+    in property <int> cpu-model-status: 1;
+    in property <string> cpu-vendor: "-";
+    in property <int> cpu-vendor-status: 1;
+    in property <string> cpu-arch: "-";
+    in property <string> cpu-cores-threads: "-";
+    in property <string> cpu-freq-text: "-";
+    in property <int> cpu-freq-status: 1;
+    in property <[CoreRowItem]> cpu-core-rows;
+
+    // GPU page properties
+    in property <[GpuItem]> gpus;
+    in property <GpuItem> selected-gpu;
+    in property <int> selected-gpu-index: 0;
+    in property <bool> has-gpus: false;
+
+    // Memory page properties
+    in property <string> mem-total-text: "-";
+    in property <int> mem-total-status: 1;
+    in property <string> mem-used-text: "-";
+    in property <int> mem-used-status: 1;
+    in property <string> mem-available-text: "-";
+    in property <int> mem-available-status: 1;
+    in property <string> swap-total-text: "-";
+    in property <int> swap-total-status: 1;
+    in property <string> swap-used-text: "-";
+    in property <int> swap-used-status: 1;
+    in property <string> swap-util-text: "-";
+    in property <float> swap-util-percent: 0.0;
+    in property <int> swap-util-status: 1;
+
+    // Storage page properties
+    in property <[StorageItem]> disks;
+
+    // System page properties
+    in property <string> os-name: "-";
+    in property <int> os-status: 1;
+    in property <string> hostname: "-";
+    in property <int> hostname-status: 1;
+    in property <[SystemGpuItem]> system-gpus;
+
+    // Settings properties & callbacks
+    in-out property <int> theme-mode: 1;
+    in-out property <int> language-mode: 0;
+    in-out property <int> temp-unit: 0;
+    in-out property <int> polling-ms: 1000;
+    in property <string> config-path: "";
+
+    callback select-gpu(int);
+    callback change-theme(int);
+    callback change-language(int);
+    callback change-temp-unit(int);
+    callback change-polling-ms(int);
+
+    // Keep standard widget scrollbars synced with active theme
+    private property <bool> sync-palette: Theme.dark-mode;
+    changed sync-palette => {
+        Palette.color-scheme = root.sync-palette ? ColorScheme.dark : ColorScheme.light;
+    }
+    init => {
+        Palette.color-scheme = Theme.dark-mode ? ColorScheme.dark : ColorScheme.light;
+    }
+
+    function page-title() -> string {
+        if (root.current-page == 0) { return I18n.nav-dashboard; }
+        if (root.current-page == 1) { return I18n.nav-cpu; }
+        if (root.current-page == 2) { return I18n.nav-gpu; }
+        if (root.current-page == 3) { return I18n.nav-memory; }
+        if (root.current-page == 4) { return I18n.nav-storage; }
+        if (root.current-page == 5) { return I18n.nav-system; }
+        return I18n.nav-settings;
+    }
+
+    function page-subtitle() -> string {
+        if (root.current-page == 0) { return I18n.header-subtitle-dashboard; }
+        if (root.current-page == 1) { return I18n.header-subtitle-cpu; }
+        if (root.current-page == 2) { return I18n.header-subtitle-gpu; }
+        if (root.current-page == 3) { return I18n.header-subtitle-memory; }
+        if (root.current-page == 4) { return I18n.header-subtitle-storage; }
+        if (root.current-page == 5) { return I18n.header-subtitle-system; }
+        return I18n.header-subtitle-settings;
+    }
+
+    HorizontalLayout {
+        Sidebar {
+            current-page <=> root.current-page;
+            os-label: root.os-badge-text;
+            polling-label: root.polling-badge-text;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+
+            // Header bar
+            Rectangle {
+                height: 58px;
+                background: Theme.bg-header;
+
+                VerticalLayout {
+                    HorizontalLayout {
+                        padding-left: 20px;
+                        padding-right: 20px;
+                        spacing: 16px;
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: root.page-title();
+                                color: Theme.text-primary;
+                                font-size: 17px;
+                                font-weight: 700;
+                            }
+                            Text {
+                                text: root.page-subtitle();
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                overflow: elide;
+                            }
+                        }
+
+                        // Compact status telemetry strip
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: end;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 28px;
+                                    border-radius: 6px;
+                                    background: Theme.bg-elevated;
+                                    border-width: 1px;
+                                    border-color: Theme.border-subtle;
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        spacing: 6px;
+                                        Text {
+                                            text: I18n.nav-cpu + ":";
+                                            color: Theme.text-muted;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: root.cpu-util-text;
+                                            color: Theme.accent;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    height: 28px;
+                                    border-radius: 6px;
+                                    background: Theme.bg-elevated;
+                                    border-width: 1px;
+                                    border-color: Theme.border-subtle;
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        spacing: 6px;
+                                        Text {
+                                            text: "RAM:";
+                                            color: Theme.text-muted;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                        }
+                                        Text {
+                                            text: root.ram-util-text;
+                                            color: Theme.accent-emerald;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Theme.border-subtle;
+                    }
+                }
+            }
+
+            // Main content area
+            Rectangle {
+                vertical-stretch: 1;
+                background: Theme.bg-app;
+
+                if root.current-page == 0 : DashboardPage {
+                    width: 100%;
+                    height: 100%;
+                    cpu-util-text: root.cpu-util-text;
+                    cpu-util-percent: root.cpu-util-percent;
+                    cpu-util-status: root.cpu-util-status;
+                    cpu-temp-text: root.cpu-temp-text;
+                    gpu-util-text: root.dash-gpu-util-text;
+                    gpu-util-percent: root.dash-gpu-util-percent;
+                    gpu-util-status: root.dash-gpu-util-status;
+                    gpu-temp-text: root.dash-gpu-temp-text;
+                    ram-util-text: root.ram-util-text;
+                    ram-util-percent: root.ram-util-percent;
+                    ram-util-status: root.ram-util-status;
+                    ram-detail-text: root.ram-detail-text;
+                    vram-util-text: root.dash-vram-util-text;
+                    vram-util-percent: root.dash-vram-util-percent;
+                    vram-util-status: root.dash-vram-util-status;
+                    vram-detail-text: root.dash-vram-detail-text;
+                    uptime-text: root.uptime-text;
+                    uptime-status: root.uptime-status;
+                    kernel-text: root.kernel-text;
+                    cpu-line-commands: root.cpu-line-commands;
+                    cpu-area-commands: root.cpu-area-commands;
+                    cpu-has-history: root.cpu-has-history;
+                    ram-line-commands: root.ram-line-commands;
+                    ram-area-commands: root.ram-area-commands;
+                    ram-has-history: root.ram-has-history;
+                    gpu-line-commands: root.gpu-line-commands;
+                    gpu-area-commands: root.gpu-area-commands;
+                    gpu-has-history: root.gpu-has-history;
+                    gpu-chart-empty-text: root.gpu-chart-empty-text;
+                }
+
+                if root.current-page == 1 : CpuPage {
+                    width: 100%;
+                    height: 100%;
+                    model-name: root.cpu-model;
+                    model-status: root.cpu-model-status;
+                    vendor: root.cpu-vendor;
+                    vendor-status: root.cpu-vendor-status;
+                    arch: root.cpu-arch;
+                    cores-threads-text: root.cpu-cores-threads;
+                    overall-util-text: root.cpu-util-text;
+                    overall-util-percent: root.cpu-util-percent;
+                    overall-util-status: root.cpu-util-status;
+                    freq-text: root.cpu-freq-text;
+                    freq-status: root.cpu-freq-status;
+                    temp-text: root.cpu-temp-text;
+                    temp-source: root.cpu-temp-source;
+                    temp-status: root.cpu-temp-status;
+                    line-commands: root.cpu-line-commands;
+                    area-commands: root.cpu-area-commands;
+                    has-history: root.cpu-has-history;
+                    core-rows: root.cpu-core-rows;
+                }
+
+                if root.current-page == 2 : GpuPage {
+                    width: 100%;
+                    height: 100%;
+                    gpus: root.gpus;
+                    selected-gpu: root.selected-gpu;
+                    selected-index: root.selected-gpu-index;
+                    has-gpus: root.has-gpus;
+                    line-commands: root.gpu-line-commands;
+                    area-commands: root.gpu-area-commands;
+                    has-history: root.gpu-has-history;
+                    chart-empty-text: root.gpu-chart-empty-text;
+                    select-gpu(idx) => { root.select-gpu(idx); }
+                }
+
+                if root.current-page == 3 : MemoryPage {
+                    width: 100%;
+                    height: 100%;
+                    total-text: root.mem-total-text;
+                    total-status: root.mem-total-status;
+                    used-text: root.mem-used-text;
+                    used-status: root.mem-used-status;
+                    available-text: root.mem-available-text;
+                    available-status: root.mem-available-status;
+                    util-text: root.ram-util-text;
+                    util-percent: root.ram-util-percent;
+                    util-status: root.ram-util-status;
+                    swap-total-text: root.swap-total-text;
+                    swap-total-status: root.swap-total-status;
+                    swap-used-text: root.swap-used-text;
+                    swap-used-status: root.swap-used-status;
+                    swap-util-text: root.swap-util-text;
+                    swap-util-percent: root.swap-util-percent;
+                    swap-util-status: root.swap-util-status;
+                    line-commands: root.ram-line-commands;
+                    area-commands: root.ram-area-commands;
+                    has-history: root.ram-has-history;
+                }
+
+                if root.current-page == 4 : StoragePage {
+                    width: 100%;
+                    height: 100%;
+                    disks: root.disks;
+                }
+
+                if root.current-page == 5 : SystemPage {
+                    width: 100%;
+                    height: 100%;
+                    os-name: root.os-name;
+                    os-status: root.os-status;
+                    kernel-version: root.kernel-text;
+                    kernel-status: root.kernel-status;
+                    architecture: root.cpu-arch;
+                    hostname: root.hostname;
+                    hostname-status: root.hostname-status;
+                    uptime-text: root.uptime-text;
+                    uptime-status: root.uptime-status;
+                    cpu-model: root.cpu-model;
+                    cpu-model-status: root.cpu-model-status;
+                    cpu-cores-threads: root.cpu-cores-threads;
+                    total-ram: root.mem-total-text;
+                    total-ram-status: root.mem-total-status;
+                    gpus: root.system-gpus;
+                }
+
+                if root.current-page == 6 : SettingsPage {
+                    width: 100%;
+                    height: 100%;
+                    theme-mode: root.theme-mode;
+                    language-mode: root.language-mode;
+                    temp-unit: root.temp-unit;
+                    polling-ms: root.polling-ms;
+                    config-path: root.config-path;
+                    change-theme(v) => { root.change-theme(v); }
+                    change-language(v) => { root.change-language(v); }
+                    change-temp-unit(v) => { root.change-temp-unit(v); }
+                    change-polling-ms(v) => { root.change-polling-ms(v); }
+                }
+            }
+        }
+    }
+}

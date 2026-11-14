@@ -1,0 +1,113 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { Card, KeyValueRow, SummaryCard } from "../components/common.slint";
+import { TelemetryChart } from "../components/chart.slint";
+
+export component MemoryPage inherits Rectangle {
+    in property <string> total-text;
+    in property <int> total-status;
+    in property <string> used-text;
+    in property <int> used-status;
+    in property <string> available-text;
+    in property <int> available-status;
+    in property <string> util-text;
+    in property <float> util-percent;
+    in property <int> util-status;
+
+    in property <string> swap-total-text;
+    in property <int> swap-total-status;
+    in property <string> swap-used-text;
+    in property <int> swap-used-status;
+    in property <string> swap-util-text;
+    in property <float> swap-util-percent;
+    in property <int> swap-util-status;
+
+    in property <string> line-commands;
+    in property <string> area-commands;
+    in property <bool> has-history;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            width: max(300px, root.width - 14px);
+            alignment: start;
+            padding: 20px;
+            spacing: 16px;
+
+            HorizontalLayout {
+                spacing: 12px;
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.mem-utilization;
+                    primary-value: root.util-text;
+                    progress: root.util-percent;
+                    status: root.util-status;
+                    accent-color: Theme.accent-emerald;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.mem-used;
+                    primary-value: root.used-text;
+                    show-progress: false;
+                    status: root.used-status;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.mem-available;
+                    primary-value: root.available-text;
+                    show-progress: false;
+                    status: root.available-status;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.mem-total;
+                    primary-value: root.total-text;
+                    show-progress: false;
+                    status: root.total-status;
+                }
+            }
+
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 4px;
+
+                    KeyValueRow {
+                        label: I18n.mem-swap-total;
+                        value: root.swap-total-text;
+                        status: root.swap-total-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.mem-swap-used;
+                        value: root.swap-used-text;
+                        status: root.swap-used-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.mem-swap-utilization;
+                        value: root.swap-util-text;
+                        status: root.swap-util-status;
+                        show-divider: false;
+                    }
+                }
+            }
+
+            TelemetryChart {
+                title: I18n.mem-history-title;
+                current-value-text: root.util-text;
+                line-commands: root.line-commands;
+                area-commands: root.area-commands;
+                has-data: root.has-history;
+                empty-text: I18n.status-sampling;
+                line-color: Theme.accent-emerald;
+                area-color: Theme.accent-emerald-soft;
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Voltix",
+  "description": "Native Linux hardware monitoring, diagnostics, and telemetry application built with Rust and Slint.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

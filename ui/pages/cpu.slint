@@ -1,0 +1,211 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { CoreRowItem } from "../models.slint";
+import { Card, KeyValueRow, ProgressBar, SectionTitle, SummaryCard } from "../components/common.slint";
+import { TelemetryChart } from "../components/chart.slint";
+
+component CoreCell inherits Rectangle {
+    in property <string> label;
+    in property <string> value-text;
+    in property <string> freq-text;
+    in property <float> percent;
+    in property <int> status;
+
+    background: Theme.bg-elevated;
+    border-radius: Theme.radius-sm;
+    border-width: 1px;
+    border-color: Theme.border-subtle;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 6px;
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Text {
+                text: root.label;
+                color: Theme.text-secondary;
+                font-size: 12px;
+                font-weight: 600;
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+            }
+
+            if root.freq-text != "" : Text {
+                text: root.freq-text;
+                color: Theme.text-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.value-text;
+                color: root.status == 0 ? Theme.text-primary : Theme.text-muted;
+                font-size: 12px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+
+        ProgressBar {
+            value: root.percent;
+            available: root.status == 0;
+            bar-color: Theme.accent;
+        }
+    }
+}
+
+export component CpuPage inherits Rectangle {
+    in property <string> model-name;
+    in property <int> model-status;
+    in property <string> vendor;
+    in property <int> vendor-status;
+    in property <string> arch;
+    in property <string> cores-threads-text;
+    in property <string> overall-util-text;
+    in property <float> overall-util-percent;
+    in property <int> overall-util-status;
+    in property <string> freq-text;
+    in property <int> freq-status;
+    in property <string> temp-text;
+    in property <string> temp-source;
+    in property <int> temp-status;
+
+    in property <string> line-commands;
+    in property <string> area-commands;
+    in property <bool> has-history;
+
+    in property <[CoreRowItem]> core-rows;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+
+        VerticalLayout {
+            width: max(300px, root.width - 14px);
+            alignment: start;
+            padding: 20px;
+            spacing: 16px;
+
+            // Top KPI cards
+            HorizontalLayout {
+                spacing: 12px;
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.cpu-overall-util;
+                    primary-value: root.overall-util-text;
+                    progress: root.overall-util-percent;
+                    status: root.overall-util-status;
+                    accent-color: Theme.accent;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.cpu-frequency;
+                    primary-value: root.freq-text;
+                    show-progress: false;
+                    status: root.freq-status;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.cpu-temperature;
+                    primary-value: root.temp-text;
+                    secondary-value: root.temp-source;
+                    show-progress: false;
+                    status: root.temp-status;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.cpu-cores-threads;
+                    primary-value: root.cores-threads-text;
+                    secondary-value: root.arch;
+                    show-progress: false;
+                    status: 0;
+                }
+            }
+
+            // CPU metadata card
+            Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 4px;
+
+                    KeyValueRow {
+                        label: I18n.cpu-model;
+                        value: root.model-name;
+                        status: root.model-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.cpu-vendor;
+                        value: root.vendor;
+                        status: root.vendor-status;
+                    }
+                    KeyValueRow {
+                        label: I18n.cpu-arch;
+                        value: root.arch;
+                        show-divider: false;
+                    }
+                }
+            }
+
+            // Utilization chart
+            TelemetryChart {
+                title: I18n.cpu-history-title;
+                current-value-text: root.overall-util-text;
+                line-commands: root.line-commands;
+                area-commands: root.area-commands;
+                has-data: root.has-history;
+                empty-text: I18n.status-sampling;
+                line-color: Theme.accent;
+                area-color: Theme.accent-soft;
+            }
+
+            // Per-core utilization grid
+            if root.core-rows.length > 0 : Card {
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 10px;
+
+                    SectionTitle {
+                        text: I18n.cpu-per-core;
+                    }
+
+                    VerticalLayout {
+                        spacing: 8px;
+
+                        for row in root.core-rows : HorizontalLayout {
+                            spacing: 10px;
+
+                            CoreCell {
+                                horizontal-stretch: 1;
+                                label: row.left-label;
+                                value-text: row.left-value-text;
+                                freq-text: row.left-freq-text;
+                                percent: row.left-percent;
+                                status: row.left-status;
+                            }
+
+                            if row.has-right : CoreCell {
+                                horizontal-stretch: 1;
+                                label: row.right-label;
+                                value-text: row.right-value-text;
+                                freq-text: row.right-freq-text;
+                                percent: row.right-percent;
+                                status: row.right-status;
+                            }
+
+                            if !row.has-right : Rectangle {
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
