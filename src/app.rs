@@ -57,9 +57,22 @@ struct SharedState {
     render_cache: RenderCache,
 }
 
-fn update_vec_model<T: 'static>(model: ModelRc<T>, items: Vec<T>) {
+fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>, items: Vec<T>) {
     if let Some(vec_model) = model.as_any().downcast_ref::<VecModel<T>>() {
-        vec_model.set_vec(items);
+        // Keep the existing model and its unchanged rows alive. A full reset causes
+        // Slint to rebuild every repeated component, even when one value changed.
+        let old_count = vec_model.row_count();
+        let new_count = items.len();
+        for (index, item) in items.into_iter().enumerate() {
+            if index >= old_count {
+                vec_model.push(item);
+            } else if vec_model.row_data(index).as_ref() != Some(&item) {
+                vec_model.set_row_data(index, item);
+            }
+        }
+        for index in (new_count..old_count).rev() {
+            vec_model.remove(index);
+        }
     }
 }
 
@@ -1130,5 +1143,25 @@ fn build_storage_notice(storage: &[StorageDeviceTelemetry], loc: &Localizer) -> 
         loc.tr("diag_storage_note").to_string()
     } else {
         String::new()
+    }
+}
+
+#[cfg(test)]
+mod model_update_tests {
+    use super::*;
+
+    #[test]
+    fn updates_rows_and_handles_growth_and_shrinkage() {
+        let rows = Rc::new(VecModel::from(vec![1, 2, 3]));
+        let model = ModelRc::from(rows.clone());
+        update_vec_model(model.clone(), vec![1, 4, 3, 5]);
+        assert_eq!(rows.row_count(), 4);
+        assert_eq!(rows.row_data(1), Some(4));
+        assert_eq!(rows.row_data(3), Some(5));
+        update_vec_model(model.clone(), vec![7]);
+        assert_eq!(rows.row_count(), 1);
+        assert_eq!(rows.row_data(0), Some(7));
+        update_vec_model(model, Vec::new());
+        assert_eq!(rows.row_count(), 0);
     }
 }
