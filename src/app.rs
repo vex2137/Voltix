@@ -142,6 +142,26 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_change_accent(move |index| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 state.settings.accent = index.clamp(0, 3) as u8;
+                state.settings.palette = crate::settings::PalettePreset::VoltixDefault;
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_palette(move |index| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.palette = match index {
+                    1 => crate::settings::PalettePreset::Cyberpunk,
+                    2 => crate::settings::PalettePreset::Emerald,
+                    3 => crate::settings::PalettePreset::Minimal,
+                    _ => crate::settings::PalettePreset::VoltixDefault,
+                };
+                // Built-in palettes describe dark surfaces. Default restores the
+                // existing theme preference rather than silently changing it.
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
             }
@@ -165,6 +185,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         let weak = window.as_weak();
         window.on_change_theme(move |mode| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.palette = crate::settings::PalettePreset::VoltixDefault;
                 state.settings.theme = match mode {
                     0 => ThemePreference::System,
                     2 => ThemePreference::Light,
@@ -363,6 +384,14 @@ fn apply_settings_to_window(
             crate::settings::InterfaceMode::Modern => 0,
             crate::settings::InterfaceMode::Professional => 1,
             crate::settings::InterfaceMode::Gaming => 2,
+        });
+    window
+        .global::<Theme>()
+        .set_palette(match settings.palette {
+            crate::settings::PalettePreset::VoltixDefault => 0,
+            crate::settings::PalettePreset::Cyberpunk => 1,
+            crate::settings::PalettePreset::Emerald => 2,
+            crate::settings::PalettePreset::Minimal => 3,
         });
     window
         .global::<Theme>()

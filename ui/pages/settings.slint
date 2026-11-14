@@ -13,6 +13,7 @@ export component SettingsPage inherits Rectangle {
     in property <int> polling-ms: 1000;
     in property <string> config-path;
 
+    callback change-palette(int);
     callback change-interface(int);
     callback change-accent(int);
     callback change-theme(int);
@@ -42,6 +43,19 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-appearance;
                     }
 
+                    Text { text: Theme.polish ? "Paleta kolorów" : "Color palette"; color: Theme.text-secondary; }
+                    VerticalLayout {
+                        spacing: 6px;
+                        for label[index] in ["Voltix Default", "Cyberpunk", "Emerald", "Minimal"] : SegmentedOption {
+                            compact: true; label: label;
+                            active: Theme.palette == index;
+                            clicked => { root.change-palette(index); }
+                        }
+                    }
+                    if Theme.palette != 0 : Text {
+                        text: Theme.polish ? "Paleta ma ciemne tło. Wybór motywu lub akcentu przywróci paletę domyślną." : "This palette uses dark surfaces. Choosing a theme or accent restores the default palette.";
+                        color: Theme.text-secondary; wrap: word-wrap;
+                    }
                     Text { text: Theme.polish ? "Tryb interfejsu" : "Interface Mode"; color: Theme.text-secondary; }
                     VerticalLayout {
                         spacing: 6px;

@@ -42,11 +42,22 @@ pub enum InterfaceMode {
     Gaming,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PalettePreset {
+    #[default]
+    VoltixDefault,
+    Cyberpunk,
+    Emerald,
+    Minimal,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSettings {
     pub theme: ThemePreference,
     pub interface_mode: InterfaceMode,
+    pub palette: PalettePreset,
     pub accent: u8,
     pub language: LanguagePreference,
     pub polling_interval_ms: u64,
@@ -58,6 +69,7 @@ impl Default for UserSettings {
         Self {
             theme: ThemePreference::Dark,
             interface_mode: InterfaceMode::Modern,
+            palette: PalettePreset::VoltixDefault,
             accent: 0,
             language: LanguagePreference::System,
             polling_interval_ms: DEFAULT_POLLING_INTERVAL_MS,
@@ -205,6 +217,7 @@ mod tests {
             polling_interval_ms: 500,
             temperature_unit: TemperatureUnit::Fahrenheit,
             interface_mode: InterfaceMode::Gaming,
+            palette: PalettePreset::Cyberpunk,
             accent: 2,
         };
         initial.save_to(&tmp).expect("save should succeed");
