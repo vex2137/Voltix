@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - master
-      - feat/alpha3-interface-modes
+      - feat/alpha4-performance-ui
   pull_request:
   workflow_dispatch:
 

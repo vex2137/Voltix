@@ -17,6 +17,7 @@ export { Theme, I18n, CoreRowItem, GpuItem, StorageItem, SystemGpuItem }
 
 export component AppWindow inherits Window {
     title: I18n.app-name + " " + I18n.app-version;
+    icon: @image-url("../assets/icons/voltix.svg");
     preferred-width: 1280px;
     preferred-height: 800px;
     min-width: 320px;

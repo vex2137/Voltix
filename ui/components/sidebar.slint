@@ -81,20 +81,11 @@ export component Sidebar inherits Rectangle {
                 spacing: 10px;
                 alignment: start;
 
-                Rectangle {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 7px;
-                    background: Theme.accent;
-
-                    Text {
-                        text: "V";
-                        color: #0b0f17;
-                        font-size: 15px;
-                        font-weight: 800;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                Image {
+                    width: 32px;
+                    height: 32px;
+                    source: @image-url("../../assets/icons/voltix.svg");
+                    image-fit: contain;
                 }
 
                 VerticalLayout {
@@ -117,6 +108,7 @@ export component Sidebar inherits Rectangle {
             VerticalLayout {
                 spacing: 4px;
                 vertical-stretch: 1;
+                alignment: start;
 
                 NavItem {
                     code: "OV";
@@ -162,8 +154,10 @@ export component Sidebar inherits Rectangle {
                 }
             }
 
-            // Compact footer info
+            // Fixed-height footer; navigation consumes the remaining space.
             Rectangle {
+                height: 72px;
+                vertical-stretch: 0;
                 border-radius: Theme.radius-sm;
                 background: Theme.bg-elevated;
                 border-width: 1px;
@@ -181,7 +175,7 @@ export component Sidebar inherits Rectangle {
                         overflow: elide;
                     }
                     Text {
-                        text: I18n.status-polling + ": " + root.polling-label;
+                        text: (Theme.polish ? "Monitorowanie" : "Monitoring") + " · " + root.polling-label;
                         color: Theme.text-muted;
                         font-size: 11px;
                         overflow: elide;
