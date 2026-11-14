@@ -1,12 +1,14 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { GpuItem, CoreRowItem } from "../models.slint";
-import { Card, KeyValueRow, SectionTitle } from "../components/common.slint";
+import { Card, KeyValueRow, SectionTitle, SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component PerformancePage inherits Rectangle {
     in property <bool> compact;
     in property <string> cpu;
+    in property <float> cpu-percent;
+    in property <int> cpu-status;
     in property <string> temperature;
     in property <string> frequency;
     in property <string> ram;
@@ -28,6 +30,19 @@ export component PerformancePage inherits Rectangle {
             spacing: 12px;
             alignment: start;
             SectionTitle { text: Theme.interface-mode == 1 ? (Theme.polish ? "Telemetria • odczyty bieżące" : "Telemetry • current readings") : (Theme.polish ? "Wydajność w centrum" : "Performance at a glance"); }
+            if Theme.interface-mode == 2 : HorizontalLayout {
+                spacing: 10px;
+                SummaryCard {
+                    label: "CPU"; primary-value: root.cpu;
+                    secondary-value: root.temperature; progress: root.cpu-percent;
+                    status: root.cpu-status; compact: root.compact;
+                }
+                SummaryCard {
+                    label: "GPU"; primary-value: root.gpu.util-text;
+                    secondary-value: root.gpu.temp-text; progress: root.gpu.util-percent;
+                    status: root.gpu.util-status; compact: root.compact;
+                }
+            }
             Card {
                 VerticalLayout {
                     padding: 16px; spacing: 4px;
@@ -38,9 +53,9 @@ export component PerformancePage inherits Rectangle {
                     KeyValueRow { compact: root.compact; label: Theme.polish ? "Temperatura GPU" : "GPU temperature"; value: root.gpu.temp-text; status: root.gpu.temp-status; }
                     KeyValueRow { compact: root.compact; label: "RAM"; value: root.ram; }
                     KeyValueRow { compact: root.compact; label: "VRAM"; value: root.vram == "" ? "N/A" : root.vram; }
-                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie GPU" : "GPU clock"; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
-                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Pobór mocy GPU" : "GPU power draw"; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
-                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Limit mocy GPU" : "GPU power limit"; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie GPU" : "GPU clock"; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Pobór mocy GPU" : "GPU power draw"; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Limit mocy GPU" : "GPU power limit"; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
                 }
             }
             if Theme.interface-mode == 1 : Card {

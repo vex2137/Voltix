@@ -350,7 +350,7 @@ export component AppWindow inherits Window {
 
                 if root.current-page == 0 && Theme.interface-mode != 0 : PerformancePage {
                     width: 100%; height: 100%; compact: root.compact-mode;
-                    cpu: root.cpu-sys-util-text; temperature: root.cpu-temp-text;
+                    cpu: root.cpu-sys-util-text; cpu-percent: root.cpu-sys-util-percent; cpu-status: root.cpu-sys-util-status; temperature: root.cpu-temp-text;
                     frequency: root.cpu-freq-text; ram: root.ram-util-text;
                     vram: root.dash-vram-detail-text; gpu: root.selected-gpu;
                     cores: root.cpu-core-rows;
