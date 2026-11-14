@@ -64,12 +64,14 @@ fn update_vec_model<T: 'static>(model: ModelRc<T>, items: Vec<T>) {
 }
 
 pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError> {
+    crate::diagnostics::mark("application initialization begins");
     let config_path = config_override.or_else(UserSettings::config_file_path);
     let settings = UserSettings::load_or_default(config_path.as_deref());
     let locale = resolve_locale(settings.language);
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
+    crate::diagnostics::mark("Slint component initialized (not presented)");
 
     window.set_cpu_core_rows(ModelRc::from(Rc::new(VecModel::default())));
     window.set_gpus(ModelRc::from(Rc::new(VecModel::default())));
@@ -104,6 +106,33 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         let sampling_msg = state.localizer.tr("status_sampling").to_string();
         window.set_gpu_chart_empty_text(SharedString::from(sampling_msg.as_str()));
         state.render_cache.gpu_empty = sampling_msg;
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_interface(move |mode| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.interface_mode = match mode {
+                    1 => crate::settings::InterfaceMode::Professional,
+                    2 => crate::settings::InterfaceMode::Gaming,
+                    _ => crate::settings::InterfaceMode::Modern,
+                };
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_accent(move |index| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.accent = index.clamp(0, 3) as u8;
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
     }
 
     // Wire UI callbacks
@@ -189,6 +218,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     // Spawn background monitoring thread
     let monitor_handle = spawn_monitor_thread(shared.clone(), condvar.clone(), window.as_weak());
 
+    crate::diagnostics::mark("entering UI event loop (not first frame)");
     let run_result = window.run();
 
     // Signal shutdown and join background monitoring thread cleanly
@@ -212,6 +242,7 @@ fn spawn_monitor_thread(
         .name("voltix-monitor".to_string())
         .spawn(move || {
             let mut engine = MonitoringEngine::new();
+            crate::diagnostics::mark("monitoring engine initialized");
 
             // Brief non-busy warmup so the initial /proc/stat delta has elapsed ticks
             if let Ok(guard) = shared.lock() {
@@ -276,6 +307,7 @@ fn spawn_monitor_thread(
                 let _ = slint::invoke_from_event_loop(move || {
                     if let (Ok(mut state), Some(win)) = (shared_ui.lock(), weak_ui.upgrade()) {
                         render_snapshot_to_window(&win, &mut state);
+                        crate::diagnostics::first_sample();
                     }
                 });
 
@@ -312,6 +344,19 @@ fn apply_settings_to_window(
     settings: &UserSettings,
     config_path: Option<&std::path::Path>,
 ) {
+    window
+        .global::<Theme>()
+        .set_interface_mode(match settings.interface_mode {
+            crate::settings::InterfaceMode::Modern => 0,
+            crate::settings::InterfaceMode::Professional => 1,
+            crate::settings::InterfaceMode::Gaming => 2,
+        });
+    window
+        .global::<Theme>()
+        .set_accent_index(settings.accent as i32);
+    window
+        .global::<Theme>()
+        .set_polish(resolve_locale(settings.language) == crate::localization::LocaleCode::Pl);
     window.set_theme_mode(match settings.theme {
         ThemePreference::System => 0,
         ThemePreference::Dark => 1,

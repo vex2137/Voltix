@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - master
-      - fix/alpha2-signing-and-layout
+      - feat/alpha3-interface-modes
   pull_request:
   workflow_dispatch:
 
@@ -93,7 +93,7 @@ jobs:
 
           ARCH=x86_64 \
           APPIMAGE_EXTRACT_AND_RUN=1 \
-            OUTPUT="Voltix-0.1.0-alpha.2-x86_64.AppImage" \
+            OUTPUT="Voltix-0.1.0-alpha.3-x86_64.AppImage" \
             ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable target/release/voltix \
@@ -101,15 +101,15 @@ jobs:
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png \
             --output appimage
 
-          chmod +x Voltix-0.1.0-alpha.2-x86_64.AppImage
-          ls -lh Voltix-0.1.0-alpha.2-x86_64.AppImage
-          file Voltix-0.1.0-alpha.2-x86_64.AppImage
+          chmod +x Voltix-0.1.0-alpha.3-x86_64.AppImage
+          ls -lh Voltix-0.1.0-alpha.3-x86_64.AppImage
+          file Voltix-0.1.0-alpha.3-x86_64.AppImage
 
       - name: Verify AppImage launch in virtual display
         run: |
           set +e
           APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 \
-            timeout 5s xvfb-run -a ./Voltix-0.1.0-alpha.2-x86_64.AppImage
+            timeout 5s xvfb-run -a ./Voltix-0.1.0-alpha.3-x86_64.AppImage
           code=$?
           set -e
           echo "Xvfb launch exit code: $code"
@@ -130,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: voltix-linux-x86_64-appimage
-          path: Voltix-0.1.0-alpha.2-x86_64.AppImage
+          path: Voltix-0.1.0-alpha.3-x86_64.AppImage
           if-no-files-found: error
           retention-days: 14
 
@@ -228,17 +228,17 @@ jobs:
             printf '%s' "$VOLTIX_KEYSTORE_BASE64" | base64 -d > "$VOLTIX_KEYSTORE_PATH"
             chmod 600 "$VOLTIX_KEYSTORE_PATH"
             gradle -p android assembleRelease --no-daemon
-            apk_name=Voltix-0.1.0-alpha.2-arm64.apk
+            apk_name=Voltix-0.1.0-alpha.3-arm64.apk
             cp android/app/build/outputs/apk/release/app-release.apk "$apk_name"
           else
             echo "Android signing secrets not configured; falling back to debug APK build."
             gradle -p android assembleDebug --no-daemon
-            apk_name=Voltix-0.1.0-alpha.2-arm64-debug.apk
+            apk_name=Voltix-0.1.0-alpha.3-arm64-debug.apk
             cp android/app/build/outputs/apk/debug/app-debug.apk "$apk_name"
           fi
           echo "path=$apk_name" >> "$GITHUB_OUTPUT"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='3'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='4'"
           unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
 
       - name: Upload Voltix Android APK

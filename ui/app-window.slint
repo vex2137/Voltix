@@ -4,6 +4,7 @@ import { I18n } from "i18n/strings.slint";
 import { CoreRowItem, GpuItem, StorageItem, SystemGpuItem } from "models.slint";
 import { Sidebar } from "components/sidebar.slint";
 import { BottomNav } from "components/bottom-nav.slint";
+import { PerformancePage } from "pages/performance.slint";
 import { DashboardPage } from "pages/dashboard.slint";
 import { CpuPage } from "pages/cpu.slint";
 import { GpuPage } from "pages/gpu.slint";
@@ -144,6 +145,8 @@ export component AppWindow inherits Window {
     in-out property <int> polling-ms: 1000;
     in property <string> config-path: "";
 
+    callback change-interface(int);
+    callback change-accent(int);
     callback select-gpu(int);
     callback change-theme(int);
     callback change-language(int);
@@ -304,7 +307,7 @@ export component AppWindow inherits Window {
                 vertical-stretch: 1;
                 background: Theme.bg-app;
 
-                if root.current-page == 0 : DashboardPage {
+                if root.current-page == 0 && Theme.interface-mode == 0 : DashboardPage {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
@@ -342,6 +345,16 @@ export component AppWindow inherits Window {
                     gpu-area-commands: root.gpu-area-commands;
                     gpu-has-history: root.gpu-has-history;
                     gpu-chart-empty-text: root.gpu-chart-empty-text;
+                }
+
+                if root.current-page == 0 && Theme.interface-mode != 0 : PerformancePage {
+                    width: 100%; height: 100%; compact: root.compact-mode;
+                    cpu: root.cpu-sys-util-text; temperature: root.cpu-temp-text;
+                    frequency: root.cpu-freq-text; ram: root.ram-util-text;
+                    vram: root.dash-vram-detail-text; gpu: root.selected-gpu;
+                    cores: root.cpu-core-rows;
+                    cpu-line: root.cpu-line-commands; cpu-area: root.cpu-area-commands; cpu-data: root.cpu-has-history;
+                    gpu-line: root.gpu-line-commands; gpu-area: root.gpu-area-commands; gpu-data: root.gpu-has-history;
                 }
 
                 if root.current-page == 1 : CpuPage {
@@ -469,6 +482,8 @@ export component AppWindow inherits Window {
                     temp-unit: root.temp-unit;
                     polling-ms: root.polling-ms;
                     config-path: root.config-path;
+                    change-interface(v) => { root.change-interface(v); }
+                    change-accent(v) => { root.change-accent(v); }
                     change-theme(v) => { root.change-theme(v); }
                     change-language(v) => { root.change-language(v); }
                     change-temp-unit(v) => { root.change-temp-unit(v); }

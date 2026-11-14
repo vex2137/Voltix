@@ -1,4 +1,5 @@
 pub mod app;
+pub mod diagnostics;
 pub mod localization;
 pub mod models;
 pub mod monitoring;

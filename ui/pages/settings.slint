@@ -13,6 +13,8 @@ export component SettingsPage inherits Rectangle {
     in property <int> polling-ms: 1000;
     in property <string> config-path;
 
+    callback change-interface(int);
+    callback change-accent(int);
     callback change-theme(int);
     callback change-language(int);
     callback change-temp-unit(int);
@@ -23,9 +25,9 @@ export component SettingsPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : max(280px, root.width - 14px);
+            width: root.compact ? root.width : min(1200px, max(280px, root.width - 14px));
             alignment: start;
-            padding-top: root.compact ? 12px : 20px;
+            padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
             padding-left: (root.compact ? 12px : 20px) + root.left-inset;
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
@@ -38,6 +40,27 @@ export component SettingsPage inherits Rectangle {
 
                     SectionTitle {
                         text: I18n.settings-appearance;
+                    }
+
+                    Text { text: Theme.polish ? "Tryb interfejsu" : "Interface Mode"; color: Theme.text-secondary; }
+                    VerticalLayout {
+                        spacing: 6px;
+                        for label[index] in ["Modern", "Professional", "Gaming"] : SegmentedOption {
+                            compact: true;
+                            label: label;
+                            active: Theme.interface-mode == index;
+                            clicked => { root.change-interface(index); }
+                        }
+                    }
+                    Text { text: Theme.polish ? "Kolor akcentu" : "Accent color"; color: Theme.text-secondary; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        for color[index] in [#38bdf8, #a78bfa, #10b981, #f97316] : TouchArea {
+                            height: 44px;
+                            horizontal-stretch: 1;
+                            Rectangle { background: color; border-radius: 6px; border-width: Theme.accent-index == index ? 3px : 0px; border-color: Theme.text-primary; }
+                            clicked => { root.change-accent(index); }
+                        }
                     }
 
                     if !root.compact : HorizontalLayout {

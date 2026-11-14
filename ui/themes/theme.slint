@@ -1,4 +1,7 @@
 export global Theme {
+    in-out property <int> interface-mode: 0;
+    in-out property <int> accent-index: 0;
+    in-out property <bool> polish: false;
     in-out property <bool> dark-mode: true;
 
     out property <color> bg-app: root.dark-mode ? #0b0f17 : #f4f7fb;
@@ -15,8 +18,8 @@ export global Theme {
     out property <color> text-secondary: root.dark-mode ? #94a3b8 : #475569;
     out property <color> text-muted: root.dark-mode ? #64748b : #64748b;
 
-    out property <color> accent: root.dark-mode ? #38bdf8 : #0284c7;
-    out property <color> accent-soft: root.dark-mode ? #38bdf824 : #0284c71c;
+    out property <color> accent: root.accent-index == 1 ? #a78bfa : (root.accent-index == 2 ? #10b981 : (root.accent-index == 3 ? #f97316 : (root.dark-mode ? #38bdf8 : #0284c7)));
+    out property <color> accent-soft: root.accent.with-alpha(0.14);
 
     out property <color> accent-emerald: root.dark-mode ? #22c55e : #16a34a;
     out property <color> accent-emerald-soft: root.dark-mode ? #22c55e24 : #16a34a1c;
@@ -28,6 +31,6 @@ export global Theme {
     out property <color> chart-grid: root.dark-mode ? #1f2b40 : #e2e8f0;
     out property <color> track-bg: root.dark-mode ? #1e293b : #e2e8f0;
 
-    out property <length> radius-card: 10px;
+    out property <length> radius-card: root.interface-mode == 1 ? 4px : 12px;
     out property <length> radius-sm: 6px;
 }

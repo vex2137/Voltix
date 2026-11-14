@@ -33,10 +33,21 @@ pub enum TemperatureUnit {
     Fahrenheit,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InterfaceMode {
+    #[default]
+    Modern,
+    Professional,
+    Gaming,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSettings {
     pub theme: ThemePreference,
+    pub interface_mode: InterfaceMode,
+    pub accent: u8,
     pub language: LanguagePreference,
     pub polling_interval_ms: u64,
     pub temperature_unit: TemperatureUnit,
@@ -46,6 +57,8 @@ impl Default for UserSettings {
     fn default() -> Self {
         Self {
             theme: ThemePreference::Dark,
+            interface_mode: InterfaceMode::Modern,
+            accent: 0,
             language: LanguagePreference::System,
             polling_interval_ms: DEFAULT_POLLING_INTERVAL_MS,
             temperature_unit: TemperatureUnit::Celsius,
@@ -55,6 +68,7 @@ impl Default for UserSettings {
 
 impl UserSettings {
     pub fn validate(&mut self) {
+        self.accent = self.accent.min(3);
         self.polling_interval_ms = self
             .polling_interval_ms
             .clamp(MIN_POLLING_INTERVAL_MS, MAX_POLLING_INTERVAL_MS);
@@ -125,6 +139,33 @@ mod tests {
     use super::*;
 
     #[test]
+    fn old_preferences_migrate_and_mode_roundtrips() {
+        let old = UserSettings::from_json_str(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!(old.interface_mode, InterfaceMode::Modern);
+        assert_eq!(old.accent, 0);
+        for mode in [
+            InterfaceMode::Modern,
+            InterfaceMode::Professional,
+            InterfaceMode::Gaming,
+        ] {
+            let settings = UserSettings {
+                interface_mode: mode,
+                accent: 3,
+                ..UserSettings::default()
+            };
+            let restored =
+                UserSettings::from_json_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(restored, settings);
+        }
+        assert_eq!(
+            UserSettings::from_json_str(r#"{"accent":255}"#)
+                .unwrap()
+                .accent,
+            3
+        );
+    }
+
+    #[test]
     fn settings_clamp_polling_interval() {
         let mut too_low = UserSettings {
             polling_interval_ms: 50,
@@ -163,6 +204,8 @@ mod tests {
             language: LanguagePreference::Polish,
             polling_interval_ms: 500,
             temperature_unit: TemperatureUnit::Fahrenheit,
+            interface_mode: InterfaceMode::Gaming,
+            accent: 2,
         };
         initial.save_to(&tmp).expect("save should succeed");
         let reloaded = UserSettings::load_or_default(Some(&tmp));

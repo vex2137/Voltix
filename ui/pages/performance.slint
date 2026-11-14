@@ -1,0 +1,69 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { GpuItem, CoreRowItem } from "../models.slint";
+import { Card, KeyValueRow, SectionTitle } from "../components/common.slint";
+import { TelemetryChart } from "../components/chart.slint";
+
+export component PerformancePage inherits Rectangle {
+    in property <bool> compact;
+    in property <string> cpu;
+    in property <string> temperature;
+    in property <string> frequency;
+    in property <string> ram;
+    in property <string> vram;
+    in property <GpuItem> gpu;
+    in property <[CoreRowItem]> cores;
+    in property <string> cpu-line;
+    in property <string> cpu-area;
+    in property <bool> cpu-data;
+    in property <string> gpu-line;
+    in property <string> gpu-area;
+    in property <bool> gpu-data;
+
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: min(root.width, 1200px);
+            padding: root.compact ? 12px : 24px;
+            spacing: 12px;
+            alignment: start;
+            SectionTitle { text: Theme.interface-mode == 1 ? (Theme.polish ? "Telemetria • odczyty bieżące" : "Telemetry • current readings") : (Theme.polish ? "Wydajność w centrum" : "Performance at a glance"); }
+            Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 4px;
+                    KeyValueRow { compact: root.compact; label: "CPU"; value: root.cpu; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Temperatura CPU" : "CPU temperature"; value: root.temperature; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie CPU" : "CPU clock"; value: root.frequency; }
+                    KeyValueRow { compact: root.compact; label: "GPU"; value: root.gpu.util-text; status: root.gpu.util-status; }
+                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Temperatura GPU" : "GPU temperature"; value: root.gpu.temp-text; status: root.gpu.temp-status; }
+                    KeyValueRow { compact: root.compact; label: "RAM"; value: root.ram; }
+                    KeyValueRow { compact: root.compact; label: "VRAM"; value: root.vram == "" ? "N/A" : root.vram; }
+                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie GPU" : "GPU clock"; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
+                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Pobór mocy GPU" : "GPU power draw"; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
+                    if Theme.interface-mode == 1 : KeyValueRow { compact: root.compact; label: Theme.polish ? "Limit mocy GPU" : "GPU power limit"; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
+                }
+            }
+            if Theme.interface-mode == 1 : Card {
+                VerticalLayout {
+                    padding: 12px; spacing: 4px;
+                    SectionTitle { text: Theme.polish ? "Rdzenie CPU" : "CPU cores"; }
+                    for core in root.cores : KeyValueRow {
+                        compact: root.compact;
+                        label: core.left-label + "  " + core.left-freq-text;
+                        value: core.left-value-text + (core.has-right ? "   •   " + core.right-label + "  " + core.right-value-text : "");
+                        status: core.left-status;
+                    }
+                }
+            }
+            if Theme.interface-mode == 2 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 8px;
+                    SectionTitle { text: "FPS / Frametime"; }
+                    Text { text: Theme.polish ? "N/D • Brak źródła danych z gry" : "N/A • No game telemetry source connected"; color: Theme.text-muted; wrap: word-wrap; }
+                }
+            }
+            TelemetryChart { title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }
+            TelemetryChart { title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: "N/A"; }
+        }
+    }
+}

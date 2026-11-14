@@ -16,9 +16,9 @@ export component StoragePage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : max(280px, root.width - 14px);
+            width: root.compact ? root.width : min(1200px, max(280px, root.width - 14px));
             alignment: start;
-            padding-top: root.compact ? 12px : 20px;
+            padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
             padding-left: (root.compact ? 12px : 20px) + root.left-inset;
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
