@@ -18,9 +18,33 @@ android {
         }
     }
 
+    val ksPath = System.getenv("VOLTIX_KEYSTORE_PATH")
+    val ksPass = System.getenv("VOLTIX_KEYSTORE_PASSWORD")
+    val ksAlias = System.getenv("VOLTIX_KEY_ALIAS")
+    val keyPass = System.getenv("VOLTIX_KEY_PASSWORD")
+    val hasReleaseSigning = !ksPath.isNullOrBlank() &&
+        !ksPass.isNullOrBlank() &&
+        !ksAlias.isNullOrBlank() &&
+        !keyPass.isNullOrBlank() &&
+        file(ksPath).exists()
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(ksPath)
+                storePassword = ksPass
+                keyAlias = ksAlias
+                keyPassword = keyPass
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             isDebuggable = true

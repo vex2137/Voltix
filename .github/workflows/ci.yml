@@ -134,7 +134,7 @@ jobs:
           retention-days: 14
 
   android-arm64-apk:
-    name: Android ARM64-v8a (API 26+ Debug APK)
+    name: Android ARM64-v8a (API 26+ APK)
     runs-on: ubuntu-latest
 
     steps:
@@ -205,10 +205,25 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build Android debug APK
+      - name: Build Android APK
+        env:
+          VOLTIX_KEYSTORE_BASE64: ${{ secrets.VOLTIX_KEYSTORE_BASE64 }}
+          VOLTIX_KEYSTORE_PASSWORD: ${{ secrets.VOLTIX_KEYSTORE_PASSWORD }}
+          VOLTIX_KEY_ALIAS: ${{ secrets.VOLTIX_KEY_ALIAS }}
+          VOLTIX_KEY_PASSWORD: ${{ secrets.VOLTIX_KEY_PASSWORD }}
         run: |
-          gradle -p android assembleDebug --no-daemon
-          cp android/app/build/outputs/apk/debug/app-debug.apk Voltix-0.1.0-alpha.2-arm64.apk
+          if [ -n "$VOLTIX_KEYSTORE_BASE64" ] && [ -n "$VOLTIX_KEYSTORE_PASSWORD" ] && [ -n "$VOLTIX_KEY_ALIAS" ] && [ -n "$VOLTIX_KEY_PASSWORD" ]; then
+            export VOLTIX_KEYSTORE_PATH="$RUNNER_TEMP/voltix-release.keystore"
+            trap 'rm -f "$VOLTIX_KEYSTORE_PATH"' EXIT
+            printf '%s' "$VOLTIX_KEYSTORE_BASE64" | base64 -d > "$VOLTIX_KEYSTORE_PATH"
+            chmod 600 "$VOLTIX_KEYSTORE_PATH"
+            gradle -p android assembleRelease --no-daemon
+            cp android/app/build/outputs/apk/release/app-release.apk Voltix-0.1.0-alpha.2-arm64.apk
+          else
+            echo "Android signing secrets not configured; falling back to debug APK build."
+            gradle -p android assembleDebug --no-daemon
+            cp android/app/build/outputs/apk/debug/app-debug.apk Voltix-0.1.0-alpha.2-arm64.apk
+          fi
           ls -lh Voltix-0.1.0-alpha.2-arm64.apk
           unzip -l Voltix-0.1.0-alpha.2-arm64.apk | grep "lib/arm64-v8a/libvoltix.so"
 

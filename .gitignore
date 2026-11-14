@@ -13,3 +13,11 @@
 .idea/
 *.swp
 *.swo
+
+# Android build & signing (never commit keystores or credentials)
+android/.gradle/
+android/app/build/
+android/app/src/main/jniLibs/
+*.jks
+*.keystore
+keystore.properties
