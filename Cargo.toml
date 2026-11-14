@@ -7,12 +7,26 @@ description = "Native hardware monitoring, diagnostics, and telemetry applicatio
 repository = "https://github.com/vex2137/Voltix"
 readme = "README.md"
 
+[lib]
+name = "voltix"
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "voltix"
+path = "src/main.rs"
+
 [dependencies]
-slint = "1.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 log = "0.4"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+slint = "1.9"
 env_logger = "0.11"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.9", features = ["backend-android-activity-06"] }
+android_logger = "0.14"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

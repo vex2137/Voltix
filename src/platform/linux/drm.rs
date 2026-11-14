@@ -161,7 +161,10 @@ fn read_card_telemetry(card: &DiscoveredDrmCard) -> GpuTelemetry {
     }
 }
 
-fn read_amd_telemetry(card: &DiscoveredDrmCard, driver_version: MetricValue<String>) -> GpuTelemetry {
+fn read_amd_telemetry(
+    card: &DiscoveredDrmCard,
+    driver_version: MetricValue<String>,
+) -> GpuTelemetry {
     let utilization_percent = read_u64_sysfs(&card.device_dir.join("gpu_busy_percent"))
         .map(|v| (*v as f64).clamp(0.0, 100.0));
 
@@ -240,7 +243,7 @@ fn read_intel_telemetry(
     card: &DiscoveredDrmCard,
     driver_version: MetricValue<String>,
 ) -> GpuTelemetry {
-    // Intel i915 exposes gt_cur_freq_mhz on cardN/ (not device/), and xe exposes tile0/gt0/freq0/cur_freq
+    // Intel i915 exposes gt_cur_freq_mhz on cardN/, while xe exposes tile0/gt0/freq0/cur_freq
     let card_dir = card.device_dir.parent().unwrap_or(&card.device_dir);
     let core_clock_mhz = if card_dir.join("gt_cur_freq_mhz").exists() {
         read_u64_sysfs(&card_dir.join("gt_cur_freq_mhz")).map(|v| *v as u32)

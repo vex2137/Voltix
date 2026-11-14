@@ -5,6 +5,7 @@ import { SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component DashboardPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <string> cpu-util-text;
     in property <float> cpu-util-percent;
     in property <int> cpu-util-status;
@@ -47,13 +48,13 @@ export component DashboardPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
-            // Top summary cards row
-            HorizontalLayout {
+            // Top summary cards row (desktop)
+            if !root.compact : HorizontalLayout {
                 spacing: 12px;
 
                 SummaryCard {
@@ -106,6 +107,67 @@ export component DashboardPage inherits Rectangle {
                 }
             }
 
+            // Compact summary grid (mobile/touch)
+            if root.compact : VerticalLayout {
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.dash-cpu-card;
+                        primary-value: root.cpu-util-text;
+                        secondary-value: root.cpu-temp-text;
+                        progress: root.cpu-util-percent;
+                        status: root.cpu-util-status;
+                        accent-color: Theme.accent;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.dash-gpu-card;
+                        primary-value: root.gpu-util-text;
+                        secondary-value: root.gpu-temp-text;
+                        progress: root.gpu-util-percent;
+                        status: root.gpu-util-status;
+                        accent-color: Theme.accent-purple;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.dash-ram-card;
+                        primary-value: root.ram-util-text;
+                        secondary-value: root.ram-detail-text;
+                        progress: root.ram-util-percent;
+                        status: root.ram-util-status;
+                        accent-color: Theme.accent-emerald;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.dash-vram-card;
+                        primary-value: root.vram-util-text;
+                        secondary-value: root.vram-detail-text;
+                        progress: root.vram-util-percent;
+                        status: root.vram-util-status;
+                        accent-color: Theme.accent-amber;
+                    }
+                }
+
+                SummaryCard {
+                    label: I18n.dash-uptime-card;
+                    primary-value: root.uptime-text;
+                    secondary-value: root.kernel-text;
+                    show-progress: false;
+                    status: root.uptime-status;
+                }
+            }
+
             // Real-time charts
             TelemetryChart {
                 title: I18n.dash-cpu-history;
@@ -118,7 +180,7 @@ export component DashboardPage inherits Rectangle {
                 area-color: Theme.accent-soft;
             }
 
-            HorizontalLayout {
+            if !root.compact : HorizontalLayout {
                 spacing: 12px;
 
                 TelemetryChart {
@@ -135,6 +197,32 @@ export component DashboardPage inherits Rectangle {
 
                 TelemetryChart {
                     horizontal-stretch: 1;
+                    title: I18n.dash-gpu-history;
+                    current-value-text: root.gpu-util-text;
+                    line-commands: root.gpu-line-commands;
+                    area-commands: root.gpu-area-commands;
+                    has-data: root.gpu-has-history;
+                    empty-text: root.gpu-chart-empty-text;
+                    line-color: Theme.accent-purple;
+                    area-color: Theme.accent-purple-soft;
+                }
+            }
+
+            if root.compact : VerticalLayout {
+                spacing: 12px;
+
+                TelemetryChart {
+                    title: I18n.dash-ram-history;
+                    current-value-text: root.ram-util-text;
+                    line-commands: root.ram-line-commands;
+                    area-commands: root.ram-area-commands;
+                    has-data: root.ram-has-history;
+                    empty-text: I18n.status-sampling;
+                    line-color: Theme.accent-emerald;
+                    area-color: Theme.accent-emerald-soft;
+                }
+
+                TelemetryChart {
                     title: I18n.dash-gpu-history;
                     current-value-text: root.gpu-util-text;
                     line-commands: root.gpu-line-commands;

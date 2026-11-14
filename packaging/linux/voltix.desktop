@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Voltix
+GenericName=Hardware Monitor
+Comment=Native hardware monitoring and diagnostics
+Exec=voltix
+Icon=voltix
+Categories=System;Monitor;Utility;
+Keywords=cpu;gpu;ram;memory;disk;sensors;monitor;telemetry;
+Terminal=false
+StartupWMClass=voltix

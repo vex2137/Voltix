@@ -14,7 +14,13 @@ pub struct CpuTempSensor {
 /// CPU-specific hwmon driver names on Linux.
 /// We explicitly restrict CPU temperature discovery to known CPU thermal drivers
 /// rather than guessing from generic motherboard/ACPI sensors.
-const CPU_HWMON_DRIVERS: &[&str] = &["coretemp", "k10temp", "zenpower", "cpu_thermal", "soc_thermal"];
+const CPU_HWMON_DRIVERS: &[&str] = &[
+    "coretemp",
+    "k10temp",
+    "zenpower",
+    "cpu_thermal",
+    "soc_thermal",
+];
 
 pub fn read_hwmon_millidegrees_celsius(path: &Path) -> MetricValue<f64> {
     match fs::read_to_string(path) {
@@ -82,7 +88,7 @@ pub fn discover_cpu_temp_sensor_in(hwmon_root: &Path) -> Option<CpuTempSensor> {
                 .filter(|s| !s.is_empty());
 
             let priority = match (driver.as_str(), label.as_deref()) {
-                // AMD Ryzen: Tdie is actual die temperature, Tctl has optional offset on older chips
+                // AMD Ryzen: Tdie is actual die temp; Tctl may carry an offset on older chips
                 ("k10temp" | "zenpower", Some("Tdie")) => 0,
                 ("k10temp" | "zenpower", Some("Tctl")) => 1,
                 // Intel: Package id 0 is package temperature

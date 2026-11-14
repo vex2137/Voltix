@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use std::collections::HashSet;
 
 use crate::models::telemetry::GpuTelemetry;
@@ -37,9 +38,12 @@ impl GpuMonitor {
             gpus.extend(drm_gpus);
             gpus
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "android")]
         {
-            let _ = HashSet::<String>::new();
+            crate::platform::android::collect_android_gpus()
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        {
             Vec::new()
         }
     }

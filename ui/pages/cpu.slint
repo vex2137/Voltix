@@ -58,6 +58,7 @@ component CoreCell inherits Rectangle {
 }
 
 export component CpuPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <string> model-name;
     in property <int> model-status;
     in property <string> vendor;
@@ -84,13 +85,13 @@ export component CpuPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
-            // Top KPI cards
-            HorizontalLayout {
+            // Top KPI cards (desktop)
+            if !root.compact : HorizontalLayout {
                 spacing: 12px;
 
                 SummaryCard {
@@ -126,6 +127,54 @@ export component CpuPage inherits Rectangle {
                     secondary-value: root.arch;
                     show-progress: false;
                     status: 0;
+                }
+            }
+
+            // Top KPI cards (compact 2x2)
+            if root.compact : VerticalLayout {
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.cpu-overall-util;
+                        primary-value: root.overall-util-text;
+                        progress: root.overall-util-percent;
+                        status: root.overall-util-status;
+                        accent-color: Theme.accent;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.cpu-frequency;
+                        primary-value: root.freq-text;
+                        show-progress: false;
+                        status: root.freq-status;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.cpu-temperature;
+                        primary-value: root.temp-text;
+                        secondary-value: root.temp-source;
+                        show-progress: false;
+                        status: root.temp-status;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.cpu-cores-threads;
+                        primary-value: root.cores-threads-text;
+                        secondary-value: root.arch;
+                        show-progress: false;
+                        status: 0;
+                    }
                 }
             }
 
@@ -175,7 +224,7 @@ export component CpuPage inherits Rectangle {
                         text: I18n.cpu-per-core;
                     }
 
-                    VerticalLayout {
+                    if !root.compact : VerticalLayout {
                         spacing: 8px;
 
                         for row in root.core-rows : HorizontalLayout {
@@ -201,6 +250,30 @@ export component CpuPage inherits Rectangle {
 
                             if !row.has-right : Rectangle {
                                 horizontal-stretch: 1;
+                            }
+                        }
+                    }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        for row in root.core-rows : VerticalLayout {
+                            spacing: 8px;
+
+                            CoreCell {
+                                label: row.left-label;
+                                value-text: row.left-value-text;
+                                freq-text: row.left-freq-text;
+                                percent: row.left-percent;
+                                status: row.left-status;
+                            }
+
+                            if row.has-right : CoreCell {
+                                label: row.right-label;
+                                value-text: row.right-value-text;
+                                freq-text: row.right-freq-text;
+                                percent: row.right-percent;
+                                status: row.right-status;
                             }
                         }
                     }

@@ -1,11 +1,15 @@
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
+use std::io::ErrorKind;
 use std::path::Path;
 
 use crate::models::metrics::MetricValue;
 use crate::models::telemetry::{CpuTelemetry, LogicalCpuTelemetry};
+#[cfg(target_os = "android")]
+use crate::platform::android::{android_cpu_temperature, android_soc_model, android_soc_vendor};
+#[cfg(target_os = "linux")]
 use crate::platform::linux::hwmon::{
-    discover_cpu_temp_sensor, read_hwmon_millidegrees_celsius, CpuTempSensor,
+    CpuTempSensor, discover_cpu_temp_sensor, read_hwmon_millidegrees_celsius,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +36,9 @@ pub struct StaticCpuInfo {
 pub struct CpuMonitor {
     static_info: StaticCpuInfo,
     prev_stat: Option<ProcStatSample>,
+    #[cfg(target_os = "linux")]
     temp_sensor: Option<CpuTempSensor>,
+    #[cfg(target_os = "linux")]
     temp_sensor_checked: bool,
 }
 
@@ -54,13 +60,18 @@ impl CpuMonitor {
         Self {
             static_info,
             prev_stat,
+            #[cfg(target_os = "linux")]
             temp_sensor: None,
+            #[cfg(target_os = "linux")]
             temp_sensor_checked: false,
         }
     }
 
     pub fn collect(&mut self) -> CpuTelemetry {
-        let current_stat = fs::read_to_string("/proc/stat")
+        let stat_read = fs::read_to_string("/proc/stat");
+        let stat_perm_denied =
+            matches!(&stat_read, Err(e) if e.kind() == ErrorKind::PermissionDenied);
+        let current_stat = stat_read
             .map_err(|e| e.to_string())
             .and_then(|s| parse_proc_stat(&s));
 
@@ -81,20 +92,21 @@ impl CpuMonitor {
                 (overall, per_core)
             }
             (None, Ok(curr)) => {
+                let msg = "Awaiting second CPU sample";
                 let per_core = curr
                     .per_cpu
                     .keys()
-                    .map(|&id| {
-                        (
-                            id,
-                            MetricValue::Unavailable("Awaiting second CPU sample".to_string()),
-                        )
-                    })
+                    .map(|&id| (id, MetricValue::Unavailable(msg.to_string())))
                     .collect();
-                (
-                    MetricValue::Unavailable("Awaiting second CPU sample".to_string()),
-                    per_core,
-                )
+                (MetricValue::Unavailable(msg.to_string()), per_core)
+            }
+            (_, Err(_)) if stat_perm_denied => {
+                let reason = "Restricted by OS/SELinux policy";
+                let count = self.static_info.logical_cpus.copied().unwrap_or(0);
+                let per_core = (0..count)
+                    .map(|id| (id, MetricValue::PermissionError(reason.to_string())))
+                    .collect();
+                (MetricValue::PermissionError(reason.to_string()), per_core)
             }
             (_, Err(err)) => (MetricValue::Unavailable(err.clone()), Vec::new()),
         };
@@ -136,25 +148,7 @@ impl CpuMonitor {
             read_cpuinfo_average_mhz()
         };
 
-        if !self.temp_sensor_checked {
-            self.temp_sensor_checked = true;
-            self.temp_sensor = discover_cpu_temp_sensor();
-        }
-
-        let (temperature_celsius, temperature_source) = match &self.temp_sensor {
-            Some(sensor) => {
-                let val = read_hwmon_millidegrees_celsius(&sensor.input_path);
-                let src = match &sensor.label {
-                    Some(lbl) => format!("{} ({lbl})", sensor.driver_name),
-                    None => sensor.driver_name.clone(),
-                };
-                (val, Some(src))
-            }
-            None => (
-                MetricValue::Unsupported("No dedicated CPU thermal sensor found".to_string()),
-                None,
-            ),
-        };
+        let (temperature_celsius, temperature_source) = self.collect_cpu_temperature();
 
         let logical_cpus = if self.static_info.logical_cpus.is_available() {
             self.static_info.logical_cpus.clone()
@@ -175,6 +169,41 @@ impl CpuMonitor {
             temperature_celsius,
             temperature_source,
             per_core,
+        }
+    }
+
+    fn collect_cpu_temperature(&mut self) -> (MetricValue<f64>, Option<String>) {
+        #[cfg(target_os = "linux")]
+        {
+            if !self.temp_sensor_checked {
+                self.temp_sensor_checked = true;
+                self.temp_sensor = discover_cpu_temp_sensor();
+            }
+            match &self.temp_sensor {
+                Some(sensor) => {
+                    let val = read_hwmon_millidegrees_celsius(&sensor.input_path);
+                    let src = match &sensor.label {
+                        Some(lbl) => format!("{} ({lbl})", sensor.driver_name),
+                        None => sensor.driver_name.clone(),
+                    };
+                    (val, Some(src))
+                }
+                None => (
+                    MetricValue::Unsupported("No dedicated CPU thermal sensor found".to_string()),
+                    None,
+                ),
+            }
+        }
+        #[cfg(target_os = "android")]
+        {
+            android_cpu_temperature()
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        {
+            (
+                MetricValue::Unsupported("CPU thermal sensor unsupported".to_string()),
+                None,
+            )
         }
     }
 }
@@ -342,7 +371,7 @@ fn normalize_cpu_vendor(raw: &str) -> String {
 }
 
 fn read_static_cpu_info() -> StaticCpuInfo {
-    match fs::read_to_string("/proc/cpuinfo") {
+    let mut info = match fs::read_to_string("/proc/cpuinfo") {
         Ok(content) => parse_proc_cpuinfo(&content),
         Err(err) => StaticCpuInfo {
             model_name: MetricValue::Unavailable(err.to_string()),
@@ -351,7 +380,29 @@ fn read_static_cpu_info() -> StaticCpuInfo {
             physical_cores: MetricValue::Unavailable(err.to_string()),
             logical_cpus: MetricValue::Unavailable(err.to_string()),
         },
+    };
+
+    if !info.logical_cpus.is_available() {
+        if let Ok(n) = std::thread::available_parallelism() {
+            info.logical_cpus = MetricValue::Available(n.get());
+        }
     }
+
+    #[cfg(target_os = "android")]
+    {
+        if !info.model_name.is_available() {
+            if let Some(soc) = android_soc_model() {
+                info.model_name = MetricValue::Available(soc);
+            }
+        }
+        if !info.vendor.is_available() {
+            if let Some(v) = android_soc_vendor() {
+                info.vendor = MetricValue::Available(v);
+            }
+        }
+    }
+
+    info
 }
 
 fn read_sysfs_cpu_frequencies(expected_cpus: usize) -> BTreeMap<usize, MetricValue<f64>> {
@@ -364,10 +415,19 @@ fn read_sysfs_cpu_frequencies(expected_cpus: usize) -> BTreeMap<usize, MetricVal
             .join(format!("cpu{id}"))
             .join("cpufreq")
             .join("scaling_cur_freq");
-        if let Ok(raw) = fs::read_to_string(&freq_path) {
-            if let Ok(khz) = raw.trim().parse::<u64>() {
-                result.insert(id, MetricValue::Available(khz as f64 / 1000.0));
+        match fs::read_to_string(&freq_path) {
+            Ok(raw) => {
+                if let Ok(khz) = raw.trim().parse::<u64>() {
+                    result.insert(id, MetricValue::Available(khz as f64 / 1000.0));
+                }
             }
+            Err(err) if err.kind() == ErrorKind::PermissionDenied => {
+                result.insert(
+                    id,
+                    MetricValue::PermissionError("cpufreq restricted".to_string()),
+                );
+            }
+            Err(_) => {}
         }
     }
     result

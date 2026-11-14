@@ -3,6 +3,7 @@ import { Theme } from "themes/theme.slint";
 import { I18n } from "i18n/strings.slint";
 import { CoreRowItem, GpuItem, StorageItem, SystemGpuItem } from "models.slint";
 import { Sidebar } from "components/sidebar.slint";
+import { BottomNav } from "components/bottom-nav.slint";
 import { DashboardPage } from "pages/dashboard.slint";
 import { CpuPage } from "pages/cpu.slint";
 import { GpuPage } from "pages/gpu.slint";
@@ -17,10 +18,11 @@ export component AppWindow inherits Window {
     title: I18n.app-name + " " + I18n.app-version;
     preferred-width: 1280px;
     preferred-height: 800px;
-    min-width: 900px;
-    min-height: 600px;
+    min-width: 320px;
+    min-height: 480px;
     background: Theme.bg-app;
 
+    private property <bool> compact-mode: root.width < 760px;
     in-out property <int> current-page: 0;
 
     // Header & status properties
@@ -154,7 +156,7 @@ export component AppWindow inherits Window {
     }
 
     HorizontalLayout {
-        Sidebar {
+        if !root.compact-mode : Sidebar {
             current-page <=> root.current-page;
             os-label: root.os-badge-text;
             polling-label: root.polling-badge-text;
@@ -165,14 +167,14 @@ export component AppWindow inherits Window {
 
             // Header bar
             Rectangle {
-                height: 58px;
+                height: root.compact-mode ? 54px : 58px;
                 background: Theme.bg-header;
 
                 VerticalLayout {
                     HorizontalLayout {
-                        padding-left: 20px;
-                        padding-right: 20px;
-                        spacing: 16px;
+                        padding-left: root.compact-mode ? 14px : 20px;
+                        padding-right: root.compact-mode ? 14px : 20px;
+                        spacing: root.compact-mode ? 10px : 16px;
                         vertical-stretch: 1;
 
                         VerticalLayout {
@@ -183,10 +185,11 @@ export component AppWindow inherits Window {
                             Text {
                                 text: root.page-title();
                                 color: Theme.text-primary;
-                                font-size: 17px;
+                                font-size: root.compact-mode ? 16px : 17px;
                                 font-weight: 700;
+                                overflow: elide;
                             }
-                            Text {
+                            if !root.compact-mode : Text {
                                 text: root.page-subtitle();
                                 color: Theme.text-secondary;
                                 font-size: 12px;
@@ -196,7 +199,7 @@ export component AppWindow inherits Window {
 
                         // Compact status telemetry strip
                         HorizontalLayout {
-                            spacing: 10px;
+                            spacing: root.compact-mode ? 6px : 10px;
                             alignment: end;
 
                             VerticalLayout {
@@ -276,6 +279,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 0 : DashboardPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     cpu-util-text: root.cpu-util-text;
                     cpu-util-percent: root.cpu-util-percent;
                     cpu-util-status: root.cpu-util-status;
@@ -310,6 +314,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 1 : CpuPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     model-name: root.cpu-model;
                     model-status: root.cpu-model-status;
                     vendor: root.cpu-vendor;
@@ -333,6 +338,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 2 : GpuPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     gpus: root.gpus;
                     selected-gpu: root.selected-gpu;
                     selected-index: root.selected-gpu-index;
@@ -347,6 +353,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 3 : MemoryPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     total-text: root.mem-total-text;
                     total-status: root.mem-total-status;
                     used-text: root.mem-used-text;
@@ -371,12 +378,14 @@ export component AppWindow inherits Window {
                 if root.current-page == 4 : StoragePage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     disks: root.disks;
                 }
 
                 if root.current-page == 5 : SystemPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     os-name: root.os-name;
                     os-status: root.os-status;
                     kernel-version: root.kernel-text;
@@ -397,6 +406,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 6 : SettingsPage {
                     width: 100%;
                     height: 100%;
+                    compact: root.compact-mode;
                     theme-mode: root.theme-mode;
                     language-mode: root.language-mode;
                     temp-unit: root.temp-unit;
@@ -407,6 +417,10 @@ export component AppWindow inherits Window {
                     change-temp-unit(v) => { root.change-temp-unit(v); }
                     change-polling-ms(v) => { root.change-polling-ms(v); }
                 }
+            }
+
+            if root.compact-mode : BottomNav {
+                current-page <=> root.current-page;
             }
         }
     }

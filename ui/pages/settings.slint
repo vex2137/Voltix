@@ -4,6 +4,7 @@ import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
 
 export component SettingsPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <int> theme-mode: 1; // 0=System, 1=Dark, 2=Light
     in property <int> language-mode: 0; // 0=System, 1=English, 2=Polish
     in property <int> temp-unit: 0; // 0=Celsius, 1=Fahrenheit
@@ -20,10 +21,10 @@ export component SettingsPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
             Card {
                 VerticalLayout {
@@ -34,7 +35,7 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-appearance;
                     }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 16px;
 
                         Text {
@@ -65,6 +66,42 @@ export component SettingsPage inherits Rectangle {
                             }
                         }
                     }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: I18n.settings-theme;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-theme-system;
+                                active: root.theme-mode == 0;
+                                clicked => { root.change-theme(0); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-theme-dark;
+                                active: root.theme-mode == 1;
+                                clicked => { root.change-theme(1); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-theme-light;
+                                active: root.theme-mode == 2;
+                                clicked => { root.change-theme(2); }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -77,7 +114,7 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-localization;
                     }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 16px;
 
                         Text {
@@ -109,9 +146,45 @@ export component SettingsPage inherits Rectangle {
                         }
                     }
 
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: I18n.settings-language;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-lang-system;
+                                active: root.language-mode == 0;
+                                clicked => { root.change-language(0); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-lang-en;
+                                active: root.language-mode == 1;
+                                clicked => { root.change-language(1); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: I18n.settings-lang-pl;
+                                active: root.language-mode == 2;
+                                clicked => { root.change-language(2); }
+                            }
+                        }
+                    }
+
                     Rectangle { height: 1px; background: Theme.border-subtle; }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 16px;
 
                         Text {
@@ -137,6 +210,35 @@ export component SettingsPage inherits Rectangle {
                             }
                         }
                     }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: I18n.settings-temp-unit;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "°C";
+                                active: root.temp-unit == 0;
+                                clicked => { root.change-temp-unit(0); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "°F";
+                                active: root.temp-unit == 1;
+                                clicked => { root.change-temp-unit(1); }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -149,7 +251,7 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-monitoring;
                     }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 16px;
 
                         Text {
@@ -184,6 +286,61 @@ export component SettingsPage inherits Rectangle {
                                 clicked => { root.change-polling-ms(2000); }
                             }
                             SegmentedOption {
+                                label: "5000 ms";
+                                active: root.polling-ms == 5000;
+                                clicked => { root.change-polling-ms(5000); }
+                            }
+                        }
+                    }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: I18n.settings-polling-interval;
+                            color: Theme.text-secondary;
+                            font-size: 13px;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "250 ms";
+                                active: root.polling-ms == 250;
+                                clicked => { root.change-polling-ms(250); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "500 ms";
+                                active: root.polling-ms == 500;
+                                clicked => { root.change-polling-ms(500); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "1000 ms";
+                                active: root.polling-ms == 1000;
+                                clicked => { root.change-polling-ms(1000); }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
+                                label: "2000 ms";
+                                active: root.polling-ms == 2000;
+                                clicked => { root.change-polling-ms(2000); }
+                            }
+                            SegmentedOption {
+                                compact: true;
+                                horizontal-stretch: 1;
                                 label: "5000 ms";
                                 active: root.polling-ms == 5000;
                                 clicked => { root.change-polling-ms(5000); }

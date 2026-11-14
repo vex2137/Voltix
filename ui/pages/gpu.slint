@@ -6,6 +6,7 @@ import { Card, KeyValueRow, SectionTitle, SegmentedOption, SummaryCard } from ".
 import { TelemetryChart } from "../components/chart.slint";
 
 export component GpuPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <[GpuItem]> gpus;
     in property <GpuItem> selected-gpu;
     in property <int> selected-index: 0;
@@ -23,10 +24,10 @@ export component GpuPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
             if !root.has-gpus : Card {
                 min-height: 160px;
@@ -61,11 +62,22 @@ export component GpuPage inherits Rectangle {
                         text: I18n.gpu-selector;
                     }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 8px;
                         alignment: start;
 
                         for gpu[idx] in root.gpus : SegmentedOption {
+                            label: gpu.name;
+                            active: idx == root.selected-index;
+                            clicked => { root.select-gpu(idx); }
+                        }
+                    }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 8px;
+
+                        for gpu[idx] in root.gpus : SegmentedOption {
+                            compact: true;
                             label: gpu.name;
                             active: idx == root.selected-index;
                             clicked => { root.select-gpu(idx); }
@@ -77,7 +89,7 @@ export component GpuPage inherits Rectangle {
             if root.has-gpus : VerticalLayout {
                 spacing: 16px;
 
-                HorizontalLayout {
+                if !root.compact : HorizontalLayout {
                     spacing: 12px;
 
                     SummaryCard {
@@ -114,6 +126,54 @@ export component GpuPage inherits Rectangle {
                         secondary-value: root.selected-gpu.power-limit-text;
                         show-progress: false;
                         status: root.selected-gpu.power-draw-status;
+                    }
+                }
+
+                if root.compact : VerticalLayout {
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        spacing: 10px;
+
+                        SummaryCard {
+                            horizontal-stretch: 1;
+                            label: I18n.gpu-utilization;
+                            primary-value: root.selected-gpu.util-text;
+                            progress: root.selected-gpu.util-percent;
+                            status: root.selected-gpu.util-status;
+                            accent-color: Theme.accent-purple;
+                        }
+
+                        SummaryCard {
+                            horizontal-stretch: 1;
+                            label: I18n.gpu-vram;
+                            primary-value: root.selected-gpu.vram-text;
+                            secondary-value: root.selected-gpu.vram-subtext;
+                            progress: root.selected-gpu.vram-percent;
+                            status: root.selected-gpu.vram-status;
+                            accent-color: Theme.accent-amber;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 10px;
+
+                        SummaryCard {
+                            horizontal-stretch: 1;
+                            label: I18n.gpu-temperature;
+                            primary-value: root.selected-gpu.temp-text;
+                            show-progress: false;
+                            status: root.selected-gpu.temp-status;
+                        }
+
+                        SummaryCard {
+                            horizontal-stretch: 1;
+                            label: I18n.gpu-power-draw;
+                            primary-value: root.selected-gpu.power-draw-text;
+                            secondary-value: root.selected-gpu.power-limit-text;
+                            show-progress: false;
+                            status: root.selected-gpu.power-draw-status;
+                        }
                     }
                 }
 

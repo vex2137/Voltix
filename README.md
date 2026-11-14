@@ -75,15 +75,41 @@ cargo run
 ./target/release/voltix
 ```
 
+## Packaging & Cross-Platform Targets
+
+### Linux x86_64 AppImage
+
+- Built on an **Ubuntu 22.04** (`GLIBC 2.35`) baseline for broad compatibility across Linux distributions (including CachyOS / Arch Linux, Fedora, Debian 12+, and Ubuntu 22.04+), supporting both Wayland and X11.
+- Desktop metadata and icon live in `packaging/linux/voltix.desktop` and `assets/icons/voltix.svg`.
+
+### Android ARM64 (`com.voltix.monitor`)
+
+- **Target ABI:** `arm64-v8a` (`aarch64-linux-android`)
+- **Minimum SDK:** API 26 (Android 8.0)
+- **Slint Backend:** `backend-android-activity-06` via `android.app.NativeActivity` (`src/lib.rs`)
+- **Responsive UI:** Automatically switches from the desktop sidebar to a touch-friendly bottom navigation bar and stacked card grids on narrow screens.
+- **Unprivileged Telemetry:** Uses Bionic system properties (`__system_property_get`), `libc::uname`, `libc::sysinfo`, `statvfs`, and readable thermal zones without requiring root access. On Android 8+, SELinux restricts `/proc/stat`, `/proc/meminfo` (on some devices), and vendor GPU counters; restricted values are explicitly shown as `Permission Denied` or `Unsupported` rather than fabricated.
+
+Build the Android native library and debug APK locally (requires Android SDK 35, NDK r27, `cargo-ndk`, and Gradle 8.9):
+
+```bash
+rustup target add aarch64-linux-android
+cargo ndk -t arm64-v8a -p 26 -o android/app/src/main/jniLibs build --lib --release
+gradle -p android assembleDebug --no-daemon
+```
+
 ## Continuous Integration
 
-GitHub Actions (`.github/workflows/ci.yml`) runs automated Ubuntu Linux checks (`cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`) and uploads the compiled `voltix` binary as a workflow artifact.
+GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
+
+1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging, headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
+2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug`, APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
 
 ## Known Limitations (Alpha 1)
 
 - Detailed disk I/O throughput, network monitoring, fan curve control, and benchmarking suites are out of scope for Alpha 1.
 - Intel integrated GPU utilization and power counters are marked unsupported via unprivileged sysfs when not exposed by the kernel driver.
-- AppImage, distribution packaging, and Android UI targets are planned for future releases and are not included in Alpha 1.
+- On Android 8+ (API 26+), SELinux policies restrict direct access to `/proc/stat`, `cpufreq`, and proprietary GPU counters for non-privileged apps, so Voltix reports those metrics honestly as `Permission Denied` or `Unsupported`.
 
 ## License
 

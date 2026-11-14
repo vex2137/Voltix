@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use voltix::localization::{resolve_locale, LocaleCode, Localizer};
+use voltix::localization::{LocaleCode, Localizer, resolve_locale};
 use voltix::models::history::BoundedHistory;
 use voltix::models::metrics::{MetricStatus, MetricValue};
 use voltix::monitoring::cpu::{compute_utilization, parse_proc_cpuinfo, parse_proc_stat};
@@ -41,7 +41,9 @@ fn end_to_end_cpu_and_history_pipeline() {
 
 #[test]
 fn memory_disk_system_and_localization_integration() {
-    let mem = parse_proc_meminfo("MemTotal: 16000000 kB\nMemAvailable: 8000000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n");
+    let mem = parse_proc_meminfo(
+        "MemTotal: 16000000 kB\nMemAvailable: 8000000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n",
+    );
     assert_eq!(mem.utilization_percent, MetricValue::Available(50.0));
     assert_eq!(mem.swap_utilization_percent.status(), MetricStatus::Unsupported);
 

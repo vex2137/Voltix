@@ -124,10 +124,7 @@ mod tests {
         let en = parse_locale_map(EN_JSON);
         let pl = parse_locale_map(PL_JSON);
         for key in en.keys() {
-            assert!(
-                pl.contains_key(key),
-                "Missing Polish translation for key '{key}'"
-            );
+            assert!(pl.contains_key(key), "Missing Polish translation for key '{key}'");
         }
     }
 }

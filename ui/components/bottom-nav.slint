@@ -1,0 +1,121 @@
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+
+component BottomNavItem inherits TouchArea {
+    in property <string> code;
+    in property <string> label;
+    in property <bool> active: false;
+
+    horizontal-stretch: 1;
+    height: 58px;
+    mouse-cursor: pointer;
+
+    Rectangle {
+        border-radius: Theme.radius-sm;
+        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : transparent);
+
+        VerticalLayout {
+            padding-top: 6px;
+            padding-bottom: 6px;
+            padding-left: 2px;
+            padding-right: 2px;
+            spacing: 4px;
+            alignment: center;
+
+            HorizontalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: 28px;
+                    height: 22px;
+                    border-radius: 5px;
+                    background: root.active ? Theme.accent : Theme.bg-elevated;
+
+                    Text {
+                        text: root.code;
+                        color: root.active ? #0b0f17 : Theme.text-secondary;
+                        font-size: 10px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.label;
+                color: root.active ? Theme.text-primary : Theme.text-muted;
+                font-size: 10px;
+                font-weight: root.active ? 700 : 500;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component BottomNav inherits Rectangle {
+    in-out property <int> current-page: 0;
+
+    height: 66px;
+    background: Theme.bg-sidebar;
+
+    VerticalLayout {
+        Rectangle {
+            height: 1px;
+            background: Theme.border-subtle;
+        }
+
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            padding-top: 3px;
+            padding-bottom: 3px;
+            spacing: 4px;
+            vertical-stretch: 1;
+
+            BottomNavItem {
+                code: "OV";
+                label: I18n.nav-dashboard;
+                active: root.current-page == 0;
+                clicked => { root.current-page = 0; }
+            }
+            BottomNavItem {
+                code: "CP";
+                label: I18n.nav-cpu;
+                active: root.current-page == 1;
+                clicked => { root.current-page = 1; }
+            }
+            BottomNavItem {
+                code: "GP";
+                label: I18n.nav-gpu;
+                active: root.current-page == 2;
+                clicked => { root.current-page = 2; }
+            }
+            BottomNavItem {
+                code: "RM";
+                label: I18n.nav-memory;
+                active: root.current-page == 3;
+                clicked => { root.current-page = 3; }
+            }
+            BottomNavItem {
+                code: "DS";
+                label: I18n.nav-storage;
+                active: root.current-page == 4;
+                clicked => { root.current-page = 4; }
+            }
+            BottomNavItem {
+                code: "SY";
+                label: I18n.nav-system;
+                active: root.current-page == 5;
+                clicked => { root.current-page = 5; }
+            }
+            BottomNavItem {
+                code: "ST";
+                label: I18n.nav-settings;
+                active: root.current-page == 6;
+                clicked => { root.current-page = 6; }
+            }
+        }
+    }
+}

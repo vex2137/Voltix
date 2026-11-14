@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
+#[cfg(all(unix, not(target_os = "android")))]
 use std::ffi::CString;
+#[cfg(not(target_os = "android"))]
 use std::fs;
 
 use crate::models::metrics::MetricValue;
@@ -50,15 +52,22 @@ impl DiskMonitor {
     }
 
     pub fn collect(&self) -> Vec<StorageDeviceTelemetry> {
-        let Ok(mounts_raw) = fs::read_to_string("/proc/mounts") else {
-            return Vec::new();
-        };
+        #[cfg(target_os = "android")]
+        {
+            crate::platform::android::collect_android_storage()
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let Ok(mounts_raw) = fs::read_to_string("/proc/mounts") else {
+                return Vec::new();
+            };
 
-        let mounts = parse_and_deduplicate_mounts(&mounts_raw);
-        mounts
-            .into_iter()
-            .filter_map(|m| query_mount_stats(&m))
-            .collect()
+            let mounts = parse_and_deduplicate_mounts(&mounts_raw);
+            mounts
+                .into_iter()
+                .filter_map(|m| query_mount_stats(&m))
+                .collect()
+        }
     }
 }
 
@@ -129,7 +138,7 @@ fn unescape_mount_path(raw: &str) -> String {
         .replace("\\134", "\\")
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android")))]
 fn stat_err_metric<T>(is_permission_denied: bool, reason: &str) -> MetricValue<T> {
     if is_permission_denied {
         MetricValue::PermissionError(reason.to_string())
@@ -138,7 +147,7 @@ fn stat_err_metric<T>(is_permission_denied: bool, reason: &str) -> MetricValue<T
     }
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android")))]
 fn query_mount_stats(entry: &MountEntry) -> Option<StorageDeviceTelemetry> {
     let c_path = CString::new(entry.mount_point.as_bytes()).ok()?;
     let mut stat: libc::statvfs = unsafe { std::mem::zeroed() };
@@ -185,7 +194,7 @@ fn query_mount_stats(entry: &MountEntry) -> Option<StorageDeviceTelemetry> {
     })
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, target_os = "android")))]
 fn query_mount_stats(entry: &MountEntry) -> Option<StorageDeviceTelemetry> {
     Some(StorageDeviceTelemetry {
         device: entry.device.clone(),

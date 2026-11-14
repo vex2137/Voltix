@@ -123,8 +123,9 @@ export component KeyValueRow inherits Rectangle {
 export component SegmentedOption inherits TouchArea {
     in property <string> label;
     in property <bool> active: false;
+    in property <bool> compact: false;
 
-    height: 32px;
+    height: root.compact ? 42px : 32px;
     mouse-cursor: pointer;
 
     Rectangle {

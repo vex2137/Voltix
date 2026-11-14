@@ -1,7 +1,12 @@
+#[cfg(not(target_os = "android"))]
 use std::fs;
 
 use crate::models::metrics::MetricValue;
 use crate::models::telemetry::SystemInfo;
+#[cfg(target_os = "android")]
+use crate::platform::android::{
+    android_device_name, android_kernel_version, android_os_name, android_uptime_seconds,
+};
 
 pub struct SystemMonitor {
     os_name: MetricValue<String>,
@@ -67,39 +72,62 @@ pub fn parse_os_release(content: &str) -> Option<String> {
 }
 
 fn read_os_name() -> MetricValue<String> {
-    match fs::read_to_string("/etc/os-release") {
-        Ok(content) => parse_os_release(&content)
-            .map(MetricValue::Available)
-            .unwrap_or_else(|| MetricValue::Unavailable("OS name not found in os-release".into())),
-        Err(err) => MetricValue::Unavailable(err.to_string()),
+    #[cfg(target_os = "android")]
+    {
+        android_os_name()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        match fs::read_to_string("/etc/os-release") {
+            Ok(content) => parse_os_release(&content)
+                .map(MetricValue::Available)
+                .unwrap_or_else(|| {
+                    MetricValue::Unavailable("OS name not found in os-release".into())
+                }),
+            Err(err) => MetricValue::Unavailable(err.to_string()),
+        }
     }
 }
 
 fn read_kernel_version() -> MetricValue<String> {
-    match fs::read_to_string("/proc/sys/kernel/osrelease") {
-        Ok(s) => {
-            let trimmed = s.trim();
-            if trimmed.is_empty() {
-                MetricValue::Unavailable("Empty kernel release".into())
-            } else {
-                MetricValue::Available(trimmed.to_string())
+    #[cfg(target_os = "android")]
+    {
+        android_kernel_version()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        match fs::read_to_string("/proc/sys/kernel/osrelease") {
+            Ok(s) => {
+                let trimmed = s.trim();
+                if trimmed.is_empty() {
+                    MetricValue::Unavailable("Empty kernel release".into())
+                } else {
+                    MetricValue::Available(trimmed.to_string())
+                }
             }
+            Err(err) => MetricValue::Unavailable(err.to_string()),
         }
-        Err(err) => MetricValue::Unavailable(err.to_string()),
     }
 }
 
 fn read_hostname() -> MetricValue<String> {
-    match fs::read_to_string("/proc/sys/kernel/hostname") {
-        Ok(s) => {
-            let trimmed = s.trim();
-            if trimmed.is_empty() {
-                MetricValue::Unavailable("Empty hostname".into())
-            } else {
-                MetricValue::Available(trimmed.to_string())
+    #[cfg(target_os = "android")]
+    {
+        android_device_name()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        match fs::read_to_string("/proc/sys/kernel/hostname") {
+            Ok(s) => {
+                let trimmed = s.trim();
+                if trimmed.is_empty() {
+                    MetricValue::Unavailable("Empty hostname".into())
+                } else {
+                    MetricValue::Available(trimmed.to_string())
+                }
             }
+            Err(err) => MetricValue::Unavailable(err.to_string()),
         }
-        Err(err) => MetricValue::Unavailable(err.to_string()),
     }
 }
 
@@ -113,11 +141,18 @@ pub fn parse_proc_uptime(content: &str) -> Option<u64> {
 }
 
 fn read_uptime_seconds() -> MetricValue<u64> {
-    match fs::read_to_string("/proc/uptime") {
-        Ok(content) => parse_proc_uptime(&content)
-            .map(MetricValue::Available)
-            .unwrap_or_else(|| MetricValue::Unavailable("Malformed /proc/uptime".into())),
-        Err(err) => MetricValue::Unavailable(err.to_string()),
+    #[cfg(target_os = "android")]
+    {
+        android_uptime_seconds()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        match fs::read_to_string("/proc/uptime") {
+            Ok(content) => parse_proc_uptime(&content)
+                .map(MetricValue::Available)
+                .unwrap_or_else(|| MetricValue::Unavailable("Malformed /proc/uptime".into())),
+            Err(err) => MetricValue::Unavailable(err.to_string()),
+        }
     }
 }
 

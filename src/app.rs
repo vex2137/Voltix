@@ -7,16 +7,14 @@ use std::time::Duration;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
-use voltix::localization::{resolve_locale, Localizer};
-use voltix::models::history::BoundedHistory;
-use voltix::models::metrics::{MetricStatus, MetricValue};
-use voltix::models::telemetry::{GpuTelemetry, TelemetrySnapshot};
-use voltix::monitoring::MonitoringEngine;
-use voltix::platform::detect_system_dark_mode;
-use voltix::settings::{
-    LanguagePreference, TemperatureUnit, ThemePreference, UserSettings,
-};
-use voltix::utils::format::{
+use crate::localization::{Localizer, resolve_locale};
+use crate::models::history::BoundedHistory;
+use crate::models::metrics::{MetricStatus, MetricValue};
+use crate::models::telemetry::{GpuTelemetry, TelemetrySnapshot};
+use crate::monitoring::MonitoringEngine;
+use crate::platform::detect_system_dark_mode;
+use crate::settings::{LanguagePreference, TemperatureUnit, ThemePreference, UserSettings};
+use crate::utils::format::{
     format_bytes_binary, format_frequency_mhz, format_temperature, format_uptime,
 };
 
@@ -47,8 +45,8 @@ struct UiModels {
     system_gpus: Rc<VecModel<SystemGpuItem>>,
 }
 
-pub fn run() -> Result<(), slint::PlatformError> {
-    let config_path = UserSettings::config_file_path();
+pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError> {
+    let config_path = config_override.or_else(UserSettings::config_file_path);
     let settings = UserSettings::load_or_default(config_path.as_deref());
     let locale = resolve_locale(settings.language);
     let localizer = Localizer::new(locale);
@@ -173,7 +171,12 @@ pub fn run() -> Result<(), slint::PlatformError> {
     }
 
     // Spawn background monitoring thread
-    let monitor_handle = spawn_monitor_thread(shared.clone(), condvar.clone(), models, window.as_weak());
+    let monitor_handle = spawn_monitor_thread(
+        shared.clone(),
+        condvar.clone(),
+        models,
+        window.as_weak(),
+    );
 
     let run_result = window.run();
 
@@ -465,9 +468,9 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     window.set_cpu_util_percent(snap.cpu.overall_utilization.copied().unwrap_or(0.0) as f32);
     window.set_cpu_util_status(cpu_util_status);
 
-    let (cpu_temp_text, cpu_temp_status) = format_metric_str(&snap.cpu.temperature_celsius, loc, |c| {
-        format_temperature(*c, temp_unit)
-    });
+    let fmt_temp = |c: &f64| format_temperature(*c, temp_unit);
+    let (cpu_temp_text, cpu_temp_status) =
+        format_metric_str(&snap.cpu.temperature_celsius, loc, fmt_temp);
     window.set_cpu_temp_text(cpu_temp_text);
     window.set_cpu_temp_status(cpu_temp_status);
     window.set_cpu_temp_source(SharedString::from(
@@ -511,7 +514,8 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     let mut core_rows = Vec::with_capacity(snap.cpu.per_core.len().div_ceil(2));
     for pair in snap.cpu.per_core.chunks(2) {
         let left = &pair[0];
-        let (l_val, l_st) = format_metric_str(&left.utilization_percent, loc, |v| format!("{v:.1}%"));
+        let (l_val, l_st) =
+            format_metric_str(&left.utilization_percent, loc, |v| format!("{v:.1}%"));
         let l_freq = left
             .frequency_mhz
             .copied()
@@ -602,12 +606,8 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     window.set_swap_used_text(swap_used_text);
     window.set_swap_used_status(swap_used_status);
     window.set_swap_util_text(swap_util_text);
-    window.set_swap_util_percent(
-        snap.memory
-            .swap_utilization_percent
-            .copied()
-            .unwrap_or(0.0) as f32,
-    );
+    let swap_pct = snap.memory.swap_utilization_percent.copied().unwrap_or(0.0) as f32;
+    window.set_swap_util_percent(swap_pct);
     window.set_swap_util_status(swap_util_status);
 
     // GPUs
@@ -852,7 +852,10 @@ where
     F: FnOnce(&T) -> String,
 {
     match metric {
-        MetricValue::Available(v) => (SharedString::from(fmt(v)), MetricStatus::Available.as_code()),
+        MetricValue::Available(v) => {
+            let text = SharedString::from(fmt(v));
+            (text, MetricStatus::Available.as_code())
+        }
         MetricValue::Unavailable(_) => (
             SharedString::from(loc.tr("status_unavailable")),
             MetricStatus::Unavailable.as_code(),

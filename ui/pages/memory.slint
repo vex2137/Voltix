@@ -5,6 +5,7 @@ import { Card, KeyValueRow, SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component MemoryPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <string> total-text;
     in property <int> total-status;
     in property <string> used-text;
@@ -32,12 +33,12 @@ export component MemoryPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
-            HorizontalLayout {
+            if !root.compact : HorizontalLayout {
                 spacing: 12px;
 
                 SummaryCard {
@@ -71,6 +72,51 @@ export component MemoryPage inherits Rectangle {
                     primary-value: root.total-text;
                     show-progress: false;
                     status: root.total-status;
+                }
+            }
+
+            if root.compact : VerticalLayout {
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.mem-utilization;
+                        primary-value: root.util-text;
+                        progress: root.util-percent;
+                        status: root.util-status;
+                        accent-color: Theme.accent-emerald;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.mem-used;
+                        primary-value: root.used-text;
+                        show-progress: false;
+                        status: root.used-status;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.mem-available;
+                        primary-value: root.available-text;
+                        show-progress: false;
+                        status: root.available-status;
+                    }
+
+                    SummaryCard {
+                        horizontal-stretch: 1;
+                        label: I18n.mem-total;
+                        primary-value: root.total-text;
+                        show-progress: false;
+                        status: root.total-status;
+                    }
                 }
             }
 

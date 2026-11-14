@@ -5,6 +5,7 @@ import { SystemGpuItem } from "../models.slint";
 import { Card, KeyValueRow, SectionTitle } from "../components/common.slint";
 
 export component SystemPage inherits Rectangle {
+    in property <bool> compact: false;
     in property <string> os-name;
     in property <int> os-status;
     in property <string> kernel-version;
@@ -27,10 +28,10 @@ export component SystemPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
-            spacing: 16px;
+            padding: root.compact ? 12px : 20px;
+            spacing: root.compact ? 12px : 16px;
 
             Card {
                 VerticalLayout {

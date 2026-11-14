@@ -5,6 +5,7 @@ import { StorageItem } from "../models.slint";
 import { Card, ProgressBar } from "../components/common.slint";
 
 export component StoragePage inherits Rectangle {
+    in property <bool> compact: false;
     in property <[StorageItem]> disks;
 
     ScrollView {
@@ -12,9 +13,9 @@ export component StoragePage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(300px, root.width - 14px);
+            width: max(280px, root.width - 14px);
             alignment: start;
-            padding: 20px;
+            padding: root.compact ? 12px : 20px;
             spacing: 12px;
 
             if root.disks.length == 0 : Card {
@@ -70,7 +71,7 @@ export component StoragePage inherits Rectangle {
                         bar-color: disk.percent > 90.0 ? Theme.accent-red : (disk.percent > 75.0 ? Theme.accent-amber : Theme.accent);
                     }
 
-                    HorizontalLayout {
+                    if !root.compact : HorizontalLayout {
                         spacing: 24px;
 
                         Text {
@@ -87,6 +88,35 @@ export component StoragePage inherits Rectangle {
                             text: I18n.storage-total + ": " + disk.total-text;
                             color: Theme.text-secondary;
                             font-size: 12px;
+                        }
+                    }
+
+                    if root.compact : VerticalLayout {
+                        spacing: 4px;
+
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text {
+                                text: I18n.storage-used + ": " + disk.used-text;
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: I18n.storage-available + ": " + disk.available-text;
+                                color: Theme.text-secondary;
+                                font-size: 12px;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                        }
+
+                        Text {
+                            text: I18n.storage-total + ": " + disk.total-text;
+                            color: Theme.text-secondary;
+                            font-size: 12px;
+                            overflow: elide;
                         }
                     }
                 }
