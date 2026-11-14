@@ -9,7 +9,7 @@ use crate::models::telemetry::{CpuTelemetry, LogicalCpuTelemetry};
 use crate::platform::android::{android_cpu_temperature, android_soc_model, android_soc_vendor};
 #[cfg(target_os = "linux")]
 use crate::platform::linux::hwmon::{
-    CpuTempSensor, discover_cpu_temp_sensor, read_hwmon_millidegrees_celsius,
+    discover_cpu_temp_sensor, read_hwmon_millidegrees_celsius, CpuTempSensor,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,7 +200,10 @@ impl CpuMonitor {
         }
         #[cfg(not(any(target_os = "linux", target_os = "android")))]
         {
-            (MetricValue::Unsupported("CPU thermal sensor unsupported".to_string()), None)
+            (
+                MetricValue::Unsupported("CPU thermal sensor unsupported".to_string()),
+                None,
+            )
         }
     }
 }
@@ -419,7 +422,10 @@ fn read_sysfs_cpu_frequencies(expected_cpus: usize) -> BTreeMap<usize, MetricVal
                 }
             }
             Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-                result.insert(id, MetricValue::PermissionError("cpufreq restricted".to_string()));
+                result.insert(
+                    id,
+                    MetricValue::PermissionError("cpufreq restricted".to_string()),
+                );
             }
             Err(_) => {}
         }

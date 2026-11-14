@@ -184,7 +184,10 @@ mod tests {
 
     #[test]
     fn normalizes_nvml_eight_digit_pci_domain() {
-        assert_eq!(normalize_nvml_pci_bus_id("00000000:01:00.0"), "0000:01:00.0");
+        assert_eq!(
+            normalize_nvml_pci_bus_id("00000000:01:00.0"),
+            "0000:01:00.0"
+        );
         assert_eq!(normalize_nvml_pci_bus_id("0000:2D:00.0"), "0000:2d:00.0");
     }
 }

@@ -171,21 +171,20 @@ fn read_amd_telemetry(
     let vram_total_bytes = read_u64_sysfs(&card.device_dir.join("mem_info_vram_total"));
     let vram_used_bytes = read_u64_sysfs(&card.device_dir.join("mem_info_vram_used"));
 
-    let (vram_free_bytes, vram_utilization_percent) =
-        match (&vram_total_bytes, &vram_used_bytes) {
-            (MetricValue::Available(total), MetricValue::Available(used)) if *total > 0 => (
-                MetricValue::Available(total.saturating_sub(*used)),
-                MetricValue::Available((*used as f64 / *total as f64) * 100.0),
-            ),
-            (MetricValue::Available(0), _) => (
-                MetricValue::Unavailable("Reported total VRAM is zero".into()),
-                MetricValue::Unavailable("Reported total VRAM is zero".into()),
-            ),
-            _ => (
-                MetricValue::Unsupported("VRAM counters unavailable".into()),
-                MetricValue::Unsupported("VRAM counters unavailable".into()),
-            ),
-        };
+    let (vram_free_bytes, vram_utilization_percent) = match (&vram_total_bytes, &vram_used_bytes) {
+        (MetricValue::Available(total), MetricValue::Available(used)) if *total > 0 => (
+            MetricValue::Available(total.saturating_sub(*used)),
+            MetricValue::Available((*used as f64 / *total as f64) * 100.0),
+        ),
+        (MetricValue::Available(0), _) => (
+            MetricValue::Unavailable("Reported total VRAM is zero".into()),
+            MetricValue::Unavailable("Reported total VRAM is zero".into()),
+        ),
+        _ => (
+            MetricValue::Unsupported("VRAM counters unavailable".into()),
+            MetricValue::Unsupported("VRAM counters unavailable".into()),
+        ),
+    };
 
     let temperature_celsius = read_hwmon_temp(card.hwmon_dir.as_deref());
 
@@ -321,7 +320,10 @@ pub fn parse_active_dpm_mhz(content: &str) -> Option<u32> {
             continue;
         }
         for token in trimmed.split_whitespace() {
-            if let Some(mhz_str) = token.strip_suffix("Mhz").or_else(|| token.strip_suffix("MHz")) {
+            if let Some(mhz_str) = token
+                .strip_suffix("Mhz")
+                .or_else(|| token.strip_suffix("MHz"))
+            {
                 if let Ok(mhz) = mhz_str.parse::<u32>() {
                     return Some(mhz);
                 }
@@ -400,8 +402,14 @@ fn parse_uevent(content: &str) -> (Option<String>, Option<String>) {
 }
 
 fn lookup_pci_device_name(vendor_hex: &str, device_hex: &str) -> Option<String> {
-    let v_target = vendor_hex.trim().trim_start_matches("0x").to_ascii_lowercase();
-    let d_target = device_hex.trim().trim_start_matches("0x").to_ascii_lowercase();
+    let v_target = vendor_hex
+        .trim()
+        .trim_start_matches("0x")
+        .to_ascii_lowercase();
+    let d_target = device_hex
+        .trim()
+        .trim_start_matches("0x")
+        .to_ascii_lowercase();
     if v_target.is_empty() || d_target.is_empty() {
         return None;
     }

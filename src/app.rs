@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
-use crate::localization::{Localizer, resolve_locale};
+use crate::localization::{resolve_locale, Localizer};
 use crate::models::history::BoundedHistory;
 use crate::models::metrics::{MetricStatus, MetricValue};
 use crate::models::telemetry::{GpuTelemetry, TelemetrySnapshot};
@@ -171,12 +171,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     }
 
     // Spawn background monitoring thread
-    let monitor_handle = spawn_monitor_thread(
-        shared.clone(),
-        condvar.clone(),
-        models,
-        window.as_weak(),
-    );
+    let monitor_handle =
+        spawn_monitor_thread(shared.clone(), condvar.clone(), models, window.as_weak());
 
     let run_result = window.run();
 
@@ -504,7 +500,9 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     window.set_cpu_cores_threads(SharedString::from(cores_threads));
 
     let (cpu_freq_text, cpu_freq_status) =
-        format_metric_str(&snap.cpu.average_frequency_mhz, loc, |mhz| format_frequency_mhz(*mhz));
+        format_metric_str(&snap.cpu.average_frequency_mhz, loc, |mhz| {
+            format_frequency_mhz(*mhz)
+        });
     window.set_cpu_freq_text(cpu_freq_text);
     window.set_cpu_freq_status(cpu_freq_status);
 
@@ -566,7 +564,9 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
 
     // Memory
     let (ram_util_text, ram_util_status) =
-        format_metric_str(&snap.memory.utilization_percent, loc, |v| format!("{v:.1}%"));
+        format_metric_str(&snap.memory.utilization_percent, loc, |v| {
+            format!("{v:.1}%")
+        });
     window.set_ram_util_text(ram_util_text);
     window.set_ram_util_percent(snap.memory.utilization_percent.copied().unwrap_or(0.0) as f32);
     window.set_ram_util_status(ram_util_status);
@@ -576,7 +576,9 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     let (mem_used_text, mem_used_status) =
         format_metric_str(&snap.memory.used_bytes, loc, |b| format_bytes_binary(*b));
     let (mem_avail_text, mem_avail_status) =
-        format_metric_str(&snap.memory.available_bytes, loc, |b| format_bytes_binary(*b));
+        format_metric_str(&snap.memory.available_bytes, loc, |b| {
+            format_bytes_binary(*b)
+        });
     window.set_mem_total_text(mem_total_text.clone());
     window.set_mem_total_status(mem_total_status);
     window.set_mem_used_text(mem_used_text.clone());
@@ -590,11 +592,17 @@ fn render_snapshot_to_window(window: &AppWindow, models: &UiModels, state: &Shar
     });
 
     let (swap_total_text, swap_total_status) =
-        format_metric_str(&snap.memory.swap_total_bytes, loc, |b| format_bytes_binary(*b));
+        format_metric_str(&snap.memory.swap_total_bytes, loc, |b| {
+            format_bytes_binary(*b)
+        });
     let (swap_used_text, swap_used_status) =
-        format_metric_str(&snap.memory.swap_used_bytes, loc, |b| format_bytes_binary(*b));
+        format_metric_str(&snap.memory.swap_used_bytes, loc, |b| {
+            format_bytes_binary(*b)
+        });
     let (swap_util_text, swap_util_status) =
-        format_metric_str(&snap.memory.swap_utilization_percent, loc, |v| format!("{v:.1}%"));
+        format_metric_str(&snap.memory.swap_utilization_percent, loc, |v| {
+            format!("{v:.1}%")
+        });
     window.set_swap_total_text(swap_total_text);
     window.set_swap_total_status(swap_total_status);
     window.set_swap_used_text(swap_used_text);

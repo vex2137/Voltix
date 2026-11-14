@@ -116,7 +116,10 @@ mod tests {
         let loc_pl = Localizer::new(LocaleCode::Pl);
         assert_eq!(loc_en.tr("nav_dashboard"), "Dashboard");
         assert_eq!(loc_pl.tr("nav_dashboard"), "Pulpit");
-        assert_eq!(loc_pl.tr("nonexistent_key_fallback"), "nonexistent_key_fallback");
+        assert_eq!(
+            loc_pl.tr("nonexistent_key_fallback"),
+            "nonexistent_key_fallback"
+        );
     }
 
     #[test]
@@ -124,7 +127,10 @@ mod tests {
         let en = parse_locale_map(EN_JSON);
         let pl = parse_locale_map(PL_JSON);
         for key in en.keys() {
-            assert!(pl.contains_key(key), "Missing Polish translation for key '{key}'");
+            assert!(
+                pl.contains_key(key),
+                "Missing Polish translation for key '{key}'"
+            );
         }
     }
 }

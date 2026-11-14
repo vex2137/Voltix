@@ -63,8 +63,14 @@ mod tests {
         assert!((celsius_to_fahrenheit(0.0) - 32.0).abs() < 1e-6);
         assert!((celsius_to_fahrenheit(100.0) - 212.0).abs() < 1e-6);
         assert!((celsius_to_fahrenheit(-40.0) - (-40.0)).abs() < 1e-6);
-        assert_eq!(format_temperature(45.5, TemperatureUnit::Celsius), "45.5 °C");
-        assert_eq!(format_temperature(25.0, TemperatureUnit::Fahrenheit), "77.0 °F");
+        assert_eq!(
+            format_temperature(45.5, TemperatureUnit::Celsius),
+            "45.5 °C"
+        );
+        assert_eq!(
+            format_temperature(25.0, TemperatureUnit::Fahrenheit),
+            "77.0 °F"
+        );
     }
 
     #[test]

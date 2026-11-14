@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use voltix::localization::{LocaleCode, Localizer, resolve_locale};
+use voltix::localization::{resolve_locale, LocaleCode, Localizer};
 use voltix::models::history::BoundedHistory;
 use voltix::models::metrics::{MetricStatus, MetricValue};
 use voltix::monitoring::cpu::{compute_utilization, parse_proc_cpuinfo, parse_proc_stat};
@@ -45,7 +45,10 @@ fn memory_disk_system_and_localization_integration() {
         "MemTotal: 16000000 kB\nMemAvailable: 8000000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n",
     );
     assert_eq!(mem.utilization_percent, MetricValue::Available(50.0));
-    assert_eq!(mem.swap_utilization_percent.status(), MetricStatus::Unsupported);
+    assert_eq!(
+        mem.swap_utilization_percent.status(),
+        MetricStatus::Unsupported
+    );
 
     let mounts = parse_and_deduplicate_mounts(
         "/dev/nvme0n1p2 /home btrfs rw 0 0\n/dev/nvme0n1p2 / btrfs rw 0 0\n",
@@ -56,7 +59,10 @@ fn memory_disk_system_and_localization_integration() {
     let cpu_info = parse_proc_cpuinfo("processor : 0\nmodel name : Test CPU\n");
     assert_eq!(cpu_info.logical_cpus, MetricValue::Available(1));
 
-    assert_eq!(parse_os_release("PRETTY_NAME=\"CachyOS\"").as_deref(), Some("CachyOS"));
+    assert_eq!(
+        parse_os_release("PRETTY_NAME=\"CachyOS\"").as_deref(),
+        Some("CachyOS")
+    );
     assert_eq!(parse_proc_uptime("42.9 10.0"), Some(42));
 
     let mut settings = UserSettings {
@@ -67,7 +73,10 @@ fn memory_disk_system_and_localization_integration() {
     assert_eq!(settings.polling_interval_ms, 250);
 
     assert!((celsius_to_fahrenheit(20.0) - 68.0).abs() < 1e-6);
-    assert_eq!(format_temperature(20.0, TemperatureUnit::Fahrenheit), "68.0 °F");
+    assert_eq!(
+        format_temperature(20.0, TemperatureUnit::Fahrenheit),
+        "68.0 °F"
+    );
 
     let loc = Localizer::new(resolve_locale(LanguagePreference::Polish));
     assert_eq!(loc.locale(), LocaleCode::Pl);

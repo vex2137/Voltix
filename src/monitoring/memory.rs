@@ -23,10 +23,8 @@ impl MemoryMonitor {
                 };
                 #[cfg(target_os = "android")]
                 {
-                    let mut mem = unavailable_memory(
-                        status,
-                        &format!("Unable to read /proc/meminfo: {err}"),
-                    );
+                    let mut mem =
+                        unavailable_memory(status, &format!("Unable to read /proc/meminfo: {err}"));
                     let mut info: libc::sysinfo = unsafe { std::mem::zeroed() };
                     if unsafe { libc::sysinfo(&mut info) } == 0 && info.totalram > 0 {
                         let unit = (info.mem_unit as u64).max(1);
@@ -102,7 +100,10 @@ pub fn parse_proc_meminfo(content: &str) -> MemoryTelemetry {
         (MetricValue::Available(total), MetricValue::Available(avail)) if *total > 0 => {
             let used = total.saturating_sub(*avail);
             let pct = ((used as f64) / (*total as f64)) * 100.0;
-            (MetricValue::Available(used), MetricValue::Available(pct.clamp(0.0, 100.0)))
+            (
+                MetricValue::Available(used),
+                MetricValue::Available(pct.clamp(0.0, 100.0)),
+            )
         }
         (MetricValue::Available(0), _) => (
             MetricValue::Unavailable("MemTotal reported as zero".into()),
@@ -164,11 +165,20 @@ SwapFree:        6291456 kB
 ";
         let mem = parse_proc_meminfo(sample);
         assert_eq!(mem.total_bytes, MetricValue::Available(32_768_000 * 1024));
-        assert_eq!(mem.available_bytes, MetricValue::Available(16_384_000 * 1024));
+        assert_eq!(
+            mem.available_bytes,
+            MetricValue::Available(16_384_000 * 1024)
+        );
         assert_eq!(mem.used_bytes, MetricValue::Available(16_384_000 * 1024));
         assert_eq!(mem.utilization_percent, MetricValue::Available(50.0));
-        assert_eq!(mem.swap_total_bytes, MetricValue::Available(8_388_608 * 1024));
-        assert_eq!(mem.swap_used_bytes, MetricValue::Available(2_097_152 * 1024));
+        assert_eq!(
+            mem.swap_total_bytes,
+            MetricValue::Available(8_388_608 * 1024)
+        );
+        assert_eq!(
+            mem.swap_used_bytes,
+            MetricValue::Available(2_097_152 * 1024)
+        );
         assert_eq!(mem.swap_utilization_percent, MetricValue::Available(25.0));
     }
 

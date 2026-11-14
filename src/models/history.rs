@@ -113,7 +113,10 @@ impl BoundedHistory {
             }
             let (first_x, first_y) = pts[0];
             let _ = write!(line, "M {first_x:.2} {first_y:.2}");
-            let _ = write!(area, "M {first_x:.2} {height:.2} L {first_x:.2} {first_y:.2}");
+            let _ = write!(
+                area,
+                "M {first_x:.2} {height:.2} L {first_x:.2} {first_y:.2}"
+            );
             for &(x, y) in &pts[1..] {
                 let _ = write!(line, " L {x:.2} {y:.2}");
                 let _ = write!(area, " L {x:.2} {y:.2}");
@@ -134,16 +137,14 @@ impl BoundedHistory {
                 continue;
             }
 
-            let age = now.saturating_duration_since(sample.timestamp).as_secs_f64();
+            let age = now
+                .saturating_duration_since(sample.timestamp)
+                .as_secs_f64();
             let x = ((1.0 - (age / window_secs)).clamp(0.0, 1.0)) * width;
 
             let is_gap = prev_t
                 .map(|pt| {
-                    sample
-                        .timestamp
-                        .saturating_duration_since(pt)
-                        .as_secs_f64()
-                        > max_gap_secs
+                    sample.timestamp.saturating_duration_since(pt).as_secs_f64() > max_gap_secs
                 })
                 .unwrap_or(false);
 
