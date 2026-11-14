@@ -1,6 +1,6 @@
 {
   "app_name": "Voltix",
-  "app_version": "0.1.0-alpha.1",
+  "app_version": "0.1.0-alpha.2",
   "nav_dashboard": "Pulpit",
   "nav_cpu": "Procesor",
   "nav_gpu": "GPU",

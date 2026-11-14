@@ -302,6 +302,7 @@ export component CpuPage inherits Rectangle {
 
             // Utilization chart
             TelemetryChart {
+                compact: root.compact;
                 title: root.chart-title;
                 current-value-text: root.chart-value-text;
                 line-commands: root.line-commands;

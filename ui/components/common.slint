@@ -30,8 +30,6 @@ export component ProgressBar inherits Rectangle {
         width: root.available ? parent.width * clamp(root.value / 100.0, 0.0, 1.0) : 0px;
         border-radius: 4px;
         background: root.bar-color;
-
-        animate width { duration: 180ms; easing: ease-out; }
     }
 }
 
@@ -46,8 +44,8 @@ export component SummaryCard inherits Card {
     in property <bool> compact: false;
 
     VerticalLayout {
-        padding: root.compact ? 12px : 16px;
-        spacing: root.compact ? 6px : 8px;
+        padding: root.compact ? 12px : 14px;
+        spacing: root.compact ? 5px : 7px;
 
         Text {
             text: root.label;
@@ -60,15 +58,15 @@ export component SummaryCard inherits Card {
         Text {
             text: root.primary-value;
             color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
-            font-size: root.status == 0 ? (root.compact ? 19px : 22px) : 14px;
+            font-size: root.status == 0 ? (root.compact ? 18px : 20px) : 13px;
             font-weight: 700;
-            overflow: elide;
+            wrap: word-wrap;
         }
 
-        if root.show-progress : ProgressBar {
+        if root.show-progress && root.status == 0 : ProgressBar {
             value: root.progress;
-            bar-color: root.accent-color;
-            available: root.status == 0;
+            bar-color: root.progress > 92.0 ? Theme.accent-red : (root.progress > 80.0 ? Theme.accent-amber : root.accent-color);
+            available: true;
         }
 
         if root.secondary-value != "" : Text {

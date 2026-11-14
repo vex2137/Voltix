@@ -7,19 +7,21 @@ component BottomNavItem inherits TouchArea {
     in property <bool> active: false;
 
     horizontal-stretch: 1;
-    min-width: 52px;
-    height: 62px;
+    min-width: 56px;
+    height: 60px;
     mouse-cursor: pointer;
 
     Rectangle {
         border-radius: Theme.radius-sm;
         background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : transparent);
+        border-width: root.active ? 1px : 0px;
+        border-color: Theme.accent-soft;
 
         VerticalLayout {
-            padding-top: 6px;
-            padding-bottom: 6px;
-            padding-left: 3px;
-            padding-right: 3px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            padding-left: 4px;
+            padding-right: 4px;
             spacing: 4px;
             alignment: center;
 
@@ -27,7 +29,7 @@ component BottomNavItem inherits TouchArea {
                 alignment: center;
 
                 Rectangle {
-                    width: 30px;
+                    width: 32px;
                     height: 22px;
                     border-radius: 5px;
                     background: root.active ? Theme.accent : Theme.bg-elevated;
@@ -70,16 +72,16 @@ export component BottomNav inherits Rectangle {
         }
 
         Flickable {
-            height: 68px;
+            height: 66px;
             interactive: self.viewport-width > self.width;
-            viewport-width: max(self.width, 378px + root.left-inset + root.right-inset);
-            viewport-height: 68px;
+            viewport-width: max(self.width, 432px + root.left-inset + root.right-inset);
+            viewport-height: 66px;
 
             HorizontalLayout {
                 width: parent.viewport-width;
-                height: 68px;
-                padding-left: 6px + root.left-inset;
-                padding-right: 6px + root.right-inset;
+                height: 66px;
+                padding-left: 8px + root.left-inset;
+                padding-right: 8px + root.right-inset;
                 padding-top: 3px;
                 padding-bottom: 3px;
                 spacing: 4px;

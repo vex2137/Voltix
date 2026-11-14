@@ -232,9 +232,9 @@ export component AppWindow inherits Window {
                                     border-color: Theme.border-subtle;
 
                                     HorizontalLayout {
-                                        padding-left: root.compact-mode ? 8px : 10px;
-                                        padding-right: root.compact-mode ? 8px : 10px;
-                                        spacing: 5px;
+                                        padding-left: root.compact-mode ? 7px : 10px;
+                                        padding-right: root.compact-mode ? 7px : 10px;
+                                        spacing: 4px;
                                         Text {
                                             text: root.cpu-header-label + ":";
                                             color: Theme.text-muted;
@@ -262,9 +262,9 @@ export component AppWindow inherits Window {
                                     border-color: Theme.border-subtle;
 
                                     HorizontalLayout {
-                                        padding-left: root.compact-mode ? 8px : 10px;
-                                        padding-right: root.compact-mode ? 8px : 10px;
-                                        spacing: 5px;
+                                        padding-left: root.compact-mode ? 7px : 10px;
+                                        padding-right: root.compact-mode ? 7px : 10px;
+                                        spacing: 4px;
                                         Text {
                                             text: "RAM:";
                                             color: Theme.text-muted;
@@ -273,7 +273,7 @@ export component AppWindow inherits Window {
                                         }
                                         Text {
                                             text: root.ram-util-text;
-                                            color: root.ram-util-status == 0 ? Theme.accent-emerald : Theme.text-muted;
+                                            color: root.ram-util-status == 0 ? Theme.accent-emerald : (root.ram-util-status == 3 ? Theme.accent-amber : Theme.text-muted);
                                             font-size: 11px;
                                             font-weight: 700;
                                             vertical-alignment: center;

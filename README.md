@@ -1,6 +1,6 @@
 # Voltix
 
-**Version:** `0.1.0-alpha.1`  
+**Version:** `0.1.0-alpha.2`  
 **License:** MIT  
 **Repository:** `vex2137/Voltix`
 
@@ -102,8 +102,8 @@ gradle -p android assembleDebug --no-daemon
 
 GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 
-1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-0.1.0-alpha.1-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
-2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.1-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
+1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-0.1.0-alpha.2-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
+2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.2-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
 
 ## Known Limitations (Alpha 1)
 

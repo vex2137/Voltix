@@ -203,6 +203,7 @@ export component MemoryPage inherits Rectangle {
             }
 
             TelemetryChart {
+                compact: root.compact;
                 title: I18n.mem-history-title;
                 current-value-text: root.util-text;
                 line-commands: root.line-commands;

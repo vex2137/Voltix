@@ -18,7 +18,7 @@ use crate::monitoring::MonitoringEngine;
 use crate::platform::detect_system_dark_mode;
 use crate::settings::{LanguagePreference, TemperatureUnit, ThemePreference, UserSettings};
 use crate::utils::format::{
-    format_bytes_binary, format_frequency_mhz, format_temperature, format_uptime,
+    format_bytes_binary, format_frequency_mhz, format_temperature, format_uptime_compact,
 };
 
 slint::include_modules!();
@@ -27,6 +27,21 @@ const HISTORY_CAPACITY: usize = 240;
 const CHART_WINDOW: Duration = Duration::from_secs(60);
 const CHART_VIEWBOX_W: f64 = 600.0;
 const CHART_VIEWBOX_H: f64 = 140.0;
+
+#[derive(Default)]
+struct RenderCache {
+    cpu_line: String,
+    cpu_area: String,
+    cpu_has: Option<bool>,
+    ram_line: String,
+    ram_area: String,
+    ram_has: Option<bool>,
+    gpu_line: String,
+    gpu_area: String,
+    gpu_has: Option<bool>,
+    gpu_empty: String,
+    sys_gpus: Option<Vec<(String, String, String)>>,
+}
 
 struct SharedState {
     shutdown: bool,
@@ -39,6 +54,7 @@ struct SharedState {
     cpu_history: BoundedHistory,
     ram_history: BoundedHistory,
     gpu_histories: HashMap<String, BoundedHistory>,
+    render_cache: RenderCache,
 }
 
 fn update_vec_model<T: 'static>(model: ModelRc<T>, items: Vec<T>) {
@@ -71,11 +87,12 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         cpu_history: BoundedHistory::new(HISTORY_CAPACITY),
         ram_history: BoundedHistory::new(HISTORY_CAPACITY),
         gpu_histories: HashMap::new(),
+        render_cache: RenderCache::default(),
     }));
     let condvar = Arc::new(Condvar::new());
 
     // Apply initial settings, theme, and translations
-    if let Ok(state) = shared.lock() {
+    if let Ok(mut state) = shared.lock() {
         apply_theme_to_window(&window, state.settings.theme);
         apply_i18n_to_window(&window, &state.localizer);
         apply_settings_to_window(&window, &state.settings, state.config_path.as_deref());
@@ -84,7 +101,9 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.set_dash_cpu_chart_title(SharedString::from(state.localizer.tr("dash_cpu_history")));
         window.set_cpu_chart_title(SharedString::from(state.localizer.tr("cpu_history_title")));
         window.set_selected_gpu(empty_gpu_item(&state.localizer));
-        window.set_gpu_chart_empty_text(SharedString::from(state.localizer.tr("status_sampling")));
+        let sampling_msg = state.localizer.tr("status_sampling").to_string();
+        window.set_gpu_chart_empty_text(SharedString::from(sampling_msg.as_str()));
+        state.render_cache.gpu_empty = sampling_msg;
     }
 
     // Wire UI callbacks
@@ -94,7 +113,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_select_gpu(move |idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 state.selected_gpu_index = idx.max(0) as usize;
-                render_snapshot_to_window(&win, &state);
+                render_snapshot_to_window(&win, &mut state);
             }
         });
     }
@@ -131,7 +150,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 persist_settings(&state);
                 apply_i18n_to_window(&win, &state.localizer);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
-                render_snapshot_to_window(&win, &state);
+                render_snapshot_to_window(&win, &mut state);
             }
         });
     }
@@ -147,7 +166,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 };
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
-                render_snapshot_to_window(&win, &state);
+                render_snapshot_to_window(&win, &mut state);
             }
         });
     }
@@ -255,8 +274,8 @@ fn spawn_monitor_thread(
                 let shared_ui = shared.clone();
                 let weak_ui = weak_window.clone();
                 let _ = slint::invoke_from_event_loop(move || {
-                    if let (Ok(state), Some(win)) = (shared_ui.lock(), weak_ui.upgrade()) {
-                        render_snapshot_to_window(&win, &state);
+                    if let (Ok(mut state), Some(win)) = (shared_ui.lock(), weak_ui.upgrade()) {
+                        render_snapshot_to_window(&win, &mut state);
                     }
                 });
 
@@ -445,8 +464,8 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_diag_notice_title(SharedString::from(loc.tr("diag_notice_title")));
 }
 
-fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
-    let Some(snap) = &state.latest_snapshot else {
+fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
+    let Some(snap) = state.latest_snapshot.as_ref() else {
         return;
     };
 
@@ -475,8 +494,9 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     window.set_hostname(host_text);
     window.set_hostname_status(host_status);
 
-    let (uptime_text, uptime_status) =
-        format_metric_str(&snap.system.uptime_seconds, loc, |s| format_uptime(*s));
+    let (uptime_text, uptime_status) = format_metric_str(&snap.system.uptime_seconds, loc, |s| {
+        format_uptime_compact(*s)
+    });
     window.set_uptime_text(uptime_text);
     window.set_uptime_status(uptime_status);
 
@@ -699,21 +719,28 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
         .cloned()
         .unwrap_or_else(|| empty_gpu_item(loc));
 
-    let sys_gpus: Vec<SystemGpuItem> = snap
+    let sys_gpu_keys: Vec<(String, String, String)> = snap
         .gpus
         .iter()
         .map(|g| {
             let (drv, _) = format_metric_str(&g.driver_version, loc, |s| s.clone());
-            SystemGpuItem {
-                name: SharedString::from(g.name.as_str()),
-                vendor: SharedString::from(g.vendor_name.as_str()),
-                driver: drv,
-            }
+            (g.name.clone(), g.vendor_name.clone(), drv.to_string())
         })
         .collect();
 
     update_vec_model(window.get_gpus(), gpu_items);
-    update_vec_model(window.get_system_gpus(), sys_gpus);
+    if state.render_cache.sys_gpus.as_ref() != Some(&sys_gpu_keys) {
+        let sys_gpus: Vec<SystemGpuItem> = sys_gpu_keys
+            .iter()
+            .map(|(name, vendor, driver)| SystemGpuItem {
+                name: SharedString::from(name.as_str()),
+                vendor: SharedString::from(vendor.as_str()),
+                driver: SharedString::from(driver.as_str()),
+            })
+            .collect();
+        update_vec_model(window.get_system_gpus(), sys_gpus);
+        state.render_cache.sys_gpus = Some(sys_gpu_keys);
+    }
     window.set_has_gpus(has_gpus);
     window.set_selected_gpu_index(selected_idx as i32);
     window.set_selected_gpu(selected_gpu_item.clone());
@@ -772,7 +799,7 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     )));
     window.set_storage_notice_text(SharedString::from(build_storage_notice(&snap.storage, loc)));
 
-    // Real-time bounded 60s charts
+    // Real-time bounded 60s charts (update Slint paths only when changed)
     let now = snap.sampled_at;
 
     let cpu_paths = state.cpu_history.build_chart_paths(
@@ -784,9 +811,18 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
         100.0,
         max_gap,
     );
-    window.set_cpu_line_commands(SharedString::from(cpu_paths.line_commands));
-    window.set_cpu_area_commands(SharedString::from(cpu_paths.area_commands));
-    window.set_cpu_has_history(cpu_paths.has_data);
+    if state.render_cache.cpu_line != cpu_paths.line_commands {
+        window.set_cpu_line_commands(SharedString::from(cpu_paths.line_commands.as_str()));
+        state.render_cache.cpu_line = cpu_paths.line_commands;
+    }
+    if state.render_cache.cpu_area != cpu_paths.area_commands {
+        window.set_cpu_area_commands(SharedString::from(cpu_paths.area_commands.as_str()));
+        state.render_cache.cpu_area = cpu_paths.area_commands;
+    }
+    if state.render_cache.cpu_has != Some(cpu_paths.has_data) {
+        window.set_cpu_has_history(cpu_paths.has_data);
+        state.render_cache.cpu_has = Some(cpu_paths.has_data);
+    }
 
     let ram_paths = state.ram_history.build_chart_paths(
         now,
@@ -797,11 +833,20 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
         100.0,
         max_gap,
     );
-    window.set_ram_line_commands(SharedString::from(ram_paths.line_commands));
-    window.set_ram_area_commands(SharedString::from(ram_paths.area_commands));
-    window.set_ram_has_history(ram_paths.has_data);
+    if state.render_cache.ram_line != ram_paths.line_commands {
+        window.set_ram_line_commands(SharedString::from(ram_paths.line_commands.as_str()));
+        state.render_cache.ram_line = ram_paths.line_commands;
+    }
+    if state.render_cache.ram_area != ram_paths.area_commands {
+        window.set_ram_area_commands(SharedString::from(ram_paths.area_commands.as_str()));
+        state.render_cache.ram_area = ram_paths.area_commands;
+    }
+    if state.render_cache.ram_has != Some(ram_paths.has_data) {
+        window.set_ram_has_history(ram_paths.has_data);
+        state.render_cache.ram_has = Some(ram_paths.has_data);
+    }
 
-    if let Some(gpu) = snap.gpus.get(selected_idx) {
+    let (gpu_line, gpu_area, gpu_has, gpu_empty) = if let Some(gpu) = snap.gpus.get(selected_idx) {
         if let Some(hist) = state.gpu_histories.get(&gpu.id) {
             let gpu_paths = hist.build_chart_paths(
                 now,
@@ -812,26 +857,53 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
                 100.0,
                 max_gap,
             );
-            window.set_gpu_line_commands(SharedString::from(gpu_paths.line_commands));
-            window.set_gpu_area_commands(SharedString::from(gpu_paths.area_commands));
-            window.set_gpu_has_history(gpu_paths.has_data);
-            if !gpu_paths.has_data {
-                let empty_msg = match gpu.utilization_percent.status() {
-                    MetricStatus::Unsupported => loc.tr("status_unsupported"),
-                    MetricStatus::PermissionError => loc.tr("status_permission_denied"),
-                    _ => loc.tr("status_unavailable"),
-                };
-                window.set_gpu_chart_empty_text(SharedString::from(empty_msg));
-            }
+            let empty_msg = if gpu_paths.has_data {
+                String::new()
+            } else {
+                match gpu.utilization_percent.status() {
+                    MetricStatus::Unsupported => loc.tr("status_unsupported").to_string(),
+                    MetricStatus::PermissionError => loc.tr("status_permission_denied").to_string(),
+                    _ => loc.tr("status_unavailable").to_string(),
+                }
+            };
+            (
+                gpu_paths.line_commands,
+                gpu_paths.area_commands,
+                gpu_paths.has_data,
+                empty_msg,
+            )
         } else {
-            window.set_gpu_has_history(false);
-            window.set_gpu_chart_empty_text(SharedString::from(loc.tr("status_sampling")));
+            (
+                String::new(),
+                String::new(),
+                false,
+                loc.tr("status_sampling").to_string(),
+            )
         }
     } else {
-        window.set_gpu_line_commands(SharedString::default());
-        window.set_gpu_area_commands(SharedString::default());
-        window.set_gpu_has_history(false);
-        window.set_gpu_chart_empty_text(SharedString::from(loc.tr("gpu_none_detected")));
+        (
+            String::new(),
+            String::new(),
+            false,
+            loc.tr("gpu_none_detected").to_string(),
+        )
+    };
+
+    if state.render_cache.gpu_line != gpu_line {
+        window.set_gpu_line_commands(SharedString::from(gpu_line.as_str()));
+        state.render_cache.gpu_line = gpu_line;
+    }
+    if state.render_cache.gpu_area != gpu_area {
+        window.set_gpu_area_commands(SharedString::from(gpu_area.as_str()));
+        state.render_cache.gpu_area = gpu_area;
+    }
+    if state.render_cache.gpu_has != Some(gpu_has) {
+        window.set_gpu_has_history(gpu_has);
+        state.render_cache.gpu_has = Some(gpu_has);
+    }
+    if !gpu_empty.is_empty() && state.render_cache.gpu_empty != gpu_empty {
+        window.set_gpu_chart_empty_text(SharedString::from(gpu_empty.as_str()));
+        state.render_cache.gpu_empty = gpu_empty;
     }
 }
 

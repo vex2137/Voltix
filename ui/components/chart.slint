@@ -14,12 +14,13 @@ export component TelemetryChart inherits Card {
     in property <string> y-max-label: "100%";
     in property <string> y-mid-label: "50%";
     in property <string> y-min-label: "0%";
+    in property <bool> compact: false;
 
-    min-height: 210px;
+    min-height: root.compact ? 184px : 210px;
 
     VerticalLayout {
-        padding: 16px;
-        spacing: 10px;
+        padding: root.compact ? 12px : 16px;
+        spacing: root.compact ? 8px : 10px;
 
         HorizontalLayout {
             spacing: 12px;
@@ -49,7 +50,7 @@ export component TelemetryChart inherits Card {
 
             // Y-axis scale labels
             VerticalLayout {
-                width: 38px;
+                width: 34px;
                 alignment: space-between;
 
                 Text {
@@ -75,7 +76,7 @@ export component TelemetryChart inherits Card {
             // Chart plot area
             Rectangle {
                 horizontal-stretch: 1;
-                min-height: 124px;
+                min-height: root.compact ? 108px : 124px;
                 background: Theme.bg-elevated;
                 border-radius: Theme.radius-sm;
                 border-width: 1px;
@@ -108,7 +109,7 @@ export component TelemetryChart inherits Card {
                     viewbox-height: 140;
                     fill: transparent;
                     stroke: root.line-color;
-                    stroke-width: 2px;
+                    stroke-width: root.compact ? 1.75px : 2px;
                     commands: root.line-commands;
                 }
 
@@ -124,7 +125,7 @@ export component TelemetryChart inherits Card {
 
         // X-axis elapsed time markers
         HorizontalLayout {
-            padding-left: 46px;
+            padding-left: 42px;
             alignment: space-between;
 
             Text { text: I18n.chart-60s; color: Theme.text-muted; font-size: 10px; }

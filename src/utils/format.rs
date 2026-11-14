@@ -54,6 +54,21 @@ pub fn format_uptime(seconds: u64) -> String {
     }
 }
 
+pub fn format_uptime_compact(seconds: u64) -> String {
+    let days = seconds / 86_400;
+    let hours = (seconds % 86_400) / 3_600;
+    let mins = (seconds % 3_600) / 60;
+    let secs = seconds % 60;
+
+    if days > 0 {
+        format!("{days}d {hours:02}h {mins:02}m")
+    } else if hours > 0 {
+        format!("{hours:02}h {mins:02}m {secs:02}s")
+    } else {
+        format!("{mins:02}m {secs:02}s")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,5 +100,6 @@ mod tests {
         assert_eq!(format_uptime(65), "01m 05s");
         assert_eq!(format_uptime(3661), "01h 01m 01s");
         assert_eq!(format_uptime(90061), "1d 01h 01m 01s");
+        assert_eq!(format_uptime_compact(90061), "1d 01h 01m");
     }
 }
