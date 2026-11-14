@@ -1,6 +1,6 @@
 # Voltix
 
-**Version:** `0.1.0-alpha.2`  
+**Version:** `0.1.0-alpha.3`
 **License:** MIT  
 **Repository:** `vex2137/Voltix`
 
@@ -102,8 +102,8 @@ gradle -p android assembleDebug --no-daemon
 
 GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 
-1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-0.1.0-alpha.2-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
-2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.2-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
+1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-0.1.0-alpha.3-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
+2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.3-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
 
 ## Known Limitations (Alpha 1)
 
@@ -117,7 +117,7 @@ Licensed under the [MIT License](LICENSE).
 
 ## Android Alpha 2 updates
 
-The package ID remains `com.voltix.monitor`; Alpha 2 fixes use version code 3.
+The package ID remains `com.voltix.monitor`; Alpha 3 development uses version code 4.
 Release builds require the same private signing keystore used for the installed
 release. Configure all four CI secrets: `VOLTIX_KEYSTORE_BASE64`,
 `VOLTIX_KEYSTORE_PASSWORD`, `VOLTIX_KEY_ALIAS`, and `VOLTIX_KEY_PASSWORD`.
@@ -131,3 +131,28 @@ relied on for in-place updates. Partial signing configuration fails the build.
 An installed APK signed with another key cannot be updated while preserving its
 data unless the original key (or a supported signing-key rotation) is available.
 A higher version code alone cannot resolve a certificate mismatch.
+
+## Alpha 3 development — interface milestone
+
+Interface Mode in Appearance switches immediately between Modern (balanced cards),
+Professional (dense current readings, GPU clocks/power and CPU core rows) and Gaming
+(performance summary and larger CPU/GPU history charts). All modes share the same
+monitoring engine. Four accent choices and interface mode persist in settings;
+older settings files migrate to Modern. Desktop content is capped at 1200 logical
+pixels and key/value groups keep readings near their labels. Existing mobile
+navigation, scrolling and safe-area handling remain in place.
+
+Gaming FPS/frametime explicitly show unavailable: no game telemetry provider is
+connected. The MangoHud backend, dedicated overlay editor, game launch integration,
+metric ordering, min/max tables and reduced-animation preference are **not yet
+implemented** in this milestone. No overlay controls pretend to enable injection.
+These remain work within Alpha 3. Existing UI uses no graph interpolation animation.
+
+For opt-in development timing, run `VOLTIX_PROFILE_STARTUP=1 cargo run --release`.
+Logs distinguish process entry, Slint component creation, monitoring-engine creation,
+event-loop entry and first telemetry applied to the UI. These are initialization
+milestones, **not first-frame presentation** or an actual usable-interface benchmark.
+No first-frame or sub-500ms claim is made. Normal runs do not emit timing logs.
+NVIDIA power draw uses NVML `power_usage` (mW converted to W), separately from the
+enforced/management power limit. Unsupported measurements remain unavailable;
+validation on real NVIDIA hardware is still required.
