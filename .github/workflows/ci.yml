@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - fix/alpha2-signing-and-layout
   pull_request:
   workflow_dispatch:
 
