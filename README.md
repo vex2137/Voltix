@@ -114,3 +114,20 @@ GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 ## License
 
 Licensed under the [MIT License](LICENSE).
+
+## Android Alpha 2 updates
+
+The package ID remains `com.voltix.monitor`; Alpha 2 fixes use version code 3.
+Release builds require the same private signing keystore used for the installed
+release. Configure all four CI secrets: `VOLTIX_KEYSTORE_BASE64`,
+`VOLTIX_KEYSTORE_PASSWORD`, `VOLTIX_KEY_ALIAS`, and `VOLTIX_KEY_PASSWORD`.
+Local release builds use `VOLTIX_KEYSTORE_PATH` instead of the Base64 secret.
+Keep this key backed up securely and reuse it for every release.
+
+CI verifies the APK signature, package ID, version code and ARM64 library.
+Without signing secrets, CI produces an explicitly named `-debug.apk` for testing;
+fresh runners generate different debug certificates, so these APKs cannot be
+relied on for in-place updates. Partial signing configuration fails the build.
+An installed APK signed with another key cannot be updated while preserving its
+data unless the original key (or a supported signing-key rotation) is available.
+A higher version code alone cannot resolve a certificate mismatch.

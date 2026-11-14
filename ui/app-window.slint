@@ -22,8 +22,15 @@ export component AppWindow inherits Window {
     min-height: 480px;
     background: Theme.bg-app;
 
-    private property <bool> compact-mode: root.width < 760px;
-    private property <bool> narrow-mode: root.width < 360px;
+    // Update breakpoints after sizing, avoiding a width -> minimum-layout -> width loop.
+    private property <bool> compact-mode: false;
+    private property <bool> narrow-mode: false;
+    function update-breakpoints() {
+        root.compact-mode = root.width < 760px;
+        root.narrow-mode = root.width - root.safe-area-insets.left - root.safe-area-insets.right < 360px;
+    }
+    changed width => { root.update-breakpoints(); }
+    changed safe-area-insets => { root.update-breakpoints(); }
     in-out property <int> current-page: 0;
 
     // Header & status properties
@@ -149,6 +156,7 @@ export component AppWindow inherits Window {
         Palette.color-scheme = root.sync-palette ? ColorScheme.dark : ColorScheme.light;
     }
     init => {
+        root.update-breakpoints();
         Palette.color-scheme = Theme.dark-mode ? ColorScheme.dark : ColorScheme.light;
     }
 

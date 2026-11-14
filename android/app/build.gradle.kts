@@ -10,7 +10,7 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        versionCode = 3
         versionName = "0.1.0-alpha.2"
 
         ndk {
@@ -27,6 +27,14 @@ android {
         !ksAlias.isNullOrBlank() &&
         !keyPass.isNullOrBlank() &&
         file(ksPath).exists()
+
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) }) {
+            require(hasReleaseSigning) {
+                "Release APKs require the existing Voltix signing key: set all VOLTIX_KEYSTORE_* and VOLTIX_KEY_* variables."
+            }
+        }
+    }
 
     signingConfigs {
         if (hasReleaseSigning) {

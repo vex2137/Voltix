@@ -63,13 +63,13 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy lints
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Run unit and integration tests
-        run: cargo test
+        run: cargo test --locked
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --locked --release
 
       - name: Validate desktop entry
         run: desktop-file-validate packaging/linux/voltix.desktop
@@ -193,11 +193,11 @@ jobs:
           key: android-arm64
 
       - name: Run Clippy lints for Android target
-        run: cargo ndk -t arm64-v8a --platform 26 clippy --lib -- -D warnings
+        run: cargo ndk -t arm64-v8a --platform 26 clippy --locked --lib -- -D warnings
 
       - name: Build native Android library (arm64-v8a)
         run: |
-          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --lib --release
+          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --release
           ls -lh android/app/src/main/jniLibs/arm64-v8a/libvoltix.so
 
       - name: Set up Gradle
@@ -206,31 +206,44 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build Android APK
+        id: apk
         env:
           VOLTIX_KEYSTORE_BASE64: ${{ secrets.VOLTIX_KEYSTORE_BASE64 }}
           VOLTIX_KEYSTORE_PASSWORD: ${{ secrets.VOLTIX_KEYSTORE_PASSWORD }}
           VOLTIX_KEY_ALIAS: ${{ secrets.VOLTIX_KEY_ALIAS }}
           VOLTIX_KEY_PASSWORD: ${{ secrets.VOLTIX_KEY_PASSWORD }}
         run: |
+          configured=0
+          for name in VOLTIX_KEYSTORE_BASE64 VOLTIX_KEYSTORE_PASSWORD VOLTIX_KEY_ALIAS VOLTIX_KEY_PASSWORD; do
+            if [ -n "${!name}" ]; then configured=$((configured + 1)); fi
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo "Incomplete release signing configuration; refusing a debug fallback."
+            exit 1
+          fi
           if [ -n "$VOLTIX_KEYSTORE_BASE64" ] && [ -n "$VOLTIX_KEYSTORE_PASSWORD" ] && [ -n "$VOLTIX_KEY_ALIAS" ] && [ -n "$VOLTIX_KEY_PASSWORD" ]; then
             export VOLTIX_KEYSTORE_PATH="$RUNNER_TEMP/voltix-release.keystore"
             trap 'rm -f "$VOLTIX_KEYSTORE_PATH"' EXIT
             printf '%s' "$VOLTIX_KEYSTORE_BASE64" | base64 -d > "$VOLTIX_KEYSTORE_PATH"
             chmod 600 "$VOLTIX_KEYSTORE_PATH"
             gradle -p android assembleRelease --no-daemon
-            cp android/app/build/outputs/apk/release/app-release.apk Voltix-0.1.0-alpha.2-arm64.apk
+            apk_name=Voltix-0.1.0-alpha.2-arm64.apk
+            cp android/app/build/outputs/apk/release/app-release.apk "$apk_name"
           else
             echo "Android signing secrets not configured; falling back to debug APK build."
             gradle -p android assembleDebug --no-daemon
-            cp android/app/build/outputs/apk/debug/app-debug.apk Voltix-0.1.0-alpha.2-arm64.apk
+            apk_name=Voltix-0.1.0-alpha.2-arm64-debug.apk
+            cp android/app/build/outputs/apk/debug/app-debug.apk "$apk_name"
           fi
-          ls -lh Voltix-0.1.0-alpha.2-arm64.apk
-          unzip -l Voltix-0.1.0-alpha.2-arm64.apk | grep "lib/arm64-v8a/libvoltix.so"
+          echo "path=$apk_name" >> "$GITHUB_OUTPUT"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='3'"
+          unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
 
       - name: Upload Voltix Android APK
         uses: actions/upload-artifact@v4
         with:
           name: voltix-android-arm64-apk
-          path: Voltix-0.1.0-alpha.2-arm64.apk
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
           retention-days: 14

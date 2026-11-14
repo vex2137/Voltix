@@ -73,12 +73,12 @@ export component BottomNav inherits Rectangle {
 
         Flickable {
             height: 66px;
-            interactive: self.viewport-width > self.width;
-            viewport-width: max(self.width, 432px + root.left-inset + root.right-inset);
-            viewport-height: 66px;
+            interactive: self.content-width > self.width;
+            content-width: max(self.width, 432px + root.left-inset + root.right-inset);
+            content-height: 66px;
 
             HorizontalLayout {
-                width: parent.viewport-width;
+                width: parent.content-width;
                 height: 66px;
                 padding-left: 8px + root.left-inset;
                 padding-right: 8px + root.right-inset;
