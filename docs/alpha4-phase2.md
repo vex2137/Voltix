@@ -46,3 +46,28 @@ integration, hardware/device checks and final Alpha 4 version synchronization ar
 still outstanding. No FPS data or overlay behavior is simulated. An Android update
 still requires the installed app's original signing certificate and has not been
 verified on a device. Do not merge, publish or call this branch a completed Alpha 4.
+
+## Renderer investigation (development machine)
+
+Two sequential six-second runs used the same release binary SHA-256
+`be6445f67b0797a20955ed129b83866abfe772408a9f7e1f9af54c024ec19b5b`, the
+same Xvfb 1280×800 display and settings. Other profiling processes were active.
+At six seconds, `winit-software` reported RSS 25,908 KiB / PSS 20,814 KiB;
+`winit-femtovg` with `LIBGL_ALWAYS_SOFTWARE=1` reported RSS 123,784 KiB / PSS
+103,709 KiB. These are X11 software rendering and Mesa llvmpipe observations,
+not a physical GPU or KDE Wayland comparison. They justify further renderer and
+driver profiling, not changing the default renderer without functional and
+hardware validation. Swap was zero in both samples.
+
+## MangoHud investigation
+
+Upstream documents Steam launch option `mangohud %command%` and the environment
+variable `MANGOHUD_CONFIGFILE` for an explicit config file. Options in upstream's
+`data/MangoHud.conf` include `fps`, `frametime`, `cpu_stats`, `gpu_stats`,
+`cpu_temp`, `gpu_temp`, `ram`, `vram`, `gpu_power`, `font_size`, `position` and
+`background_alpha`. Upstream also documents that `MANGOHUD_CONFIG` takes priority
+over the config file. Sources: <https://github.com/flightlessmango/MangoHud> and
+<https://github.com/flightlessmango/MangoHud/blob/master/data/MangoHud.conf>.
+MangoHud is absent in this environment, so an actual game/overlay launch and
+configuration compatibility were not verified. Voltix does not yet expose overlay
+controls, generate a config or ingest game FPS. No global configuration was changed.
