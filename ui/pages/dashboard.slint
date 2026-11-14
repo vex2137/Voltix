@@ -6,10 +6,16 @@ import { TelemetryChart } from "../components/chart.slint";
 
 export component DashboardPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <bool> narrow: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
+
+    in property <string> cpu-card-label;
     in property <string> cpu-util-text;
     in property <float> cpu-util-percent;
     in property <int> cpu-util-status;
-    in property <string> cpu-temp-text;
+    in property <string> cpu-secondary-text;
+    in property <string> cpu-chart-title;
 
     in property <string> gpu-util-text;
     in property <float> gpu-util-percent;
@@ -48,9 +54,12 @@ export component DashboardPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             // Top summary cards row (desktop)
@@ -59,9 +68,9 @@ export component DashboardPage inherits Rectangle {
 
                 SummaryCard {
                     horizontal-stretch: 1;
-                    label: I18n.dash-cpu-card;
+                    label: root.cpu-card-label;
                     primary-value: root.cpu-util-text;
-                    secondary-value: root.cpu-temp-text;
+                    secondary-value: root.cpu-secondary-text;
                     progress: root.cpu-util-percent;
                     status: root.cpu-util-status;
                     accent-color: Theme.accent;
@@ -107,24 +116,26 @@ export component DashboardPage inherits Rectangle {
                 }
             }
 
-            // Compact summary grid (mobile/touch)
-            if root.compact : VerticalLayout {
+            // Compact summary grid (2-column mobile)
+            if root.compact && !root.narrow : VerticalLayout {
                 spacing: 10px;
 
                 HorizontalLayout {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
-                        label: I18n.dash-cpu-card;
+                        label: root.cpu-card-label;
                         primary-value: root.cpu-util-text;
-                        secondary-value: root.cpu-temp-text;
+                        secondary-value: root.cpu-secondary-text;
                         progress: root.cpu-util-percent;
                         status: root.cpu-util-status;
                         accent-color: Theme.accent;
                     }
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.dash-gpu-card;
                         primary-value: root.gpu-util-text;
@@ -139,6 +150,7 @@ export component DashboardPage inherits Rectangle {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.dash-ram-card;
                         primary-value: root.ram-util-text;
@@ -149,6 +161,7 @@ export component DashboardPage inherits Rectangle {
                     }
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.dash-vram-card;
                         primary-value: root.vram-util-text;
@@ -160,6 +173,61 @@ export component DashboardPage inherits Rectangle {
                 }
 
                 SummaryCard {
+                    compact: true;
+                    label: I18n.dash-uptime-card;
+                    primary-value: root.uptime-text;
+                    secondary-value: root.kernel-text;
+                    show-progress: false;
+                    status: root.uptime-status;
+                }
+            }
+
+            // Ultra-narrow 1-column stack (< 360px)
+            if root.compact && root.narrow : VerticalLayout {
+                spacing: 10px;
+
+                SummaryCard {
+                    compact: true;
+                    label: root.cpu-card-label;
+                    primary-value: root.cpu-util-text;
+                    secondary-value: root.cpu-secondary-text;
+                    progress: root.cpu-util-percent;
+                    status: root.cpu-util-status;
+                    accent-color: Theme.accent;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.dash-gpu-card;
+                    primary-value: root.gpu-util-text;
+                    secondary-value: root.gpu-temp-text;
+                    progress: root.gpu-util-percent;
+                    status: root.gpu-util-status;
+                    accent-color: Theme.accent-purple;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.dash-ram-card;
+                    primary-value: root.ram-util-text;
+                    secondary-value: root.ram-detail-text;
+                    progress: root.ram-util-percent;
+                    status: root.ram-util-status;
+                    accent-color: Theme.accent-emerald;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.dash-vram-card;
+                    primary-value: root.vram-util-text;
+                    secondary-value: root.vram-detail-text;
+                    progress: root.vram-util-percent;
+                    status: root.vram-util-status;
+                    accent-color: Theme.accent-amber;
+                }
+
+                SummaryCard {
+                    compact: true;
                     label: I18n.dash-uptime-card;
                     primary-value: root.uptime-text;
                     secondary-value: root.kernel-text;
@@ -170,7 +238,7 @@ export component DashboardPage inherits Rectangle {
 
             // Real-time charts
             TelemetryChart {
-                title: I18n.dash-cpu-history;
+                title: root.cpu-chart-title;
                 current-value-text: root.cpu-util-text;
                 line-commands: root.cpu-line-commands;
                 area-commands: root.cpu-area-commands;

@@ -2,7 +2,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { CoreRowItem } from "../models.slint";
-import { Card, KeyValueRow, ProgressBar, SectionTitle, SummaryCard } from "../components/common.slint";
+import { Card, DiagnosticNotice, KeyValueRow, ProgressBar, SectionTitle, SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 component CoreCell inherits Rectangle {
@@ -31,6 +31,7 @@ component CoreCell inherits Rectangle {
                 font-weight: 600;
                 horizontal-stretch: 1;
                 vertical-alignment: center;
+                overflow: elide;
             }
 
             if root.freq-text != "" : Text {
@@ -42,7 +43,7 @@ component CoreCell inherits Rectangle {
 
             Text {
                 text: root.value-text;
-                color: root.status == 0 ? Theme.text-primary : Theme.text-muted;
+                color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
                 font-size: 12px;
                 font-weight: 700;
                 vertical-alignment: center;
@@ -59,15 +60,28 @@ component CoreCell inherits Rectangle {
 
 export component CpuPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <bool> narrow: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
+
     in property <string> model-name;
     in property <int> model-status;
     in property <string> vendor;
     in property <int> vendor-status;
     in property <string> arch;
     in property <string> cores-threads-text;
-    in property <string> overall-util-text;
-    in property <float> overall-util-percent;
-    in property <int> overall-util-status;
+
+    in property <string> sys-util-text;
+    in property <float> sys-util-percent;
+    in property <int> sys-util-status;
+
+    in property <string> process-util-text;
+    in property <float> process-util-percent;
+    in property <int> process-util-status;
+
+    in property <string> chart-title;
+    in property <string> chart-value-text;
+
     in property <string> freq-text;
     in property <int> freq-status;
     in property <string> temp-text;
@@ -77,6 +91,7 @@ export component CpuPage inherits Rectangle {
     in property <string> line-commands;
     in property <string> area-commands;
     in property <bool> has-history;
+    in property <string> notice-text;
 
     in property <[CoreRowItem]> core-rows;
 
@@ -85,9 +100,12 @@ export component CpuPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             // Top KPI cards (desktop)
@@ -97,10 +115,19 @@ export component CpuPage inherits Rectangle {
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-overall-util;
-                    primary-value: root.overall-util-text;
-                    progress: root.overall-util-percent;
-                    status: root.overall-util-status;
+                    primary-value: root.sys-util-text;
+                    progress: root.sys-util-percent;
+                    status: root.sys-util-status;
                     accent-color: Theme.accent;
+                }
+
+                SummaryCard {
+                    horizontal-stretch: 1;
+                    label: I18n.cpu-process-util;
+                    primary-value: root.process-util-text;
+                    progress: root.process-util-percent;
+                    status: root.process-util-status;
+                    accent-color: Theme.accent-emerald;
                 }
 
                 SummaryCard {
@@ -130,28 +157,31 @@ export component CpuPage inherits Rectangle {
                 }
             }
 
-            // Top KPI cards (compact 2x2)
-            if root.compact : VerticalLayout {
+            // Top KPI cards (compact 2-column)
+            if root.compact && !root.narrow : VerticalLayout {
                 spacing: 10px;
 
                 HorizontalLayout {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.cpu-overall-util;
-                        primary-value: root.overall-util-text;
-                        progress: root.overall-util-percent;
-                        status: root.overall-util-status;
+                        primary-value: root.sys-util-text;
+                        progress: root.sys-util-percent;
+                        status: root.sys-util-status;
                         accent-color: Theme.accent;
                     }
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
-                        label: I18n.cpu-frequency;
-                        primary-value: root.freq-text;
-                        show-progress: false;
-                        status: root.freq-status;
+                        label: I18n.cpu-process-util;
+                        primary-value: root.process-util-text;
+                        progress: root.process-util-percent;
+                        status: root.process-util-status;
+                        accent-color: Theme.accent-emerald;
                     }
                 }
 
@@ -159,6 +189,16 @@ export component CpuPage inherits Rectangle {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
+                        horizontal-stretch: 1;
+                        label: I18n.cpu-frequency;
+                        primary-value: root.freq-text;
+                        show-progress: false;
+                        status: root.freq-status;
+                    }
+
+                    SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.cpu-temperature;
                         primary-value: root.temp-text;
@@ -166,35 +206,93 @@ export component CpuPage inherits Rectangle {
                         show-progress: false;
                         status: root.temp-status;
                     }
-
-                    SummaryCard {
-                        horizontal-stretch: 1;
-                        label: I18n.cpu-cores-threads;
-                        primary-value: root.cores-threads-text;
-                        secondary-value: root.arch;
-                        show-progress: false;
-                        status: 0;
-                    }
                 }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-cores-threads;
+                    primary-value: root.cores-threads-text;
+                    secondary-value: root.arch;
+                    show-progress: false;
+                    status: 0;
+                }
+            }
+
+            // Ultra-narrow 1-column KPI stack
+            if root.compact && root.narrow : VerticalLayout {
+                spacing: 10px;
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-overall-util;
+                    primary-value: root.sys-util-text;
+                    progress: root.sys-util-percent;
+                    status: root.sys-util-status;
+                    accent-color: Theme.accent;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-process-util;
+                    primary-value: root.process-util-text;
+                    progress: root.process-util-percent;
+                    status: root.process-util-status;
+                    accent-color: Theme.accent-emerald;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-frequency;
+                    primary-value: root.freq-text;
+                    show-progress: false;
+                    status: root.freq-status;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-temperature;
+                    primary-value: root.temp-text;
+                    secondary-value: root.temp-source;
+                    show-progress: false;
+                    status: root.temp-status;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.cpu-cores-threads;
+                    primary-value: root.cores-threads-text;
+                    secondary-value: root.arch;
+                    show-progress: false;
+                    status: 0;
+                }
+            }
+
+            if root.notice-text != "" : DiagnosticNotice {
+                compact: root.compact;
+                title: I18n.diag-notice-title;
+                body: root.notice-text;
             }
 
             // CPU metadata card
             Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 4px;
 
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.cpu-model;
                         value: root.model-name;
                         status: root.model-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.cpu-vendor;
                         value: root.vendor;
                         status: root.vendor-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.cpu-arch;
                         value: root.arch;
                         show-divider: false;
@@ -204,8 +302,8 @@ export component CpuPage inherits Rectangle {
 
             // Utilization chart
             TelemetryChart {
-                title: I18n.cpu-history-title;
-                current-value-text: root.overall-util-text;
+                title: root.chart-title;
+                current-value-text: root.chart-value-text;
                 line-commands: root.line-commands;
                 area-commands: root.area-commands;
                 has-data: root.has-history;
@@ -217,7 +315,7 @@ export component CpuPage inherits Rectangle {
             // Per-core utilization grid
             if root.core-rows.length > 0 : Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 10px;
 
                     SectionTitle {

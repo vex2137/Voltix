@@ -2,11 +2,15 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { GpuItem } from "../models.slint";
-import { Card, KeyValueRow, SectionTitle, SegmentedOption, SummaryCard } from "../components/common.slint";
+import { Card, DiagnosticNotice, KeyValueRow, SectionTitle, SegmentedOption, SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component GpuPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <bool> narrow: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
+
     in property <[GpuItem]> gpus;
     in property <GpuItem> selected-gpu;
     in property <int> selected-index: 0;
@@ -16,6 +20,7 @@ export component GpuPage inherits Rectangle {
     in property <string> area-commands;
     in property <bool> has-history;
     in property <string> chart-empty-text;
+    in property <string> notice-text;
 
     callback select-gpu(int);
 
@@ -24,9 +29,12 @@ export component GpuPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             if !root.has-gpus : Card {
@@ -43,6 +51,7 @@ export component GpuPage inherits Rectangle {
                         font-size: 14px;
                         font-weight: 600;
                         horizontal-alignment: center;
+                        wrap: word-wrap;
                     }
                     Text {
                         text: I18n.status-unavailable;
@@ -87,7 +96,7 @@ export component GpuPage inherits Rectangle {
             }
 
             if root.has-gpus : VerticalLayout {
-                spacing: 16px;
+                spacing: root.compact ? 12px : 16px;
 
                 if !root.compact : HorizontalLayout {
                     spacing: 12px;
@@ -129,13 +138,14 @@ export component GpuPage inherits Rectangle {
                     }
                 }
 
-                if root.compact : VerticalLayout {
+                if root.compact && !root.narrow : VerticalLayout {
                     spacing: 10px;
 
                     HorizontalLayout {
                         spacing: 10px;
 
                         SummaryCard {
+                            compact: true;
                             horizontal-stretch: 1;
                             label: I18n.gpu-utilization;
                             primary-value: root.selected-gpu.util-text;
@@ -145,6 +155,7 @@ export component GpuPage inherits Rectangle {
                         }
 
                         SummaryCard {
+                            compact: true;
                             horizontal-stretch: 1;
                             label: I18n.gpu-vram;
                             primary-value: root.selected-gpu.vram-text;
@@ -159,6 +170,7 @@ export component GpuPage inherits Rectangle {
                         spacing: 10px;
 
                         SummaryCard {
+                            compact: true;
                             horizontal-stretch: 1;
                             label: I18n.gpu-temperature;
                             primary-value: root.selected-gpu.temp-text;
@@ -167,6 +179,7 @@ export component GpuPage inherits Rectangle {
                         }
 
                         SummaryCard {
+                            compact: true;
                             horizontal-stretch: 1;
                             label: I18n.gpu-power-draw;
                             primary-value: root.selected-gpu.power-draw-text;
@@ -177,40 +190,93 @@ export component GpuPage inherits Rectangle {
                     }
                 }
 
+                if root.compact && root.narrow : VerticalLayout {
+                    spacing: 10px;
+
+                    SummaryCard {
+                        compact: true;
+                        label: I18n.gpu-utilization;
+                        primary-value: root.selected-gpu.util-text;
+                        progress: root.selected-gpu.util-percent;
+                        status: root.selected-gpu.util-status;
+                        accent-color: Theme.accent-purple;
+                    }
+
+                    SummaryCard {
+                        compact: true;
+                        label: I18n.gpu-vram;
+                        primary-value: root.selected-gpu.vram-text;
+                        secondary-value: root.selected-gpu.vram-subtext;
+                        progress: root.selected-gpu.vram-percent;
+                        status: root.selected-gpu.vram-status;
+                        accent-color: Theme.accent-amber;
+                    }
+
+                    SummaryCard {
+                        compact: true;
+                        label: I18n.gpu-temperature;
+                        primary-value: root.selected-gpu.temp-text;
+                        show-progress: false;
+                        status: root.selected-gpu.temp-status;
+                    }
+
+                    SummaryCard {
+                        compact: true;
+                        label: I18n.gpu-power-draw;
+                        primary-value: root.selected-gpu.power-draw-text;
+                        secondary-value: root.selected-gpu.power-limit-text;
+                        show-progress: false;
+                        status: root.selected-gpu.power-draw-status;
+                    }
+                }
+
+                if root.notice-text != "" : DiagnosticNotice {
+                    compact: root.compact;
+                    title: I18n.diag-notice-title;
+                    body: root.notice-text;
+                }
+
                 Card {
                     VerticalLayout {
-                        padding: 16px;
+                        padding: root.compact ? 14px : 16px;
                         spacing: 4px;
 
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-name;
                             value: root.selected-gpu.name;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-vendor;
                             value: root.selected-gpu.vendor-name;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-driver;
                             value: root.selected-gpu.driver-text;
                             status: root.selected-gpu.driver-status;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-core-clock;
                             value: root.selected-gpu.core-clock-text;
                             status: root.selected-gpu.core-clock-status;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-mem-clock;
                             value: root.selected-gpu.mem-clock-text;
                             status: root.selected-gpu.mem-clock-status;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-power-limit;
                             value: root.selected-gpu.power-limit-text;
                             status: root.selected-gpu.power-limit-status;
                         }
                         KeyValueRow {
+                            compact: root.compact;
                             label: I18n.gpu-fan-speed;
                             value: root.selected-gpu.fan-text;
                             status: root.selected-gpu.fan-status;

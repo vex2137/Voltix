@@ -3,8 +3,10 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
+use std::time::Instant;
+
 use crate::models::metrics::MetricValue;
-use crate::models::telemetry::{CpuTelemetry, LogicalCpuTelemetry};
+use crate::models::telemetry::{CpuTelemetry, CpuUtilizationScope, LogicalCpuTelemetry};
 #[cfg(target_os = "android")]
 use crate::platform::android::{android_cpu_temperature, android_soc_model, android_soc_vendor};
 #[cfg(target_os = "linux")]
@@ -16,6 +18,12 @@ use crate::platform::linux::hwmon::{
 pub struct CpuTimes {
     pub idle_total: u64,
     pub total: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ProcessCpuSample {
+    pub cpu_seconds: f64,
+    pub wall_at: Instant,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +44,7 @@ pub struct StaticCpuInfo {
 pub struct CpuMonitor {
     static_info: StaticCpuInfo,
     prev_stat: Option<ProcStatSample>,
+    prev_proc_usage: Option<ProcessCpuSample>,
     #[cfg(target_os = "linux")]
     temp_sensor: Option<CpuTempSensor>,
     #[cfg(target_os = "linux")]
@@ -51,15 +60,17 @@ impl Default for CpuMonitor {
 impl CpuMonitor {
     pub fn new() -> Self {
         let static_info = read_static_cpu_info();
-        // Capture initial /proc/stat baseline so the first UI sample has a real delta
-        // after the short warmup or first poll tick.
+        // Capture initial /proc/stat and process CPU baselines so the first UI sample
+        // has a real delta after the brief warmup or first poll tick.
         let prev_stat = fs::read_to_string("/proc/stat")
             .ok()
             .and_then(|s| parse_proc_stat(&s).ok());
+        let prev_proc_usage = read_process_cpu_sample();
 
         Self {
             static_info,
             prev_stat,
+            prev_proc_usage,
             #[cfg(target_os = "linux")]
             temp_sensor: None,
             #[cfg(target_os = "linux")]
@@ -115,6 +126,33 @@ impl CpuMonitor {
             self.prev_stat = Some(curr);
         }
 
+        let logical_count_hint = self
+            .static_info
+            .logical_cpus
+            .copied()
+            .unwrap_or(per_core_util.len())
+            .max(1);
+
+        let curr_proc_usage = read_process_cpu_sample();
+        let process_utilization = match (self.prev_proc_usage, curr_proc_usage) {
+            (Some(prev), Some(curr)) => compute_process_utilization(prev, curr, logical_count_hint),
+            (None, Some(_)) => {
+                MetricValue::Unavailable("Awaiting second process CPU sample".into())
+            }
+            (_, None) => MetricValue::Unsupported("Process CPU rusage unsupported".into()),
+        };
+        if curr_proc_usage.is_some() {
+            self.prev_proc_usage = curr_proc_usage;
+        }
+
+        let utilization_scope = if overall_utilization.is_available() {
+            CpuUtilizationScope::SystemWide
+        } else if process_utilization.is_available() {
+            CpuUtilizationScope::ProcessOnly
+        } else {
+            CpuUtilizationScope::Unavailable
+        };
+
         let per_core_freqs = read_sysfs_cpu_frequencies(
             self.static_info
                 .logical_cpus
@@ -144,6 +182,11 @@ impl CpuMonitor {
 
         let average_frequency_mhz = if freq_count > 0 {
             MetricValue::Available(freq_sum / freq_count as f64)
+        } else if per_core
+            .iter()
+            .any(|c| matches!(c.frequency_mhz, MetricValue::PermissionError(_)))
+        {
+            MetricValue::PermissionError("cpufreq restricted by OS/SELinux policy".to_string())
         } else {
             read_cpuinfo_average_mhz()
         };
@@ -165,6 +208,8 @@ impl CpuMonitor {
             physical_cores: self.static_info.physical_cores.clone(),
             logical_cpus,
             overall_utilization,
+            process_utilization,
+            utilization_scope,
             average_frequency_mhz,
             temperature_celsius,
             temperature_source,
@@ -206,6 +251,44 @@ impl CpuMonitor {
             )
         }
     }
+}
+
+#[cfg(unix)]
+fn read_process_cpu_sample() -> Option<ProcessCpuSample> {
+    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+    let rc = unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+    if rc != 0 {
+        return None;
+    }
+    let user_secs = (usage.ru_utime.tv_sec as f64) + (usage.ru_utime.tv_usec as f64) / 1_000_000.0;
+    let sys_secs = (usage.ru_stime.tv_sec as f64) + (usage.ru_stime.tv_usec as f64) / 1_000_000.0;
+    Some(ProcessCpuSample {
+        cpu_seconds: (user_secs + sys_secs).max(0.0),
+        wall_at: Instant::now(),
+    })
+}
+
+#[cfg(not(unix))]
+fn read_process_cpu_sample() -> Option<ProcessCpuSample> {
+    None
+}
+
+pub fn compute_process_utilization(
+    prev: ProcessCpuSample,
+    curr: ProcessCpuSample,
+    logical_cpus: usize,
+) -> MetricValue<f64> {
+    let wall_secs = curr
+        .wall_at
+        .saturating_duration_since(prev.wall_at)
+        .as_secs_f64();
+    if wall_secs <= 0.001 {
+        return MetricValue::Unavailable("Insufficient elapsed wall time between samples".into());
+    }
+    let delta_cpu = (curr.cpu_seconds - prev.cpu_seconds).max(0.0);
+    let capacity = wall_secs * (logical_cpus.max(1) as f64);
+    let pct = (delta_cpu / capacity) * 100.0;
+    MetricValue::Available(pct.clamp(0.0, 100.0))
 }
 
 pub fn compute_utilization(prev: CpuTimes, curr: CpuTimes) -> MetricValue<f64> {
@@ -366,7 +449,32 @@ fn normalize_cpu_vendor(raw: &str) -> String {
         "AuthenticAMD" => "AMD".to_string(),
         "GenuineIntel" => "Intel".to_string(),
         "0x41" => "ARM".to_string(),
+        "0x48" => "HiSilicon".to_string(),
+        "0x4e" => "NVIDIA".to_string(),
+        "0x51" => "Qualcomm".to_string(),
+        "0x53" => "Samsung".to_string(),
+        "0x61" => "Apple".to_string(),
+        "0xc0" => "Ampere".to_string(),
         other => other.to_string(),
+    }
+}
+
+fn read_sysfs_physical_cores(logical_count: usize) -> Option<usize> {
+    let cpu_root = Path::new("/sys/devices/system/cpu");
+    let mut pairs: HashSet<(String, String)> = HashSet::new();
+    for id in 0..logical_count.max(1) {
+        let topo = cpu_root.join(format!("cpu{id}")).join("topology");
+        let Ok(core_id) = fs::read_to_string(topo.join("core_id")) else {
+            continue;
+        };
+        let pkg_id = fs::read_to_string(topo.join("physical_package_id"))
+            .unwrap_or_else(|_| "0".to_string());
+        pairs.insert((pkg_id.trim().to_string(), core_id.trim().to_string()));
+    }
+    if pairs.is_empty() {
+        None
+    } else {
+        Some(pairs.len())
     }
 }
 
@@ -388,14 +496,27 @@ fn read_static_cpu_info() -> StaticCpuInfo {
         }
     }
 
-    #[cfg(target_os = "android")]
-    {
-        if !info.model_name.is_available() {
-            if let Some(soc) = android_soc_model() {
-                info.model_name = MetricValue::Available(soc);
+    if !info.physical_cores.is_available() {
+        if let Some(logical) = info.logical_cpus.copied() {
+            if let Some(cores) = read_sysfs_physical_cores(logical) {
+                info.physical_cores = MetricValue::Available(cores);
             }
         }
-        if !info.vendor.is_available() {
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        let used_soc_model = if !info.model_name.is_available() {
+            if let Some(soc) = android_soc_model() {
+                info.model_name = MetricValue::Available(soc);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if !info.vendor.is_available() || used_soc_model {
             if let Some(v) = android_soc_vendor() {
                 info.vendor = MetricValue::Available(v);
             }
@@ -411,23 +532,32 @@ fn read_sysfs_cpu_frequencies(expected_cpus: usize) -> BTreeMap<usize, MetricVal
     let limit = expected_cpus.max(1);
 
     for id in 0..limit {
-        let freq_path = cpu_root
-            .join(format!("cpu{id}"))
-            .join("cpufreq")
-            .join("scaling_cur_freq");
-        match fs::read_to_string(&freq_path) {
-            Ok(raw) => {
-                if let Ok(khz) = raw.trim().parse::<u64>() {
-                    result.insert(id, MetricValue::Available(khz as f64 / 1000.0));
+        let cpufreq_dir = cpu_root.join(format!("cpu{id}")).join("cpufreq");
+        let mut perm_denied = false;
+        let mut found = None;
+
+        for file in ["scaling_cur_freq", "cpuinfo_cur_freq"] {
+            match fs::read_to_string(cpufreq_dir.join(file)) {
+                Ok(raw) => {
+                    if let Ok(khz) = raw.trim().parse::<u64>() {
+                        found = Some(MetricValue::Available(khz as f64 / 1000.0));
+                        break;
+                    }
                 }
+                Err(err) if err.kind() == ErrorKind::PermissionDenied => {
+                    perm_denied = true;
+                }
+                Err(_) => {}
             }
-            Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-                result.insert(
-                    id,
-                    MetricValue::PermissionError("cpufreq restricted".to_string()),
-                );
-            }
-            Err(_) => {}
+        }
+
+        if let Some(val) = found {
+            result.insert(id, val);
+        } else if perm_denied {
+            result.insert(
+                id,
+                MetricValue::PermissionError("cpufreq restricted".to_string()),
+            );
         }
     }
     result
@@ -459,6 +589,7 @@ fn read_cpuinfo_average_mhz() -> MetricValue<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn parses_proc_stat_and_computes_delta_utilization() {
@@ -487,6 +618,27 @@ cpu1 550 0 100 4750 0 0 0 0 0 0
         // Zero delta returns Unavailable instead of 0.0
         let zero = compute_utilization(p2.overall, p2.overall);
         assert!(matches!(zero, MetricValue::Unavailable(_)));
+    }
+
+    #[test]
+    fn computes_process_utilization_normalized_by_logical_cpus() {
+        let t0 = Instant::now();
+        let t1 = t0 + Duration::from_secs(2);
+        let prev = ProcessCpuSample {
+            cpu_seconds: 1.0,
+            wall_at: t0,
+        };
+        let curr = ProcessCpuSample {
+            cpu_seconds: 3.0,
+            wall_at: t1,
+        };
+        // 2.0s of CPU time across 2s wall * 4 CPUs = 25.0%
+        let pct = compute_process_utilization(prev, curr, 4);
+        assert_eq!(pct, MetricValue::Available(25.0));
+
+        // Zero elapsed wall time must return Unavailable, not 0.0
+        let zero_wall = compute_process_utilization(prev, prev, 4);
+        assert!(matches!(zero_wall, MetricValue::Unavailable(_)));
     }
 
     #[test]

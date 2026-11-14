@@ -43,23 +43,24 @@ export component SummaryCard inherits Card {
     in property <bool> show-progress: true;
     in property <int> status: 0; // 0=Available, 1=Unavailable, 2=Unsupported, 3=PermissionError
     in property <color> accent-color: Theme.accent;
+    in property <bool> compact: false;
 
     VerticalLayout {
-        padding: 16px;
-        spacing: 8px;
+        padding: root.compact ? 12px : 16px;
+        spacing: root.compact ? 6px : 8px;
 
         Text {
             text: root.label;
             color: Theme.text-secondary;
-            font-size: 12px;
+            font-size: root.compact ? 11.5px : 12px;
             font-weight: 500;
-            overflow: elide;
+            wrap: word-wrap;
         }
 
         Text {
             text: root.primary-value;
-            color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-red : Theme.text-muted);
-            font-size: root.status == 0 ? 22px : 15px;
+            color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
+            font-size: root.status == 0 ? (root.compact ? 19px : 22px) : 14px;
             font-weight: 700;
             overflow: elide;
         }
@@ -73,8 +74,8 @@ export component SummaryCard inherits Card {
         if root.secondary-value != "" : Text {
             text: root.secondary-value;
             color: Theme.text-muted;
-            font-size: 12px;
-            overflow: elide;
+            font-size: root.compact ? 11px : 12px;
+            wrap: word-wrap;
         }
     }
 }
@@ -84,11 +85,12 @@ export component KeyValueRow inherits Rectangle {
     in property <string> value;
     in property <int> status: 0;
     in property <bool> show-divider: true;
+    in property <bool> compact: false;
 
     min-height: 36px;
 
     VerticalLayout {
-        HorizontalLayout {
+        if !root.compact : HorizontalLayout {
             padding-top: 8px;
             padding-bottom: 8px;
             spacing: 12px;
@@ -99,23 +101,82 @@ export component KeyValueRow inherits Rectangle {
                 font-size: 13px;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
-                overflow: elide;
+                wrap: word-wrap;
             }
 
             Text {
                 text: root.value;
-                color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-red : Theme.text-muted);
+                color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
                 font-size: 13px;
-                font-weight: root.status == 0 ? 600 : 400;
+                font-weight: root.status == 0 ? 600 : 500;
                 vertical-alignment: center;
                 horizontal-alignment: right;
-                overflow: elide;
+                wrap: word-wrap;
+            }
+        }
+
+        if root.compact : VerticalLayout {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            spacing: 3px;
+
+            if root.label != "" : Text {
+                text: root.label;
+                color: Theme.text-muted;
+                font-size: 11.5px;
+                font-weight: 500;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.value;
+                color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
+                font-size: 13px;
+                font-weight: root.status == 0 ? 600 : 500;
+                wrap: word-wrap;
             }
         }
 
         if root.show-divider : Rectangle {
             height: 1px;
             background: Theme.border-subtle;
+        }
+    }
+}
+
+export component DiagnosticNotice inherits Card {
+    in property <string> title;
+    in property <string> body;
+    in property <bool> compact: false;
+
+    background: Theme.bg-elevated;
+    border-color: Theme.border-strong;
+
+    HorizontalLayout {
+        Rectangle {
+            width: 3px;
+            background: Theme.accent-amber;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding: root.compact ? 12px : 14px;
+            spacing: 4px;
+
+            Text {
+                text: root.title;
+                color: Theme.text-primary;
+                font-size: 12.5px;
+                font-weight: 700;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.body;
+                color: Theme.text-secondary;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
         }
     }
 }
@@ -145,6 +206,7 @@ export component SegmentedOption inherits TouchArea {
                 font-size: 12px;
                 font-weight: root.active ? 600 : 500;
                 vertical-alignment: center;
+                overflow: elide;
             }
         }
     }

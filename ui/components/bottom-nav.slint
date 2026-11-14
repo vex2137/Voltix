@@ -7,7 +7,8 @@ component BottomNavItem inherits TouchArea {
     in property <bool> active: false;
 
     horizontal-stretch: 1;
-    height: 58px;
+    min-width: 52px;
+    height: 62px;
     mouse-cursor: pointer;
 
     Rectangle {
@@ -17,8 +18,8 @@ component BottomNavItem inherits TouchArea {
         VerticalLayout {
             padding-top: 6px;
             padding-bottom: 6px;
-            padding-left: 2px;
-            padding-right: 2px;
+            padding-left: 3px;
+            padding-right: 3px;
             spacing: 4px;
             alignment: center;
 
@@ -26,7 +27,7 @@ component BottomNavItem inherits TouchArea {
                 alignment: center;
 
                 Rectangle {
-                    width: 28px;
+                    width: 30px;
                     height: 22px;
                     border-radius: 5px;
                     background: root.active ? Theme.accent : Theme.bg-elevated;
@@ -34,7 +35,7 @@ component BottomNavItem inherits TouchArea {
                     Text {
                         text: root.code;
                         color: root.active ? #0b0f17 : Theme.text-secondary;
-                        font-size: 10px;
+                        font-size: 10.5px;
                         font-weight: 700;
                         horizontal-alignment: center;
                         vertical-alignment: center;
@@ -44,8 +45,8 @@ component BottomNavItem inherits TouchArea {
 
             Text {
                 text: root.label;
-                color: root.active ? Theme.text-primary : Theme.text-muted;
-                font-size: 10px;
+                color: root.active ? Theme.text-primary : Theme.text-secondary;
+                font-size: 11.5px;
                 font-weight: root.active ? 700 : 500;
                 horizontal-alignment: center;
                 overflow: elide;
@@ -56,8 +57,10 @@ component BottomNavItem inherits TouchArea {
 
 export component BottomNav inherits Rectangle {
     in-out property <int> current-page: 0;
+    in property <length> bottom-inset: 0px;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
 
-    height: 66px;
     background: Theme.bg-sidebar;
 
     VerticalLayout {
@@ -66,56 +69,68 @@ export component BottomNav inherits Rectangle {
             background: Theme.border-subtle;
         }
 
-        HorizontalLayout {
-            padding-left: 6px;
-            padding-right: 6px;
-            padding-top: 3px;
-            padding-bottom: 3px;
-            spacing: 4px;
-            vertical-stretch: 1;
+        Flickable {
+            height: 68px;
+            interactive: self.viewport-width > self.width;
+            viewport-width: max(self.width, 378px + root.left-inset + root.right-inset);
+            viewport-height: 68px;
 
-            BottomNavItem {
-                code: "OV";
-                label: I18n.nav-dashboard;
-                active: root.current-page == 0;
-                clicked => { root.current-page = 0; }
+            HorizontalLayout {
+                width: parent.viewport-width;
+                height: 68px;
+                padding-left: 6px + root.left-inset;
+                padding-right: 6px + root.right-inset;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                spacing: 4px;
+
+                BottomNavItem {
+                    code: "OV";
+                    label: I18n.nav-short-dashboard;
+                    active: root.current-page == 0;
+                    clicked => { root.current-page = 0; }
+                }
+                BottomNavItem {
+                    code: "CP";
+                    label: I18n.nav-short-cpu;
+                    active: root.current-page == 1;
+                    clicked => { root.current-page = 1; }
+                }
+                BottomNavItem {
+                    code: "GP";
+                    label: I18n.nav-short-gpu;
+                    active: root.current-page == 2;
+                    clicked => { root.current-page = 2; }
+                }
+                BottomNavItem {
+                    code: "RM";
+                    label: I18n.nav-short-memory;
+                    active: root.current-page == 3;
+                    clicked => { root.current-page = 3; }
+                }
+                BottomNavItem {
+                    code: "DS";
+                    label: I18n.nav-short-storage;
+                    active: root.current-page == 4;
+                    clicked => { root.current-page = 4; }
+                }
+                BottomNavItem {
+                    code: "SY";
+                    label: I18n.nav-short-system;
+                    active: root.current-page == 5;
+                    clicked => { root.current-page = 5; }
+                }
+                BottomNavItem {
+                    code: "ST";
+                    label: I18n.nav-short-settings;
+                    active: root.current-page == 6;
+                    clicked => { root.current-page = 6; }
+                }
             }
-            BottomNavItem {
-                code: "CP";
-                label: I18n.nav-cpu;
-                active: root.current-page == 1;
-                clicked => { root.current-page = 1; }
-            }
-            BottomNavItem {
-                code: "GP";
-                label: I18n.nav-gpu;
-                active: root.current-page == 2;
-                clicked => { root.current-page = 2; }
-            }
-            BottomNavItem {
-                code: "RM";
-                label: I18n.nav-memory;
-                active: root.current-page == 3;
-                clicked => { root.current-page = 3; }
-            }
-            BottomNavItem {
-                code: "DS";
-                label: I18n.nav-storage;
-                active: root.current-page == 4;
-                clicked => { root.current-page = 4; }
-            }
-            BottomNavItem {
-                code: "SY";
-                label: I18n.nav-system;
-                active: root.current-page == 5;
-                clicked => { root.current-page = 5; }
-            }
-            BottomNavItem {
-                code: "ST";
-                label: I18n.nav-settings;
-                active: root.current-page == 6;
-                clicked => { root.current-page = 6; }
-            }
+        }
+
+        if root.bottom-inset > 0px : Rectangle {
+            height: root.bottom-inset;
         }
     }
 }

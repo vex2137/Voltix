@@ -10,7 +10,10 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use crate::localization::{resolve_locale, Localizer};
 use crate::models::history::BoundedHistory;
 use crate::models::metrics::{MetricStatus, MetricValue};
-use crate::models::telemetry::{GpuTelemetry, TelemetrySnapshot};
+use crate::models::telemetry::{
+    CpuTelemetry, CpuUtilizationScope, GpuTelemetry, MemoryTelemetry, StorageDeviceTelemetry,
+    TelemetrySnapshot,
+};
 use crate::monitoring::MonitoringEngine;
 use crate::platform::detect_system_dark_mode;
 use crate::settings::{LanguagePreference, TemperatureUnit, ThemePreference, UserSettings};
@@ -32,6 +35,7 @@ struct SharedState {
     localizer: Localizer,
     selected_gpu_index: usize,
     latest_snapshot: Option<TelemetrySnapshot>,
+    last_cpu_scope: CpuUtilizationScope,
     cpu_history: BoundedHistory,
     ram_history: BoundedHistory,
     gpu_histories: HashMap<String, BoundedHistory>,
@@ -63,6 +67,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         localizer,
         selected_gpu_index: 0,
         latest_snapshot: None,
+        last_cpu_scope: CpuUtilizationScope::Unavailable,
         cpu_history: BoundedHistory::new(HISTORY_CAPACITY),
         ram_history: BoundedHistory::new(HISTORY_CAPACITY),
         gpu_histories: HashMap::new(),
@@ -74,6 +79,10 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         apply_theme_to_window(&window, state.settings.theme);
         apply_i18n_to_window(&window, &state.localizer);
         apply_settings_to_window(&window, &state.settings, state.config_path.as_deref());
+        window.set_cpu_header_label(SharedString::from(state.localizer.tr("header_cpu_short")));
+        window.set_dash_cpu_card_label(SharedString::from(state.localizer.tr("dash_cpu_card")));
+        window.set_dash_cpu_chart_title(SharedString::from(state.localizer.tr("dash_cpu_history")));
+        window.set_cpu_chart_title(SharedString::from(state.localizer.tr("cpu_history_title")));
         window.set_selected_gpu(empty_gpu_item(&state.localizer));
         window.set_gpu_chart_empty_text(SharedString::from(state.localizer.tr("status_sampling")));
     }
@@ -214,9 +223,20 @@ fn spawn_monitor_thread(
                         break;
                     }
                     let ts = snapshot.sampled_at;
-                    state
-                        .cpu_history
-                        .push(ts, snapshot.cpu.overall_utilization.copied());
+                    if state.last_cpu_scope != snapshot.cpu.utilization_scope {
+                        state.cpu_history = BoundedHistory::new(HISTORY_CAPACITY);
+                        state.last_cpu_scope = snapshot.cpu.utilization_scope;
+                    }
+                    let cpu_sample = match snapshot.cpu.utilization_scope {
+                        CpuUtilizationScope::SystemWide => {
+                            snapshot.cpu.overall_utilization.copied()
+                        }
+                        CpuUtilizationScope::ProcessOnly => {
+                            snapshot.cpu.process_utilization.copied()
+                        }
+                        CpuUtilizationScope::Unavailable => None,
+                    };
+                    state.cpu_history.push(ts, cpu_sample);
                     state
                         .ram_history
                         .push(ts, snapshot.memory.utilization_percent.copied());
@@ -311,6 +331,14 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_nav_system(SharedString::from(loc.tr("nav_system")));
     i18n.set_nav_settings(SharedString::from(loc.tr("nav_settings")));
 
+    i18n.set_nav_short_dashboard(SharedString::from(loc.tr("nav_short_dashboard")));
+    i18n.set_nav_short_cpu(SharedString::from(loc.tr("nav_short_cpu")));
+    i18n.set_nav_short_gpu(SharedString::from(loc.tr("nav_short_gpu")));
+    i18n.set_nav_short_memory(SharedString::from(loc.tr("nav_short_memory")));
+    i18n.set_nav_short_storage(SharedString::from(loc.tr("nav_short_storage")));
+    i18n.set_nav_short_system(SharedString::from(loc.tr("nav_short_system")));
+    i18n.set_nav_short_settings(SharedString::from(loc.tr("nav_short_settings")));
+
     i18n.set_status_polling(SharedString::from(loc.tr("status_polling")));
     i18n.set_status_unavailable(SharedString::from(loc.tr("status_unavailable")));
     i18n.set_status_unsupported(SharedString::from(loc.tr("status_unsupported")));
@@ -318,6 +346,8 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_status_sampling(SharedString::from(loc.tr("status_sampling")));
     i18n.set_status_no_data(SharedString::from(loc.tr("status_no_data")));
 
+    i18n.set_header_cpu_short(SharedString::from(loc.tr("header_cpu_short")));
+    i18n.set_header_app_cpu_short(SharedString::from(loc.tr("header_app_cpu_short")));
     i18n.set_header_subtitle_dashboard(SharedString::from(loc.tr("header_subtitle_dashboard")));
     i18n.set_header_subtitle_cpu(SharedString::from(loc.tr("header_subtitle_cpu")));
     i18n.set_header_subtitle_gpu(SharedString::from(loc.tr("header_subtitle_gpu")));
@@ -327,11 +357,14 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_header_subtitle_settings(SharedString::from(loc.tr("header_subtitle_settings")));
 
     i18n.set_dash_cpu_card(SharedString::from(loc.tr("dash_cpu_card")));
+    i18n.set_dash_cpu_app_card(SharedString::from(loc.tr("dash_cpu_app_card")));
+    i18n.set_dash_cpu_sys_restricted(SharedString::from(loc.tr("dash_cpu_sys_restricted")));
     i18n.set_dash_gpu_card(SharedString::from(loc.tr("dash_gpu_card")));
     i18n.set_dash_ram_card(SharedString::from(loc.tr("dash_ram_card")));
     i18n.set_dash_vram_card(SharedString::from(loc.tr("dash_vram_card")));
     i18n.set_dash_uptime_card(SharedString::from(loc.tr("dash_uptime_card")));
     i18n.set_dash_cpu_history(SharedString::from(loc.tr("dash_cpu_history")));
+    i18n.set_dash_cpu_app_history(SharedString::from(loc.tr("dash_cpu_app_history")));
     i18n.set_dash_ram_history(SharedString::from(loc.tr("dash_ram_history")));
     i18n.set_dash_gpu_history(SharedString::from(loc.tr("dash_gpu_history")));
 
@@ -339,11 +372,13 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_cpu_vendor(SharedString::from(loc.tr("cpu_vendor")));
     i18n.set_cpu_arch(SharedString::from(loc.tr("cpu_arch")));
     i18n.set_cpu_overall_util(SharedString::from(loc.tr("cpu_overall_util")));
+    i18n.set_cpu_process_util(SharedString::from(loc.tr("cpu_process_util")));
     i18n.set_cpu_frequency(SharedString::from(loc.tr("cpu_frequency")));
     i18n.set_cpu_temperature(SharedString::from(loc.tr("cpu_temperature")));
     i18n.set_cpu_cores_threads(SharedString::from(loc.tr("cpu_cores_threads")));
     i18n.set_cpu_per_core(SharedString::from(loc.tr("cpu_per_core")));
     i18n.set_cpu_history_title(SharedString::from(loc.tr("cpu_history_title")));
+    i18n.set_cpu_app_history_title(SharedString::from(loc.tr("cpu_app_history_title")));
 
     i18n.set_gpu_selector(SharedString::from(loc.tr("gpu_selector")));
     i18n.set_gpu_none_detected(SharedString::from(loc.tr("gpu_none_detected")));
@@ -407,6 +442,7 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_chart_now(SharedString::from(loc.tr("chart_now")));
     i18n.set_chart_60s(SharedString::from(loc.tr("chart_60s")));
     i18n.set_chart_30s(SharedString::from(loc.tr("chart_30s")));
+    i18n.set_diag_notice_title(SharedString::from(loc.tr("diag_notice_title")));
 }
 
 fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
@@ -424,6 +460,8 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     window.set_os_status(os_status);
     window.set_os_badge_text(if os_status == 0 {
         os_text
+    } else if cfg!(target_os = "android") {
+        SharedString::from("Android")
     } else {
         SharedString::from("Linux")
     });
@@ -443,20 +481,65 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     window.set_uptime_status(uptime_status);
 
     // CPU
-    let (cpu_util_text, cpu_util_status) =
+    let (sys_util_text, sys_util_status) =
         format_metric_str(&snap.cpu.overall_utilization, loc, |v| format!("{v:.1}%"));
-    window.set_cpu_util_text(cpu_util_text);
-    window.set_cpu_util_percent(snap.cpu.overall_utilization.copied().unwrap_or(0.0) as f32);
-    window.set_cpu_util_status(cpu_util_status);
+    window.set_cpu_sys_util_text(sys_util_text.clone());
+    window.set_cpu_sys_util_percent(snap.cpu.overall_utilization.copied().unwrap_or(0.0) as f32);
+    window.set_cpu_sys_util_status(sys_util_status);
+
+    let (proc_util_text, proc_util_status) =
+        format_metric_str(&snap.cpu.process_utilization, loc, |v| format!("{v:.1}%"));
+    window.set_cpu_process_util_text(proc_util_text.clone());
+    window
+        .set_cpu_process_util_percent(snap.cpu.process_utilization.copied().unwrap_or(0.0) as f32);
+    window.set_cpu_process_util_status(proc_util_status);
 
     let fmt_temp = |c: &f64| format_temperature(*c, temp_unit);
     let (cpu_temp_text, cpu_temp_status) =
         format_metric_str(&snap.cpu.temperature_celsius, loc, fmt_temp);
-    window.set_cpu_temp_text(cpu_temp_text);
+    window.set_cpu_temp_text(cpu_temp_text.clone());
     window.set_cpu_temp_status(cpu_temp_status);
     window.set_cpu_temp_source(SharedString::from(
         snap.cpu.temperature_source.clone().unwrap_or_default(),
     ));
+
+    match snap.cpu.utilization_scope {
+        CpuUtilizationScope::ProcessOnly => {
+            window.set_cpu_header_label(SharedString::from(loc.tr("header_app_cpu_short")));
+            window.set_dash_cpu_card_label(SharedString::from(loc.tr("dash_cpu_app_card")));
+            window.set_dash_cpu_util_text(proc_util_text);
+            window.set_dash_cpu_util_percent(
+                snap.cpu.process_utilization.copied().unwrap_or(0.0) as f32
+            );
+            window.set_dash_cpu_util_status(proc_util_status);
+            let secondary = if cpu_temp_status == 0 {
+                format!("{} • {}", cpu_temp_text, loc.tr("dash_cpu_sys_restricted"))
+            } else {
+                loc.tr("dash_cpu_sys_restricted").to_string()
+            };
+            window.set_dash_cpu_secondary_text(SharedString::from(secondary));
+            window.set_dash_cpu_chart_title(SharedString::from(loc.tr("dash_cpu_app_history")));
+            window.set_cpu_chart_title(SharedString::from(loc.tr("cpu_app_history_title")));
+        }
+        CpuUtilizationScope::SystemWide | CpuUtilizationScope::Unavailable => {
+            window.set_cpu_header_label(SharedString::from(loc.tr("header_cpu_short")));
+            window.set_dash_cpu_card_label(SharedString::from(loc.tr("dash_cpu_card")));
+            window.set_dash_cpu_util_text(sys_util_text);
+            window.set_dash_cpu_util_percent(
+                snap.cpu.overall_utilization.copied().unwrap_or(0.0) as f32
+            );
+            window.set_dash_cpu_util_status(sys_util_status);
+            window.set_dash_cpu_secondary_text(if cpu_temp_status == 0 {
+                cpu_temp_text
+            } else {
+                SharedString::default()
+            });
+            window.set_dash_cpu_chart_title(SharedString::from(loc.tr("dash_cpu_history")));
+            window.set_cpu_chart_title(SharedString::from(loc.tr("cpu_history_title")));
+        }
+    }
+
+    window.set_cpu_notice_text(SharedString::from(build_cpu_notice(&snap.cpu, loc)));
 
     let (cpu_model_text, cpu_model_status) =
         format_metric_str(&snap.cpu.model_name, loc, |s| s.clone());
@@ -596,6 +679,7 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
     let swap_pct = snap.memory.swap_utilization_percent.copied().unwrap_or(0.0) as f32;
     window.set_swap_util_percent(swap_pct);
     window.set_swap_util_status(swap_util_status);
+    window.set_mem_notice_text(SharedString::from(build_mem_notice(&snap.memory, loc)));
 
     // GPUs
     let gpu_items: Vec<GpuItem> = snap
@@ -682,6 +766,11 @@ fn render_snapshot_to_window(window: &AppWindow, state: &SharedState) {
         })
         .collect();
     update_vec_model(window.get_disks(), disk_items);
+    window.set_gpu_notice_text(SharedString::from(build_gpu_notice(
+        snap.gpus.get(selected_idx),
+        loc,
+    )));
+    window.set_storage_notice_text(SharedString::from(build_storage_notice(&snap.storage, loc)));
 
     // Real-time bounded 60s charts
     let now = snap.sampled_at;
@@ -855,5 +944,74 @@ where
             SharedString::from(loc.tr("status_permission_denied")),
             MetricStatus::PermissionError.as_code(),
         ),
+    }
+}
+
+fn build_cpu_notice(cpu: &CpuTelemetry, loc: &Localizer) -> String {
+    let mut notes = Vec::new();
+    if cpu.overall_utilization.status() == MetricStatus::PermissionError {
+        notes.push(loc.tr("diag_cpu_sys_restricted"));
+    }
+    match cpu.average_frequency_mhz.status() {
+        MetricStatus::PermissionError => notes.push(loc.tr("diag_cpu_freq_restricted")),
+        MetricStatus::Unsupported => notes.push(loc.tr("diag_cpu_freq_na")),
+        MetricStatus::Available | MetricStatus::Unavailable => {}
+    }
+    match cpu.temperature_celsius.status() {
+        MetricStatus::PermissionError => notes.push(loc.tr("diag_cpu_temp_restricted")),
+        MetricStatus::Unsupported | MetricStatus::Unavailable => {
+            notes.push(loc.tr("diag_cpu_temp_na"))
+        }
+        MetricStatus::Available => {}
+    }
+    notes.join("\n")
+}
+
+fn build_gpu_notice(gpu: Option<&GpuTelemetry>, loc: &Localizer) -> String {
+    let Some(gpu) = gpu else {
+        return String::new();
+    };
+    let mut notes = Vec::new();
+    if gpu.utilization_percent.status() == MetricStatus::PermissionError
+        || gpu.core_clock_mhz.status() == MetricStatus::PermissionError
+        || gpu.temperature_celsius.status() == MetricStatus::PermissionError
+    {
+        notes.push(loc.tr("diag_gpu_util_restricted"));
+    }
+    if gpu.vram_utilization_percent.status() == MetricStatus::Unsupported {
+        notes.push(loc.tr("diag_gpu_vram_uma"));
+    }
+    if gpu.power_draw_watts.status() == MetricStatus::Unsupported
+        || gpu.power_limit_watts.status() == MetricStatus::Unsupported
+        || gpu.memory_clock_mhz.status() == MetricStatus::Unsupported
+        || gpu.fan_speed_percent.status() == MetricStatus::Unsupported
+    {
+        notes.push(loc.tr("diag_gpu_sensors_na"));
+    }
+    notes.join("\n")
+}
+
+fn build_mem_notice(mem: &MemoryTelemetry, loc: &Localizer) -> String {
+    let mut notes = Vec::new();
+    if mem.total_bytes.status() == MetricStatus::PermissionError
+        || mem.available_bytes.status() == MetricStatus::PermissionError
+        || mem.used_bytes.status() == MetricStatus::PermissionError
+    {
+        notes.push(loc.tr("diag_mem_restricted"));
+    }
+    if mem.swap_utilization_percent.status() == MetricStatus::Unsupported {
+        notes.push(loc.tr("diag_mem_swap_na"));
+    }
+    notes.join("\n")
+}
+
+fn build_storage_notice(storage: &[StorageDeviceTelemetry], loc: &Localizer) -> String {
+    let has_perm = storage
+        .iter()
+        .any(|d| d.utilization_percent.status() == MetricStatus::PermissionError);
+    if cfg!(target_os = "android") || has_perm {
+        loc.tr("diag_storage_note").to_string()
+    } else {
+        String::new()
     }
 }

@@ -10,13 +10,23 @@ export global I18n {
     in-out property <string> nav-system: "System";
     in-out property <string> nav-settings: "Settings";
 
+    in-out property <string> nav-short-dashboard: "Home";
+    in-out property <string> nav-short-cpu: "CPU";
+    in-out property <string> nav-short-gpu: "GPU";
+    in-out property <string> nav-short-memory: "RAM";
+    in-out property <string> nav-short-storage: "Disks";
+    in-out property <string> nav-short-system: "System";
+    in-out property <string> nav-short-settings: "Settings";
+
     in-out property <string> status-polling: "Polling";
     in-out property <string> status-unavailable: "Unavailable";
-    in-out property <string> status-unsupported: "Unsupported";
-    in-out property <string> status-permission-denied: "Permission Denied";
+    in-out property <string> status-unsupported: "N/A";
+    in-out property <string> status-permission-denied: "Restricted";
     in-out property <string> status-sampling: "Sampling...";
     in-out property <string> status-no-data: "No telemetry data";
 
+    in-out property <string> header-cpu-short: "CPU";
+    in-out property <string> header-app-cpu-short: "App";
     in-out property <string> header-subtitle-dashboard: "Real-time hardware telemetry overview";
     in-out property <string> header-subtitle-cpu: "Processor utilization, clocks, and thermals";
     in-out property <string> header-subtitle-gpu: "Graphics adapters and VRAM telemetry";
@@ -26,23 +36,28 @@ export global I18n {
     in-out property <string> header-subtitle-settings: "Appearance, language, and polling preferences";
 
     in-out property <string> dash-cpu-card: "CPU Utilization";
+    in-out property <string> dash-cpu-app-card: "App CPU (Voltix)";
+    in-out property <string> dash-cpu-sys-restricted: "System CPU: Restricted";
     in-out property <string> dash-gpu-card: "Primary GPU";
     in-out property <string> dash-ram-card: "RAM Usage";
     in-out property <string> dash-vram-card: "VRAM Usage";
     in-out property <string> dash-uptime-card: "System Uptime";
     in-out property <string> dash-cpu-history: "CPU Utilization History (60s)";
+    in-out property <string> dash-cpu-app-history: "App CPU History (60s)";
     in-out property <string> dash-ram-history: "RAM Utilization History (60s)";
     in-out property <string> dash-gpu-history: "GPU Utilization History (60s)";
 
     in-out property <string> cpu-model: "Processor Model";
     in-out property <string> cpu-vendor: "Vendor";
     in-out property <string> cpu-arch: "Architecture";
-    in-out property <string> cpu-overall-util: "Overall Utilization";
+    in-out property <string> cpu-overall-util: "System Utilization";
+    in-out property <string> cpu-process-util: "App CPU (Voltix)";
     in-out property <string> cpu-frequency: "Average Clock";
     in-out property <string> cpu-temperature: "Package Temperature";
     in-out property <string> cpu-cores-threads: "Cores / Threads";
     in-out property <string> cpu-per-core: "Logical CPU Utilization";
     in-out property <string> cpu-history-title: "Overall CPU Utilization (60s)";
+    in-out property <string> cpu-app-history-title: "App CPU Utilization (60s)";
 
     in-out property <string> gpu-selector: "Graphics Adapter";
     in-out property <string> gpu-none-detected: "No supported graphics adapters detected";
@@ -106,4 +121,6 @@ export global I18n {
     in-out property <string> chart-now: "Now";
     in-out property <string> chart-60s: "-60s";
     in-out property <string> chart-30s: "-30s";
+
+    in-out property <string> diag-notice-title: "Sensor & Platform Notes";
 }

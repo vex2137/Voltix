@@ -1,11 +1,15 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
-import { Card, KeyValueRow, SummaryCard } from "../components/common.slint";
+import { Card, DiagnosticNotice, KeyValueRow, SummaryCard } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component MemoryPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <bool> narrow: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
+
     in property <string> total-text;
     in property <int> total-status;
     in property <string> used-text;
@@ -27,15 +31,19 @@ export component MemoryPage inherits Rectangle {
     in property <string> line-commands;
     in property <string> area-commands;
     in property <bool> has-history;
+    in property <string> notice-text;
 
     ScrollView {
         width: 100%;
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             if !root.compact : HorizontalLayout {
@@ -75,13 +83,14 @@ export component MemoryPage inherits Rectangle {
                 }
             }
 
-            if root.compact : VerticalLayout {
+            if root.compact && !root.narrow : VerticalLayout {
                 spacing: 10px;
 
                 HorizontalLayout {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.mem-utilization;
                         primary-value: root.util-text;
@@ -91,6 +100,7 @@ export component MemoryPage inherits Rectangle {
                     }
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.mem-used;
                         primary-value: root.used-text;
@@ -103,6 +113,7 @@ export component MemoryPage inherits Rectangle {
                     spacing: 10px;
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.mem-available;
                         primary-value: root.available-text;
@@ -111,6 +122,7 @@ export component MemoryPage inherits Rectangle {
                     }
 
                     SummaryCard {
+                        compact: true;
                         horizontal-stretch: 1;
                         label: I18n.mem-total;
                         primary-value: root.total-text;
@@ -120,22 +132,68 @@ export component MemoryPage inherits Rectangle {
                 }
             }
 
+            if root.compact && root.narrow : VerticalLayout {
+                spacing: 10px;
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.mem-utilization;
+                    primary-value: root.util-text;
+                    progress: root.util-percent;
+                    status: root.util-status;
+                    accent-color: Theme.accent-emerald;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.mem-used;
+                    primary-value: root.used-text;
+                    show-progress: false;
+                    status: root.used-status;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.mem-available;
+                    primary-value: root.available-text;
+                    show-progress: false;
+                    status: root.available-status;
+                }
+
+                SummaryCard {
+                    compact: true;
+                    label: I18n.mem-total;
+                    primary-value: root.total-text;
+                    show-progress: false;
+                    status: root.total-status;
+                }
+            }
+
+            if root.notice-text != "" : DiagnosticNotice {
+                compact: root.compact;
+                title: I18n.diag-notice-title;
+                body: root.notice-text;
+            }
+
             Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 4px;
 
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.mem-swap-total;
                         value: root.swap-total-text;
                         status: root.swap-total-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.mem-swap-used;
                         value: root.swap-used-text;
                         status: root.swap-used-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.mem-swap-utilization;
                         value: root.swap-util-text;
                         status: root.swap-util-status;

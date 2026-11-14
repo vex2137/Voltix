@@ -23,16 +23,28 @@ export component AppWindow inherits Window {
     background: Theme.bg-app;
 
     private property <bool> compact-mode: root.width < 760px;
+    private property <bool> narrow-mode: root.width < 360px;
     in-out property <int> current-page: 0;
 
     // Header & status properties
     in property <string> os-badge-text: "Linux";
     in property <string> polling-badge-text: "1000 ms";
+    in property <string> cpu-header-label: "CPU";
 
     // Dashboard & shared telemetry properties
-    in property <string> cpu-util-text: "-";
-    in property <float> cpu-util-percent: 0.0;
-    in property <int> cpu-util-status: 1;
+    in property <string> dash-cpu-card-label: "CPU Utilization";
+    in property <string> dash-cpu-util-text: "-";
+    in property <float> dash-cpu-util-percent: 0.0;
+    in property <int> dash-cpu-util-status: 1;
+    in property <string> dash-cpu-secondary-text: "";
+    in property <string> dash-cpu-chart-title: "CPU Utilization History (60s)";
+
+    in property <string> cpu-sys-util-text: "-";
+    in property <float> cpu-sys-util-percent: 0.0;
+    in property <int> cpu-sys-util-status: 1;
+    in property <string> cpu-process-util-text: "-";
+    in property <float> cpu-process-util-percent: 0.0;
+    in property <int> cpu-process-util-status: 1;
     in property <string> cpu-temp-text: "-";
     in property <string> cpu-temp-source: "";
     in property <int> cpu-temp-status: 1;
@@ -80,6 +92,8 @@ export component AppWindow inherits Window {
     in property <string> cpu-cores-threads: "-";
     in property <string> cpu-freq-text: "-";
     in property <int> cpu-freq-status: 1;
+    in property <string> cpu-chart-title: "Overall CPU Utilization (60s)";
+    in property <string> cpu-notice-text: "";
     in property <[CoreRowItem]> cpu-core-rows;
 
     // GPU page properties
@@ -87,6 +101,7 @@ export component AppWindow inherits Window {
     in property <GpuItem> selected-gpu;
     in property <int> selected-gpu-index: 0;
     in property <bool> has-gpus: false;
+    in property <string> gpu-notice-text: "";
 
     // Memory page properties
     in property <string> mem-total-text: "-";
@@ -102,9 +117,11 @@ export component AppWindow inherits Window {
     in property <string> swap-util-text: "-";
     in property <float> swap-util-percent: 0.0;
     in property <int> swap-util-status: 1;
+    in property <string> mem-notice-text: "";
 
     // Storage page properties
     in property <[StorageItem]> disks;
+    in property <string> storage-notice-text: "";
 
     // System page properties
     in property <string> os-name: "-";
@@ -165,17 +182,20 @@ export component AppWindow inherits Window {
         VerticalLayout {
             horizontal-stretch: 1;
 
-            // Header bar
+            // Header bar (extends cleanly behind Android status bar / display cutout)
             Rectangle {
-                height: root.compact-mode ? 54px : 58px;
                 background: Theme.bg-header;
 
                 VerticalLayout {
+                    if root.safe-area-insets.top > 0px : Rectangle {
+                        height: root.safe-area-insets.top;
+                    }
+
                     HorizontalLayout {
-                        padding-left: root.compact-mode ? 14px : 20px;
-                        padding-right: root.compact-mode ? 14px : 20px;
-                        spacing: root.compact-mode ? 10px : 16px;
-                        vertical-stretch: 1;
+                        height: root.compact-mode ? 52px : 58px;
+                        padding-left: (root.compact-mode ? 14px : 20px) + root.safe-area-insets.left;
+                        padding-right: (root.compact-mode ? 14px : 20px) + root.safe-area-insets.right;
+                        spacing: root.compact-mode ? 8px : 16px;
 
                         VerticalLayout {
                             horizontal-stretch: 1;
@@ -212,18 +232,18 @@ export component AppWindow inherits Window {
                                     border-color: Theme.border-subtle;
 
                                     HorizontalLayout {
-                                        padding-left: 10px;
-                                        padding-right: 10px;
-                                        spacing: 6px;
+                                        padding-left: root.compact-mode ? 8px : 10px;
+                                        padding-right: root.compact-mode ? 8px : 10px;
+                                        spacing: 5px;
                                         Text {
-                                            text: I18n.nav-cpu + ":";
+                                            text: root.cpu-header-label + ":";
                                             color: Theme.text-muted;
                                             font-size: 11px;
                                             vertical-alignment: center;
                                         }
                                         Text {
-                                            text: root.cpu-util-text;
-                                            color: Theme.accent;
+                                            text: root.dash-cpu-util-text;
+                                            color: root.dash-cpu-util-status == 0 ? Theme.accent : (root.dash-cpu-util-status == 3 ? Theme.accent-amber : Theme.text-muted);
                                             font-size: 11px;
                                             font-weight: 700;
                                             vertical-alignment: center;
@@ -242,9 +262,9 @@ export component AppWindow inherits Window {
                                     border-color: Theme.border-subtle;
 
                                     HorizontalLayout {
-                                        padding-left: 10px;
-                                        padding-right: 10px;
-                                        spacing: 6px;
+                                        padding-left: root.compact-mode ? 8px : 10px;
+                                        padding-right: root.compact-mode ? 8px : 10px;
+                                        spacing: 5px;
                                         Text {
                                             text: "RAM:";
                                             color: Theme.text-muted;
@@ -253,7 +273,7 @@ export component AppWindow inherits Window {
                                         }
                                         Text {
                                             text: root.ram-util-text;
-                                            color: Theme.accent-emerald;
+                                            color: root.ram-util-status == 0 ? Theme.accent-emerald : Theme.text-muted;
                                             font-size: 11px;
                                             font-weight: 700;
                                             vertical-alignment: center;
@@ -280,10 +300,15 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
-                    cpu-util-text: root.cpu-util-text;
-                    cpu-util-percent: root.cpu-util-percent;
-                    cpu-util-status: root.cpu-util-status;
-                    cpu-temp-text: root.cpu-temp-text;
+                    narrow: root.narrow-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
+                    cpu-card-label: root.dash-cpu-card-label;
+                    cpu-util-text: root.dash-cpu-util-text;
+                    cpu-util-percent: root.dash-cpu-util-percent;
+                    cpu-util-status: root.dash-cpu-util-status;
+                    cpu-secondary-text: root.dash-cpu-secondary-text;
+                    cpu-chart-title: root.dash-cpu-chart-title;
                     gpu-util-text: root.dash-gpu-util-text;
                     gpu-util-percent: root.dash-gpu-util-percent;
                     gpu-util-status: root.dash-gpu-util-status;
@@ -315,15 +340,23 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    narrow: root.narrow-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     model-name: root.cpu-model;
                     model-status: root.cpu-model-status;
                     vendor: root.cpu-vendor;
                     vendor-status: root.cpu-vendor-status;
                     arch: root.cpu-arch;
                     cores-threads-text: root.cpu-cores-threads;
-                    overall-util-text: root.cpu-util-text;
-                    overall-util-percent: root.cpu-util-percent;
-                    overall-util-status: root.cpu-util-status;
+                    sys-util-text: root.cpu-sys-util-text;
+                    sys-util-percent: root.cpu-sys-util-percent;
+                    sys-util-status: root.cpu-sys-util-status;
+                    process-util-text: root.cpu-process-util-text;
+                    process-util-percent: root.cpu-process-util-percent;
+                    process-util-status: root.cpu-process-util-status;
+                    chart-title: root.cpu-chart-title;
+                    chart-value-text: root.dash-cpu-util-text;
                     freq-text: root.cpu-freq-text;
                     freq-status: root.cpu-freq-status;
                     temp-text: root.cpu-temp-text;
@@ -332,6 +365,7 @@ export component AppWindow inherits Window {
                     line-commands: root.cpu-line-commands;
                     area-commands: root.cpu-area-commands;
                     has-history: root.cpu-has-history;
+                    notice-text: root.cpu-notice-text;
                     core-rows: root.cpu-core-rows;
                 }
 
@@ -339,6 +373,9 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    narrow: root.narrow-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     gpus: root.gpus;
                     selected-gpu: root.selected-gpu;
                     selected-index: root.selected-gpu-index;
@@ -347,6 +384,7 @@ export component AppWindow inherits Window {
                     area-commands: root.gpu-area-commands;
                     has-history: root.gpu-has-history;
                     chart-empty-text: root.gpu-chart-empty-text;
+                    notice-text: root.gpu-notice-text;
                     select-gpu(idx) => { root.select-gpu(idx); }
                 }
 
@@ -354,6 +392,9 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    narrow: root.narrow-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     total-text: root.mem-total-text;
                     total-status: root.mem-total-status;
                     used-text: root.mem-used-text;
@@ -373,19 +414,25 @@ export component AppWindow inherits Window {
                     line-commands: root.ram-line-commands;
                     area-commands: root.ram-area-commands;
                     has-history: root.ram-has-history;
+                    notice-text: root.mem-notice-text;
                 }
 
                 if root.current-page == 4 : StoragePage {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     disks: root.disks;
+                    notice-text: root.storage-notice-text;
                 }
 
                 if root.current-page == 5 : SystemPage {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     os-name: root.os-name;
                     os-status: root.os-status;
                     kernel-version: root.kernel-text;
@@ -407,6 +454,8 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     compact: root.compact-mode;
+                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
+                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     theme-mode: root.theme-mode;
                     language-mode: root.language-mode;
                     temp-unit: root.temp-unit;
@@ -421,6 +470,9 @@ export component AppWindow inherits Window {
 
             if root.compact-mode : BottomNav {
                 current-page <=> root.current-page;
+                bottom-inset: root.safe-area-insets.bottom;
+                left-inset: root.safe-area-insets.left;
+                right-inset: root.safe-area-insets.right;
             }
         }
     }

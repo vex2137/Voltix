@@ -2,6 +2,13 @@ use std::time::Instant;
 
 use crate::models::metrics::MetricValue;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CpuUtilizationScope {
+    SystemWide,
+    ProcessOnly,
+    Unavailable,
+}
+
 #[derive(Debug, Clone)]
 pub struct LogicalCpuTelemetry {
     pub id: usize,
@@ -17,6 +24,8 @@ pub struct CpuTelemetry {
     pub physical_cores: MetricValue<usize>,
     pub logical_cpus: MetricValue<usize>,
     pub overall_utilization: MetricValue<f64>,
+    pub process_utilization: MetricValue<f64>,
+    pub utilization_scope: CpuUtilizationScope,
     pub average_frequency_mhz: MetricValue<f64>,
     pub temperature_celsius: MetricValue<f64>,
     pub temperature_source: Option<String>,

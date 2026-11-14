@@ -38,6 +38,18 @@ pub fn detect_system_locale() -> LocaleCode {
             }
         }
     }
+    #[cfg(target_os = "android")]
+    {
+        for prop in [
+            "persist.sys.locale",
+            "persist.sys.language",
+            "ro.product.locale",
+        ] {
+            if let Some(val) = crate::platform::android::get_system_property(prop) {
+                return LocaleCode::from_locale_tag(&val);
+            }
+        }
+    }
     LocaleCode::En
 }
 

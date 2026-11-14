@@ -5,6 +5,8 @@ import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/
 
 export component SettingsPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
     in property <int> theme-mode: 1; // 0=System, 1=Dark, 2=Light
     in property <int> language-mode: 0; // 0=System, 1=English, 2=Polish
     in property <int> temp-unit: 0; // 0=Celsius, 1=Fahrenheit
@@ -21,14 +23,17 @@ export component SettingsPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 12px;
 
                     SectionTitle {
@@ -351,6 +356,7 @@ export component SettingsPage inherits Rectangle {
                     Rectangle { height: 1px; background: Theme.border-subtle; }
 
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.settings-config-path;
                         value: root.config-path;
                         show-divider: false;
@@ -360,6 +366,7 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-saved-auto;
                         color: Theme.text-muted;
                         font-size: 12px;
+                        wrap: word-wrap;
                     }
                 }
             }

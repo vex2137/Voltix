@@ -6,6 +6,9 @@ import { Card, KeyValueRow, SectionTitle } from "../components/common.slint";
 
 export component SystemPage inherits Rectangle {
     in property <bool> compact: false;
+    in property <length> left-inset: 0px;
+    in property <length> right-inset: 0px;
+
     in property <string> os-name;
     in property <int> os-status;
     in property <string> kernel-version;
@@ -28,14 +31,17 @@ export component SystemPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: max(280px, root.width - 14px);
+            width: root.compact ? root.width : max(280px, root.width - 14px);
             alignment: start;
-            padding: root.compact ? 12px : 20px;
+            padding-top: root.compact ? 12px : 20px;
+            padding-bottom: root.compact ? 12px : 20px;
+            padding-left: (root.compact ? 12px : 20px) + root.left-inset;
+            padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
             Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 8px;
 
                     SectionTitle {
@@ -43,25 +49,30 @@ export component SystemPage inherits Rectangle {
                     }
 
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-os-name;
                         value: root.os-name;
                         status: root.os-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-kernel;
                         value: root.kernel-version;
                         status: root.kernel-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-arch;
                         value: root.architecture;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-hostname;
                         value: root.hostname;
                         status: root.hostname-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-uptime;
                         value: root.uptime-text;
                         status: root.uptime-status;
@@ -72,7 +83,7 @@ export component SystemPage inherits Rectangle {
 
             Card {
                 VerticalLayout {
-                    padding: 16px;
+                    padding: root.compact ? 14px : 16px;
                     spacing: 8px;
 
                     SectionTitle {
@@ -80,15 +91,18 @@ export component SystemPage inherits Rectangle {
                     }
 
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-cpu;
                         value: root.cpu-model;
                         status: root.cpu-model-status;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.cpu-cores-threads;
                         value: root.cpu-cores-threads;
                     }
                     KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-ram;
                         value: root.total-ram;
                         status: root.total-ram-status;
@@ -96,6 +110,7 @@ export component SystemPage inherits Rectangle {
                     }
 
                     if root.gpus.length == 0 : KeyValueRow {
+                        compact: root.compact;
                         label: I18n.sys-gpus;
                         value: I18n.gpu-none-detected;
                         status: 1;
@@ -103,6 +118,7 @@ export component SystemPage inherits Rectangle {
                     }
 
                     for gpu[idx] in root.gpus : KeyValueRow {
+                        compact: root.compact;
                         label: idx == 0 ? I18n.sys-gpus : "";
                         value: gpu.name + " (" + gpu.vendor + " / " + gpu.driver + ")";
                         show-divider: idx + 1 < root.gpus.length;
