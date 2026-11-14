@@ -158,13 +158,23 @@ jobs:
       - name: Install Android SDK 35 and NDK r27
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/.android/sdk}}"
+          NDK_ROOT="$SDK_ROOT/ndk/27.2.12479018"
+          ANDROID_JAR_PATH="$SDK_ROOT/platforms/android-35/android.jar"
+          ANDROID_D8_PATH="$SDK_ROOT/build-tools/35.0.0/lib/d8.jar"
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --install \
             "platforms;android-35" \
             "build-tools;35.0.0" \
             "ndk;27.2.12479018"
+          test -f "$ANDROID_JAR_PATH"
+          test -f "$ANDROID_D8_PATH"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_JAR=$ANDROID_JAR_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_D8_JAR=$ANDROID_D8_PATH" >> "$GITHUB_ENV"
 
       - name: Install Rust toolchain with aarch64-linux-android target
         uses: dtolnay/rust-toolchain@stable
