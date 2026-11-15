@@ -55,9 +55,8 @@ specific RSS reduction has been established. Histories already use a 240-entry
 ## Remaining work
 
 Allocation profiling, controlled native Wayland comparisons and interaction workloads,
-first-frame timing, custom themes, contrast validation and theme import/export,
-deeper mode differentiation and MangoHud
-integration, hardware/device checks and final Alpha 4 version synchronization are
+first-presented-frame timing, custom themes, contrast validation and theme import/export,
+deeper mode differentiation, additional MangoHud options, hardware/device checks and final Alpha 4 version synchronization are
 still outstanding. No FPS data or overlay behavior is simulated. An Android update
 still requires the installed app's original signing certificate and has not been
 verified on a device. Do not merge, publish or call this branch a completed Alpha 4.
@@ -83,9 +82,14 @@ variable `MANGOHUD_CONFIGFILE` for an explicit config file. Options in upstream'
 `background_alpha`. Upstream also documents that `MANGOHUD_CONFIG` takes priority
 over the config file. Sources: <https://github.com/flightlessmango/MangoHud> and
 <https://github.com/flightlessmango/MangoHud/blob/master/data/MangoHud.conf>.
-MangoHud is absent in this environment, so an actual game/overlay launch and
-configuration compatibility were not verified. Voltix does not yet expose overlay
-controls, generate a config or ingest game FPS. No global configuration was changed.
+A Debian MangoHud package was extracted into a user-owned directory for a test.
+An actual OpenGL application (Voltix itself) displayed MangoHud frame readings on
+Xvfb/Mesa llvmpipe when the documented `--dlsym` preload was used; Vulkan, Proton,
+KDE Wayland and an actual game have not been tested. Unavailable sensor errors were
+observed in this container. Voltix generates selectable per-game launch options;
+it does not inject into running processes, change global files or ingest game FPS.
+On Android it explains the platform limitation. Executable detection checks PATH
+only and does not certify that a graphics layer works.
 
 ## Built-in palettes
 
@@ -97,3 +101,22 @@ The live application is the preview; custom HEX editing, named themes, file
 import/export and formal contrast enforcement remain unfinished. Minimal retains
 the requested #777777 secondary text on #101010; that pair does not meet WCAG AA
 4.5:1 for small text, so accessible contrast still needs a design decision.
+
+
+## Overlay launch-option editor
+
+Gaming → Overlay settings opens the settings section. On Linux it detects the
+MangoHud executable, offers a manual recheck, and stores position, text size,
+opacity, OpenGL `--dlsym` compatibility and visibility of FPS, frame timing,
+CPU/GPU, temperatures, RAM/VRAM and GPU power. The read-only command preview can
+be copied into Steam launch options. Including/disabling MangoHud changes only
+that preview until the user applies it to a game; it cannot change running games.
+The environment setting overrides any MangoHud configuration for that game.
+No global configuration file is modified and no overlay background process or
+polling is started. Current controls do not configure overlay colors or provide a
+visual HUD layout editor. Game FPS remains unavailable inside Voltix itself.
+
+The optional startup trace now reports the first `AfterRendering` callback when
+the renderer supports it. Slint documents that this happens before buffer
+presentation; it is not a first-visible-frame measurement. Unsupported backends
+report the unavailable callback rather than a fabricated time.
