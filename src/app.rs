@@ -191,10 +191,12 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                     1 => crate::settings::PalettePreset::Cyberpunk,
                     2 => crate::settings::PalettePreset::Emerald,
                     3 => crate::settings::PalettePreset::Minimal,
+                    4 => crate::settings::PalettePreset::Custom,
                     _ => crate::settings::PalettePreset::VoltixDefault,
                 };
                 // Built-in palettes describe dark surfaces. Default restores the
                 // existing theme preference rather than silently changing it.
+                win.set_custom_theme_status(SharedString::default());
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
             }
@@ -243,6 +245,73 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_refresh_overlay(move || {
             if let Some(win) = weak.upgrade() {
                 win.set_overlay_detected(crate::overlay::mangohud_available());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_apply_custom_theme(move |json, save| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let theme = match crate::custom_theme::CustomTheme::from_json(json.as_str()) {
+                    Ok(theme) => theme,
+                    Err(_) => {
+                        let message = if state.localizer.locale()
+                            == crate::localization::LocaleCode::Pl
+                        {
+                            "Nieprawidłowy motyw. Sprawdź nazwę, format #RRGGBB i kontrast 4,5:1."
+                        } else {
+                            "Invalid theme. Check the name, #RRGGBB format and 4.5:1 contrast."
+                        };
+                        win.set_custom_theme_status(SharedString::from(message));
+                        return;
+                    }
+                };
+                if save != 0 {
+                    if !state.settings.saved_themes.contains_key(&theme.name)
+                        && state.settings.saved_themes.len() >= 32
+                    {
+                        win.set_custom_theme_status(SharedString::from(
+                            if state.localizer.locale() == crate::localization::LocaleCode::Pl {
+                                "Limit 32 zapisanych motywów."
+                            } else {
+                                "Limit of 32 saved themes reached."
+                            },
+                        ));
+                        return;
+                    }
+                    state
+                        .settings
+                        .saved_themes
+                        .insert(theme.name.clone(), theme.clone());
+                }
+                state.settings.custom_theme = theme;
+                state.settings.palette = crate::settings::PalettePreset::Custom;
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+                win.set_custom_theme_status(SharedString::from(
+                    if state.localizer.locale() == crate::localization::LocaleCode::Pl {
+                        "Motyw zastosowany."
+                    } else {
+                        "Theme applied."
+                    },
+                ));
+            }
+        });
+    }
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_load_custom_theme(move |name| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                if let Some(theme) = state.settings.saved_themes.get(name.as_str()).cloned() {
+                    state.settings.custom_theme = theme;
+                    state.settings.palette = crate::settings::PalettePreset::Custom;
+                    win.set_custom_theme_status(SharedString::default());
+                    persist_settings(&state);
+                    apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+                }
             }
         });
     }
@@ -472,7 +541,29 @@ fn apply_settings_to_window(
             crate::settings::PalettePreset::Cyberpunk => 1,
             crate::settings::PalettePreset::Emerald => 2,
             crate::settings::PalettePreset::Minimal => 3,
+            crate::settings::PalettePreset::Custom => 4,
         });
+    let custom = &settings.custom_theme;
+    let theme = window.global::<Theme>();
+    theme.set_custom_background(crate::custom_theme::CustomTheme::color(&custom.background));
+    theme.set_custom_surface(crate::custom_theme::CustomTheme::color(&custom.surface));
+    theme.set_custom_text(crate::custom_theme::CustomTheme::color(&custom.text));
+    theme.set_custom_accent(crate::custom_theme::CustomTheme::color(&custom.accent));
+    theme.set_custom_on_accent(custom.accent_foreground());
+    theme.set_custom_cpu(crate::custom_theme::CustomTheme::color(&custom.cpu));
+    theme.set_custom_gpu(crate::custom_theme::CustomTheme::color(&custom.gpu));
+    theme.set_custom_ram(crate::custom_theme::CustomTheme::color(&custom.ram));
+    theme.set_custom_vram(crate::custom_theme::CustomTheme::color(&custom.vram));
+    theme.set_custom_dark(custom.dark_background());
+    window.set_custom_theme_json(SharedString::from(
+        serde_json::to_string_pretty(custom).unwrap_or_default(),
+    ));
+    let names: Vec<SharedString> = settings
+        .saved_themes
+        .keys()
+        .map(|name| SharedString::from(name.as_str()))
+        .collect();
+    window.set_saved_theme_names(ModelRc::from(Rc::new(VecModel::from(names))));
     window
         .global::<Theme>()
         .set_accent_index(settings.accent as i32);

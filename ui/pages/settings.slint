@@ -30,6 +30,11 @@ export component SettingsPage inherits Rectangle {
     in property <string> overlay-command;
     callback change-overlay(int, int);
     callback refresh-overlay();
+    in-out property <string> custom-theme-json;
+    in property <string> custom-theme-status;
+    in property <[string]> saved-theme-names;
+    callback apply-custom-theme(string, int);
+    callback load-custom-theme(string);
     callback change-palette(int);
     callback change-interface(int);
     callback change-accent(int);
@@ -63,13 +68,26 @@ export component SettingsPage inherits Rectangle {
                     Text { text: Theme.polish ? "Paleta kolorów" : "Color palette"; color: Theme.text-secondary; }
                     VerticalLayout {
                         spacing: 6px;
-                        for label[index] in ["Voltix Default", "Cyberpunk", "Emerald", "Minimal"] : SegmentedOption {
+                        for label[index] in ["Voltix Default", "Cyberpunk", "Emerald", "Minimal", Theme.polish ? "Własny" : "Custom"] : SegmentedOption {
                             compact: true; label: label;
                             active: Theme.palette == index;
                             clicked => { root.change-palette(index); }
                         }
                     }
-                    if Theme.palette != 0 : Text {
+                    if Theme.palette == 4 : VerticalLayout {
+                        spacing: 8px;
+                        Text {
+                            text: Theme.polish ? "Edytuj lub wklej JSON motywu; skopiuj go, aby wyeksportować. Kolory #RRGGBB muszą mieć kontrast co najmniej 4,5:1 z tłem i powierzchnią." : "Edit or paste theme JSON; copy it to export. #RRGGBB colors must have at least 4.5:1 contrast against background and surface.";
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        TextEdit { height: 220px; text <=> root.custom-theme-json; wrap: word-wrap; }
+                        SegmentedOption { height: 44px; label: Theme.polish ? "Zastosuj / importuj JSON" : "Apply / import JSON"; clicked => { root.apply-custom-theme(root.custom-theme-json, 0); } }
+                        SegmentedOption { height: 44px; label: Theme.polish ? "Zapisz motyw pod nazwą z JSON" : "Save theme using JSON name"; clicked => { root.apply-custom-theme(root.custom-theme-json, 1); } }
+                        if root.custom-theme-status != "" : Text { text: root.custom-theme-status; color: Theme.text-primary; wrap: word-wrap; }
+                        if root.saved-theme-names.length > 0 : Text { text: Theme.polish ? "Zapisane motywy" : "Saved themes"; color: Theme.text-secondary; }
+                        for name in root.saved-theme-names : SegmentedOption { height: 44px; label: name; clicked => { root.load-custom-theme(name); } }
+                    }
+                    if Theme.palette != 0 && Theme.palette != 4 : Text {
                         text: Theme.polish ? "Paleta ma ciemne tło. Wybór motywu lub akcentu przywróci paletę domyślną." : "This palette uses dark surfaces. Choosing a theme or accent restores the default palette.";
                         color: Theme.text-secondary; wrap: word-wrap;
                     }

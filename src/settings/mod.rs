@@ -50,6 +50,7 @@ pub enum PalettePreset {
     Cyberpunk,
     Emerald,
     Minimal,
+    Custom,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,6 +59,8 @@ pub struct UserSettings {
     pub theme: ThemePreference,
     pub interface_mode: InterfaceMode,
     pub palette: PalettePreset,
+    pub custom_theme: crate::custom_theme::CustomTheme,
+    pub saved_themes: std::collections::BTreeMap<String, crate::custom_theme::CustomTheme>,
     pub overlay: crate::overlay::OverlaySettings,
     pub accent: u8,
     pub language: LanguagePreference,
@@ -71,6 +74,8 @@ impl Default for UserSettings {
             theme: ThemePreference::Dark,
             interface_mode: InterfaceMode::Modern,
             palette: PalettePreset::VoltixDefault,
+            custom_theme: crate::custom_theme::CustomTheme::default(),
+            saved_themes: std::collections::BTreeMap::new(),
             overlay: crate::overlay::OverlaySettings::default(),
             accent: 0,
             language: LanguagePreference::System,
@@ -82,6 +87,17 @@ impl Default for UserSettings {
 
 impl UserSettings {
     pub fn validate(&mut self) {
+        if self.custom_theme.validate().is_err() {
+            self.custom_theme = crate::custom_theme::CustomTheme::default();
+            if self.palette == PalettePreset::Custom {
+                self.palette = PalettePreset::VoltixDefault;
+            }
+        }
+        self.saved_themes
+            .retain(|name, theme| name == &theme.name && theme.validate().is_ok());
+        while self.saved_themes.len() > 32 {
+            self.saved_themes.pop_last();
+        }
         self.accent = self.accent.min(3);
         self.overlay.validate();
         self.polling_interval_ms = self
@@ -196,6 +212,7 @@ mod tests {
             PalettePreset::Cyberpunk,
             PalettePreset::Emerald,
             PalettePreset::Minimal,
+            PalettePreset::Custom,
         ] {
             let settings = UserSettings {
                 palette,
@@ -241,16 +258,20 @@ mod tests {
         let tmp = std::env::temp_dir().join("voltix_test_roundtrip_settings.json");
         let _ = fs::remove_file(&tmp);
 
-        let initial = UserSettings {
+        let mut initial = UserSettings {
             theme: ThemePreference::Light,
             language: LanguagePreference::Polish,
             polling_interval_ms: 500,
             temperature_unit: TemperatureUnit::Fahrenheit,
             interface_mode: InterfaceMode::Gaming,
             palette: PalettePreset::Cyberpunk,
+            custom_theme: crate::custom_theme::CustomTheme::default(),
+            saved_themes: std::collections::BTreeMap::new(),
             overlay: crate::overlay::OverlaySettings::default(),
             accent: 2,
         };
+        let custom = crate::custom_theme::CustomTheme::default();
+        initial.saved_themes.insert(custom.name.clone(), custom);
         initial.save_to(&tmp).expect("save should succeed");
         let reloaded = UserSettings::load_or_default(Some(&tmp));
         assert_eq!(reloaded, initial);
