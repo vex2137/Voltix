@@ -28,7 +28,22 @@ allocations, or prove absence of leaks. It requires Linux `/proc` permissions.
 A short isolated Xvfb/winit-software check sampled RSS 26,068–26,076 KiB and PSS
 21,713–21,721 KiB at 3–6 seconds before the model change. This is not comparable
 to the user's KDE Wayland measurements and is too short to infer stability or a
-leak. Long-duration and before/after measurements remain to be completed.
+leak. Two concurrent 15-minute Xvfb/winit-software samples used the pre-model-update
+binary (baseline) and the incremental-row binary (changed), with 1000 ms polling:
+
+| Time | Baseline RSS/PSS/private KiB | Changed RSS/PSS/private KiB |
+| --- | --- | --- |
+| 5 min | 26016 / 21145 / 18204 | 25992 / 21125 / 18180 |
+| 15 min | 25076 / 20226 / 17288 | 25688 / 21278 / 17916 |
+
+Private is clean plus dirty; swap was zero. From 5–15 minutes process CPU was
+approximately 1.61% and 1.49% of one core respectively. The instances ran
+concurrently on separate Xvfb displays and builds/other checks ran during the
+measurement, so shared mappings, scheduling and PSS are affected. This does not
+establish a meaningful reduction, idle CPU target, lack of leaks, hardware GPU
+behavior or KDE Wayland performance. Page/mode cycling is not included. Raw
+samples are `/workspace/voltix-p2-baseline.json` and `/workspace/voltix-p2-after.json`.
+
 
 The UI previously called `VecModel::set_vec()` each sample, resetting all
 repeated components. Models now retain the same vector and only update changed
@@ -39,9 +54,9 @@ specific RSS reduction has been established. Histories already use a 240-entry
 
 ## Remaining work
 
-Allocation/renderer profiling, 5/15-minute comparisons and interaction workloads,
-first-frame timing, the complete Theme Studio (including presets, custom themes,
-contrast validation and import/export), deeper mode differentiation, MangoHud
+Allocation profiling, controlled native Wayland comparisons and interaction workloads,
+first-frame timing, custom themes, contrast validation and theme import/export,
+deeper mode differentiation and MangoHud
 integration, hardware/device checks and final Alpha 4 version synchronization are
 still outstanding. No FPS data or overlay behavior is simulated. An Android update
 still requires the installed app's original signing certificate and has not been
@@ -71,3 +86,14 @@ over the config file. Sources: <https://github.com/flightlessmango/MangoHud> and
 MangoHud is absent in this environment, so an actual game/overlay launch and
 configuration compatibility were not verified. Voltix does not yet expose overlay
 controls, generate a config or ingest game FPS. No global configuration was changed.
+
+## Built-in palettes
+
+Four persisted palettes are selectable in Appearance: Voltix Default, Cyberpunk,
+Emerald and Minimal. Selecting the default restores the previous system/dark/light
+preference; choosing a theme or one of the existing accent swatches returns to the
+default palette. Palette colors propagate to CPU, GPU, RAM and VRAM indicators.
+The live application is the preview; custom HEX editing, named themes, file
+import/export and formal contrast enforcement remain unfinished. Minimal retains
+the requested #777777 secondary text on #101010; that pair does not meet WCAG AA
+4.5:1 for small text, so accessible contrast still needs a design decision.
