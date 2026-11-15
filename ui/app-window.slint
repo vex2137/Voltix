@@ -146,6 +146,8 @@ export component AppWindow inherits Window {
     in-out property <int> polling-ms: 1000;
     in property <string> config-path: "";
 
+    callback page-changed();
+    changed current-page => { root.page-changed(); }
     callback change-palette(int);
     callback change-interface(int);
     callback change-accent(int);
