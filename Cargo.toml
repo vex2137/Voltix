@@ -27,6 +27,7 @@ env_logger = "0.11"
 [target.'cfg(target_os = "android")'.dependencies]
 slint = { version = "1.9", features = ["backend-android-activity-06"] }
 android_logger = "0.14"
+jni = "0.21.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

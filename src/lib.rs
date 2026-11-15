@@ -1,4 +1,5 @@
 pub mod app;
+pub mod control_center;
 pub mod custom_theme;
 pub mod diagnostics;
 pub mod localization;

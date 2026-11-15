@@ -13,6 +13,28 @@ impl MemoryMonitor {
     }
 
     pub fn collect(&self) -> MemoryTelemetry {
+        #[cfg(target_os = "android")]
+        {
+            let p = crate::platform::android_bridge::snapshot();
+            if let Some((total, available)) = p
+                .memory_total
+                .zip(p.memory_available)
+                .filter(|(t, a)| *t > 0 && a <= t)
+            {
+                return MemoryTelemetry {
+                    total_bytes: MetricValue::Available(total),
+                    available_bytes: MetricValue::Available(available),
+                    used_bytes: MetricValue::Available(total - available),
+                    utilization_percent: MetricValue::Available(
+                        (total - available) as f64 * 100.0 / total as f64,
+                    ),
+                    swap_total_bytes: MetricValue::Unsupported("ActivityManager".into()),
+                    swap_used_bytes: MetricValue::Unsupported("ActivityManager".into()),
+                    swap_utilization_percent: MetricValue::Unsupported("ActivityManager".into()),
+                };
+            }
+        }
+
         match fs::read_to_string("/proc/meminfo") {
             Ok(content) => parse_proc_meminfo(&content),
             Err(err) => {

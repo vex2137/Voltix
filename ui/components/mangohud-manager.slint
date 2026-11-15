@@ -1,5 +1,5 @@
 import { I18n } from "../i18n/strings.slint";
-import { LineEdit, TextEdit, CheckBox, ComboBox } from "std-widgets.slint";
+import { LineEdit, TextEdit, CheckBox, ComboBox, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { SegmentedOption, SectionTitle } from "common.slint";
 
@@ -26,7 +26,8 @@ export component MangoHudManager inherits Rectangle {
     private property <[string]> metric-keys: ["fps", "frametime", "frame_timing", "cpu_stats", "gpu_stats", "cpu_temp", "gpu_temp", "ram", "vram", "gpu_power", "cpu_power", "cpu_mhz", "core_load", "gpu_core_clock", "gpu_mem_clock", "gpu_mem_temp", "gpu_junction_temp", "gpu_fan", "gpu_voltage", "swap", "procmem", "io_read", "io_write", "battery", "battery_watt", "network", "wine", "engine_version", "resolution", "time", "horizontal", "no_small_font"];
     private property <[string]> appearance-keys: ["position", "font_size", "font_scale", "font_file", "alpha", "background_alpha", "text_color", "background_color", "cpu_color", "gpu_color", "ram_color", "vram_color", "frametime_color", "width", "height", "table_columns", "legacy_layout", "reload_cfg"];
     private property <[string]> metric-labels: ["FPS", I18n.messages[150], I18n.messages[73], I18n.messages[74], I18n.messages[75], I18n.messages[3], I18n.messages[5], "RAM", "VRAM", I18n.messages[76], I18n.messages[77], I18n.messages[4], I18n.messages[78], I18n.messages[6], I18n.messages[79], I18n.messages[80], I18n.messages[81], I18n.messages[82], I18n.messages[83], I18n.messages[84], I18n.messages[85], I18n.messages[86], I18n.messages[87], I18n.messages[88], I18n.messages[89], I18n.messages[90], "Wine / Proton", I18n.messages[91], I18n.messages[92], I18n.messages[93], I18n.messages[94], I18n.messages[95]];
-    min-height: 1750px;
+    private property <int> section: 0;
+    min-height: 500px;
     min-width: 0px;
     VerticalLayout {
         padding: 16px;
@@ -34,6 +35,13 @@ export component MangoHudManager inherits Rectangle {
         SectionTitle { text: I18n.messages[52]; }
         Text { text: "MangoHud 0.8.4 · Linux · Vulkan / OpenGL / Proton"; color: Theme.text-secondary; }
         Text { text: root.status; color: Theme.text-primary; wrap: word-wrap; }
+        if root.width >= 650px : HorizontalLayout {
+            spacing: 6px;
+            for name[index] in [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply] : Button { text: name; primary: root.section == index; clicked => { root.section = index; } }
+        }
+        if root.width < 650px : ComboBox { model: [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply]; current-index <=> root.section; }
+        if root.section == 0 : VerticalLayout {
+            spacing: 10px;
         Text { text: I18n.messages[53]; color: Theme.text-secondary; wrap: word-wrap; }
         ComboBox { model: root.profiles; selected(value) => { root.profile-name = value; } }
         LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; }
@@ -41,16 +49,23 @@ export component MangoHudManager inherits Rectangle {
             spacing: 6px;
             for action in ["load", "save", "duplicate"] : SegmentedOption {
                 height: 40px; label: action == "load" ? I18n.messages[96] : (action == "save" ? I18n.messages[97] : I18n.messages[98]);
-                clicked => { root.manage(action, root.profile-name, root.file-path, "", root.confirmed); root.confirmed = false; }
+                clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
             }
         }
         VerticalLayout {
             spacing: 6px;
             for action in ["review-save", "delete"] : SegmentedOption {
                 height: 40px; label: action == "review-save" ? I18n.messages[55] : I18n.messages[56];
-                clicked => { root.manage(action, root.profile-name, root.file-path, "", root.confirmed); root.confirmed = false; }
+                clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
             }
         }
+        Text { text: I18n.messages[68]; color: Theme.text-secondary; wrap: word-wrap; }
+        CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
+        Button { text: I18n.messages[69]; clicked => { root.manage("confirm", "", root.file-path, root.config, root.confirmed); root.confirmed = false; } }
+
+        }
+        if root.section == 1 : VerticalLayout {
+            spacing: 10px;
         Text { text: I18n.messages[57]; color: Theme.text-secondary; wrap: word-wrap; }
         for row in (root.width < 600px ? 32 : (root.width < 950px ? 16 : 8)) : HorizontalLayout {
             for column in (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) : CheckBox {
@@ -58,6 +73,10 @@ export component MangoHudManager inherits Rectangle {
                 toggled => { root.manage("option", root.metric-keys[row * (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) + column], "", self.checked ? "1" : "0", false); }
             }
         }
+
+        }
+        if root.section == 2 : VerticalLayout {
+            spacing: 10px;
         Text { text: I18n.messages[58]; color: Theme.text-secondary; wrap: word-wrap; }
         for row in (root.width < 700px ? 18 : 9) : HorizontalLayout {
             for column in (root.width < 700px ? 1 : 2) : HorizontalLayout {
@@ -69,6 +88,10 @@ export component MangoHudManager inherits Rectangle {
                 }
             }
         }
+
+        }
+        if root.section == 3 : VerticalLayout {
+            spacing: 10px;
         Text { text: I18n.messages[59]; color: Theme.text-secondary; wrap: word-wrap; }
         Rectangle {
             height: 170px; background: Theme.bg-app; border-radius: 8px; clip: true;
@@ -80,6 +103,10 @@ export component MangoHudManager inherits Rectangle {
                 Text { x: 8px; y: 8px; width: parent.width - 16px; height: parent.height - 16px; text: root.preview; color: root.preview-color; font-size: root.preview-size * 1px; wrap: word-wrap; overflow: elide; }
             }
         }
+
+        }
+        if root.section == 4 : VerticalLayout {
+            spacing: 10px;
         Text { text: I18n.messages[60]; color: Theme.text-secondary; wrap: word-wrap; }
         editor := TextEdit { height: 190px; text <=> root.config; }
         SegmentedOption { height: 38px; label: I18n.messages[61]; clicked => { root.manage("edit", "", "", editor.text, false); } }
@@ -110,5 +137,7 @@ export component MangoHudManager inherits Rectangle {
         CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
         SegmentedOption { height: 42px; label: I18n.messages[69]; clicked => { root.manage("confirm", "", root.file-path, editor.text, root.confirmed); root.confirmed = false; } }
         Text { text: I18n.messages[72]; color: Theme.text-secondary; wrap: word-wrap; }
+        }
+
     }
 }

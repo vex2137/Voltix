@@ -171,3 +171,17 @@ On Plasma Wayland, install/integrate the bundled `voltix.desktop` and icon throu
 AppImage manager so Plasma can resolve that ID to its desktop entry.
 
 MangoHud file profiles, safe application, appearance controls and reload behavior are documented in [MangoHud Studio](docs/MANGOHUD.md).
+
+## Unified Alpha 4 control center
+
+Modern, Professional and Gaming now share real telemetry with distinct layouts.
+Desktop has permanent page navigation and category-based Settings. Android uses
+Dashboard / CPU / GPU / Battery / More, with foreground-only BatteryManager,
+ActivityManager, TrafficStats, Display and sensor-inventory integration.
+
+Linux adds network and physical-disk rates, read-only process sorting/filtering,
+accessible hwmon/thermal values, PSI and power-supply battery data. Detailed
+history is bounded and selectable; snapshots can be exported locally as JSON.
+Unavailable data remains explicit. See [sources, API limits and lifecycle behavior](docs/CONTROL-CENTER.md).
+MangoHud Studio retains its profiles and reviewed atomic writes, organized into
+Profiles, Metrics, Appearance, Preview and Editor & Apply sections.

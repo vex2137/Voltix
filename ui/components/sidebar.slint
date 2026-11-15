@@ -1,192 +1,43 @@
+import { ScrollView, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
-
-component NavItem inherits TouchArea {
-    in property <string> label;
-    in property <string> code;
-    in property <bool> active: false;
-
-    height: 38px;
-    mouse-cursor: pointer;
-
-    Rectangle {
-        border-radius: Theme.radius-sm;
-        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : transparent);
-
-        HorizontalLayout {
-            padding-left: 10px;
-            padding-right: 12px;
-            spacing: 10px;
-            alignment: start;
-
-            VerticalLayout {
-                alignment: center;
-                Rectangle {
-                    width: 3px;
-                    height: 18px;
-                    border-radius: 2px;
-                    background: root.active ? Theme.accent : transparent;
-                }
-            }
-
-            VerticalLayout {
-                alignment: center;
-                Rectangle {
-                    width: 24px;
-                    height: 20px;
-                    border-radius: 4px;
-                    background: root.active ? Theme.accent : Theme.bg-elevated;
-
-                    Text {
-                        text: root.code;
-                        color: root.active ? Theme.on-accent : Theme.text-secondary;
-                        font-size: 9px;
-                        font-weight: 700;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-
-            Text {
-                text: root.label;
-                color: root.active ? Theme.text-primary : Theme.text-secondary;
-                font-size: 13px;
-                font-weight: root.active ? 600 : 500;
-                vertical-alignment: center;
-                overflow: elide;
-            }
-        }
-    }
-}
-
 export component Sidebar inherits Rectangle {
     in-out property <int> current-page: 0;
     in property <string> os-label: "Linux";
     in property <string> polling-label: "1000 ms";
 
-    width: 218px;
+    in property <bool> has-battery;
+    width: 192px;
     background: Theme.bg-sidebar;
-
-    HorizontalLayout {
-        VerticalLayout {
-            padding: 14px;
-            spacing: 18px;
-            horizontal-stretch: 1;
-
-            // Brand header
-            HorizontalLayout {
-                padding-left: 6px;
-                padding-top: 4px;
-                spacing: 10px;
-                alignment: start;
-
-                Image {
-                    width: 32px;
-                    height: 32px;
-                    source: @image-url("../../assets/icons/voltix.svg");
-                    image-fit: contain;
-                }
-
-                VerticalLayout {
-                    spacing: 1px;
-                    Text {
-                        text: I18n.app-name;
-                        color: Theme.text-primary;
-                        font-size: 15px;
-                        font-weight: 700;
-                    }
-                    Text {
-                        text: I18n.app-version;
-                        color: Theme.text-muted;
-                        font-size: 10px;
-                    }
-                }
-            }
-
-            // Navigation links
+    VerticalLayout {
+        padding: 12px; spacing: 12px;
+        HorizontalLayout {
+            spacing: 8px;
+            Image { source: @image-url("../../assets/icons/voltix.svg"); width: 30px; height: 30px; image-fit: contain; }
             VerticalLayout {
-                spacing: 4px;
-                vertical-stretch: 1;
-                alignment: start;
-
-                NavItem {
-                    code: "OV";
-                    label: I18n.nav-dashboard;
-                    active: root.current-page == 0;
-                    clicked => { root.current-page = 0; }
-                }
-                NavItem {
-                    code: "CP";
-                    label: I18n.nav-cpu;
-                    active: root.current-page == 1;
-                    clicked => { root.current-page = 1; }
-                }
-                NavItem {
-                    code: "GP";
-                    label: I18n.nav-gpu;
-                    active: root.current-page == 2;
-                    clicked => { root.current-page = 2; }
-                }
-                NavItem {
-                    code: "RM";
-                    label: I18n.nav-memory;
-                    active: root.current-page == 3;
-                    clicked => { root.current-page = 3; }
-                }
-                NavItem {
-                    code: "DS";
-                    label: I18n.nav-storage;
-                    active: root.current-page == 4;
-                    clicked => { root.current-page = 4; }
-                }
-                NavItem {
-                    code: "SY";
-                    label: I18n.nav-system;
-                    active: root.current-page == 5;
-                    clicked => { root.current-page = 5; }
-                }
-                NavItem {
-                    code: "ST";
-                    label: I18n.nav-settings;
-                    active: root.current-page == 6;
-                    clicked => { root.current-page = 6; }
-                }
+                Text { text: "Voltix"; color: Theme.text-primary; font-size: 16px; font-weight: 700; }
+                Text { text: I18n.app-version; color: Theme.text-muted; font-size: 11px; }
             }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding-right: 4px; spacing: 5px;
+                for destination[index] in [0,1,2,3,4,7,8,9,10,11,5,6] : Rectangle {
+                    height: destination == 8 && !root.has-battery ? 0px : 38px;
+                    vertical-stretch: 0;
+                    Button {
+                    width: 100%; height: 100%;
+                    visible: destination != 8 || root.has-battery;
+                    text: ["◉  " + I18n.nav-dashboard, "▦  " + I18n.nav-cpu, "◈  " + I18n.nav-gpu, "▤  " + I18n.cc-memory, "▣  " + I18n.cc-storage, "⇄  " + I18n.cc-network, "⚡  " + I18n.cc-battery, "◌  " + I18n.cc-sensors, "≡  " + I18n.cc-processes, "⌁  " + I18n.cc-studio, "ⓘ  " + I18n.cc-system, "⚙  " + I18n.cc-settings][index];
+                    primary: root.current-page == destination;
 
-            // Fixed-height footer; navigation consumes the remaining space.
-            Rectangle {
-                height: 72px;
-                vertical-stretch: 0;
-                border-radius: Theme.radius-sm;
-                background: Theme.bg-elevated;
-                border-width: 1px;
-                border-color: Theme.border-subtle;
-
-                VerticalLayout {
-                    padding: 10px;
-                    spacing: 4px;
-
-                    Text {
-                        text: root.os-label;
-                        color: Theme.text-primary;
-                        font-size: 11px;
-                        font-weight: 600;
-                        overflow: elide;
-                    }
-                    Text {
-                        text: (I18n.messages[0]) + " · " + root.polling-label;
-                        color: Theme.text-muted;
-                        font-size: 11px;
-                        overflow: elide;
+                    clicked => { root.current-page = destination; }
                     }
                 }
             }
         }
-
-        Rectangle {
-            width: 1px;
-            background: Theme.border-subtle;
-        }
+        Text { text: root.os-label; color: Theme.text-secondary; font-size: 11px; wrap: word-wrap; }
+        Text { text: I18n.status-polling + " · " + root.polling-label; color: Theme.text-muted; font-size: 11px; }
     }
 }

@@ -295,11 +295,20 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='5'"
           unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
+          unzip -l "$apk_name" | grep 'classes.dex'
+          sha256sum "$apk_name" > SHA256SUMS-android
+          echo "::notice title=Android APK SHA-256::$(cat SHA256SUMS-android)"
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D android/app/src/main/jniLibs/arm64-v8a/libvoltix.so > android-symbols.txt
+          for symbol in nativeSnapshot nativeCommand nativePollingInterval nativeExportJson; do
+            grep "Java_com_voltix_monitor_VoltixActivity_$symbol" android-symbols.txt
+          done
 
       - name: Upload Voltix Android APK
         uses: actions/upload-artifact@v4
         with:
           name: voltix-android-arm64-apk
-          path: ${{ steps.apk.outputs.path }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            SHA256SUMS-android
           if-no-files-found: error
           retention-days: 14

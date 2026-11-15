@@ -1,3 +1,4 @@
+import { Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 
 export component Card inherits Rectangle {
@@ -183,34 +184,12 @@ export component DiagnosticNotice inherits Card {
     }
 }
 
-export component SegmentedOption inherits TouchArea {
+export component SegmentedOption inherits Button {
     in property <string> label;
     in property <bool> active: false;
     in property <bool> compact: false;
-
-    height: root.compact ? 42px : 32px;
-    mouse-cursor: pointer;
-
-    Rectangle {
-        border-radius: Theme.radius-sm;
-        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : Theme.bg-elevated);
-        border-width: 1px;
-        border-color: root.active ? Theme.accent : Theme.border-subtle;
-
-        HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            alignment: center;
-
-            Text {
-                text: root.label;
-                color: root.active ? Theme.accent : Theme.text-primary;
-                font-size: 12px;
-                font-weight: root.active ? 600 : 500;
-                vertical-alignment: center;
-                wrap: word-wrap;
-                overflow: elide;
-            }
-        }
-    }
+    text: root.label;
+    primary: root.active;
+    min-width: 0px;
+    height: root.compact ? 44px : 36px;
 }

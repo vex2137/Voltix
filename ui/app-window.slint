@@ -1,3 +1,9 @@
+import { ControlCenter } from "pages/control-center.slint";
+import { DetailsPage } from "pages/details.slint";
+import { ProcessesPage } from "pages/processes.slint";
+import { MorePage } from "pages/more.slint";
+import { ControlRow, ControlSummary } from "models.slint";
+export { ControlRow, ControlSummary }
 import { Palette } from "std-widgets.slint";
 import { Theme } from "themes/theme.slint";
 import { I18n } from "i18n/strings.slint";
@@ -20,7 +26,7 @@ export component AppWindow inherits Window {
     icon: @image-url("../assets/icons/voltix.svg");
     preferred-width: 1280px;
     preferred-height: 800px;
-    min-width: 320px;
+    min-width: root.android-platform ? 320px : 740px;
     min-height: 480px;
     background: Theme.bg-app;
 
@@ -28,11 +34,51 @@ export component AppWindow inherits Window {
     private property <bool> compact-mode: false;
     private property <bool> narrow-mode: false;
     function update-breakpoints() {
-        root.compact-mode = root.width < 760px;
+        root.compact-mode = root.android-platform || root.width < 760px;
         root.narrow-mode = root.width - root.safe-area-insets.left - root.safe-area-insets.right < 360px;
     }
     changed width => { root.update-breakpoints(); }
     changed safe-area-insets => { root.update-breakpoints(); }
+    in property <bool> android-platform: false;
+    changed android-platform => { root.update-breakpoints(); }
+    in property <bool> cc-has-battery;
+    in property <string> cc-memory-pressure;
+    in-out property <bool> cc-updating: false;
+    in-out property <int> cc-settings-category: 0;
+    in-out property <int> cc-chart-source: 0;
+    in-out property <int> cc-chart-range: 0;
+    in-out property <string> cc-filter;
+    in-out property <int> cc-sort;
+    in-out property <string> cc-export-directory;
+    in property <string> cc-export-status;
+    in-out property <string> cc-export-code;
+    in-out property <string> cc-export-detail;
+    in property <[ControlSummary]> cc-summaries;
+    in property <[ControlRow]> cc-performance;
+    in property <[ControlRow]> cc-network;
+    in property <[ControlRow]> cc-disks;
+    in property <[ControlRow]> cc-sensors;
+    in property <[ControlRow]> cc-system;
+    in property <[ControlRow]> cc-diagnostics;
+    in property <[ControlRow]> cc-detail-rows;
+    in property <[ControlRow]> cc-process-rows;
+    in property <bool> cc-processes-available;
+    in property <string> cc-detail-title;
+    in property <string> cc-detail-note;
+    in property <string> cc-history-line;
+    in property <string> cc-history-area;
+    in property <bool> cc-history-data;
+    in property <string> cc-history-current;
+    in property <string> cc-history-max;
+    in property <string> cc-history-min;
+    callback cc-options-changed();
+    callback cc-export(string);
+    callback cc-app-settings();
+    changed cc-chart-source => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed cc-chart-range => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed cc-sort => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed cc-filter => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed cc-settings-category => { if !root.cc-updating { root.page-changed(); } }
     in-out property <int> current-page: 0;
 
     // Header & status properties
@@ -147,7 +193,7 @@ export component AppWindow inherits Window {
     in property <string> config-path: "";
 
     callback page-changed();
-    changed current-page => { root.page-changed(); }
+    changed current-page => { if !root.cc-updating { root.page-changed(); } }
     in property <bool> overlay-linux;
     in property <bool> overlay-detected;
     in property <bool> overlay-enabled;
@@ -216,6 +262,13 @@ export component AppWindow inherits Window {
         if (root.current-page == 3) { return I18n.nav-memory; }
         if (root.current-page == 4) { return I18n.nav-storage; }
         if (root.current-page == 5) { return I18n.nav-system; }
+        if root.current-page == 7 { return I18n.cc-network; }
+        if root.current-page == 8 { return I18n.cc-battery; }
+        if root.current-page == 9 { return I18n.cc-sensors; }
+        if root.current-page == 10 { return I18n.cc-processes; }
+        if root.current-page == 11 { return I18n.cc-studio; }
+        if root.current-page == 12 { return I18n.cc-more; }
+        if root.current-page == 13 { return I18n.cc-permissions; }
         return I18n.nav-settings;
     }
 
@@ -226,11 +279,13 @@ export component AppWindow inherits Window {
         if (root.current-page == 3) { return I18n.header-subtitle-memory; }
         if (root.current-page == 4) { return I18n.header-subtitle-storage; }
         if (root.current-page == 5) { return I18n.header-subtitle-system; }
+        if root.current-page > 6 { return I18n.cc-control-center; }
         return I18n.header-subtitle-settings;
     }
 
     HorizontalLayout {
-        if !root.compact-mode : Sidebar {
+        if !root.android-platform : Sidebar {
+            has-battery: root.cc-has-battery;
             current-page <=> root.current-page;
             os-label: root.os-badge-text;
             polling-label: root.polling-badge-text;
@@ -353,57 +408,39 @@ export component AppWindow inherits Window {
                 vertical-stretch: 1;
                 background: Theme.bg-app;
 
-                if root.current-page == 0 && Theme.interface-mode == 0 : DashboardPage {
-                    width: 100%;
-                    height: 100%;
-                    compact: self.width < 1050px;
-                    narrow: self.width < 560px;
-                    left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
-                    right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
-                    cpu-card-label: root.dash-cpu-card-label;
-                    cpu-util-text: root.dash-cpu-util-text;
-                    cpu-util-percent: root.dash-cpu-util-percent;
-                    cpu-util-status: root.dash-cpu-util-status;
-                    cpu-secondary-text: root.dash-cpu-secondary-text;
-                    cpu-chart-title: root.dash-cpu-chart-title;
-                    gpu-util-text: root.dash-gpu-util-text;
-                    gpu-util-percent: root.dash-gpu-util-percent;
-                    gpu-util-status: root.dash-gpu-util-status;
-                    gpu-temp-text: root.dash-gpu-temp-text;
-                    ram-util-text: root.ram-util-text;
-                    ram-util-percent: root.ram-util-percent;
-                    ram-util-status: root.ram-util-status;
-                    ram-detail-text: root.ram-detail-text;
-                    vram-util-text: root.dash-vram-util-text;
-                    vram-util-percent: root.dash-vram-util-percent;
-                    vram-util-status: root.dash-vram-util-status;
-                    vram-detail-text: root.dash-vram-detail-text;
-                    uptime-text: root.uptime-text;
-                    uptime-status: root.uptime-status;
-                    kernel-text: root.kernel-text;
-                    cpu-line-commands: root.cpu-line-commands;
-                    cpu-area-commands: root.cpu-area-commands;
-                    cpu-has-history: root.cpu-has-history;
-                    ram-line-commands: root.ram-line-commands;
-                    ram-area-commands: root.ram-area-commands;
-                    ram-has-history: root.ram-has-history;
-                    gpu-line-commands: root.gpu-line-commands;
-                    gpu-area-commands: root.gpu-area-commands;
-                    gpu-has-history: root.gpu-has-history;
-                    gpu-chart-empty-text: root.gpu-chart-empty-text;
-                }
-
-                if root.current-page == 0 && Theme.interface-mode != 0 : PerformancePage {
-                    width: 100%; height: 100%; compact: self.width < 1050px;
-                    open-overlay => { root.current-page = 6; }
-                    cpu: root.cpu-sys-util-text; cpu-percent: root.cpu-sys-util-percent; cpu-status: root.cpu-sys-util-status; temperature: root.cpu-temp-text;
-                    frequency: root.cpu-freq-text; ram: root.ram-util-text;
-                    vram: root.dash-vram-detail-text; gpu: root.selected-gpu;
-                    cores: root.cpu-core-rows;
+                if root.current-page == 0 : ControlCenter {
+                    android-platform: root.android-platform;
+                    left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
+                    width: 100%; height: 100%;
+                    summaries: root.cc-summaries; performance: root.cc-performance; network: root.cc-network;
+                    disks: root.cc-disks; sensors: root.cc-sensors; system: root.cc-system;
                     cpu-line: root.cpu-line-commands; cpu-area: root.cpu-area-commands; cpu-data: root.cpu-has-history;
                     gpu-line: root.gpu-line-commands; gpu-area: root.gpu-area-commands; gpu-data: root.gpu-has-history;
+                    history-source <=> root.cc-chart-source; history-range <=> root.cc-chart-range;
+                    history-line: root.cc-history-line; history-area: root.cc-history-area; history-data: root.cc-history-data;
+                    history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
+                    navigate(page) => { root.current-page = page; }
                 }
-
+                if root.current-page == 7 || root.current-page == 8 || root.current-page == 9 || root.current-page == 13 : DetailsPage {
+                    left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
+                    width: 100%; height: 100%;
+                    title: root.cc-detail-title; note: root.cc-detail-note; rows: root.cc-detail-rows;
+                    show-history: root.current-page == 7 || root.current-page == 8;
+                    android-settings: root.android-platform && root.current-page == 13;
+                    open-app-settings => { root.cc-app-settings(); }
+                    history-source <=> root.cc-chart-source; history-range <=> root.cc-chart-range;
+                    history-line: root.cc-history-line; history-area: root.cc-history-area; history-data: root.cc-history-data;
+                    history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
+                }
+                if root.current-page == 10 : ProcessesPage {
+                    left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
+                    width: 100%; height: 100%; rows: root.cc-process-rows; available: root.cc-processes-available;
+                    filter <=> root.cc-filter; sort <=> root.cc-sort;
+                }
+                if root.current-page == 12 : MorePage {
+                    left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
+                    width: 100%; height: 100%; navigate(page) => { root.current-page = page; }
+                }
                 if root.current-page == 1 : CpuPage {
                     width: 100%;
                     height: 100%;
@@ -457,6 +494,7 @@ export component AppWindow inherits Window {
                 }
 
                 if root.current-page == 3 : MemoryPage {
+                    pressure: root.cc-memory-pressure; android-platform: root.android-platform;
                     width: 100%;
                     height: 100%;
                     compact: self.width < 1050px;
@@ -486,6 +524,7 @@ export component AppWindow inherits Window {
                 }
 
                 if root.current-page == 4 : StoragePage {
+                    activity: root.cc-disks;
                     width: 100%;
                     height: 100%;
                     compact: self.width < 1050px;
@@ -518,7 +557,11 @@ export component AppWindow inherits Window {
                     gpus: root.system-gpus;
                 }
 
-                if root.current-page == 6 : SettingsPage {
+                if root.current-page == 6 || root.current-page == 11 : SettingsPage {
+                    category <=> root.cc-settings-category; studio-only: root.current-page == 11;
+                    android-platform: root.android-platform; diagnostic-rows: root.cc-diagnostics;
+                    export-directory <=> root.cc-export-directory; export-status: root.cc-export-status;
+                    export-snapshot(path) => { root.cc-export(path); } app-settings => { root.cc-app-settings(); }
                     width: 100%;
                     height: 100%;
                     compact: self.width < 1050px;
@@ -560,7 +603,7 @@ export component AppWindow inherits Window {
                 }
             }
 
-            if root.compact-mode : BottomNav {
+            if root.android-platform : BottomNav {
                 current-page <=> root.current-page;
                 bottom-inset: root.safe-area-insets.bottom;
                 left-inset: root.safe-area-insets.left;

@@ -1,5 +1,6 @@
 pub mod cpu;
 pub mod disk;
+pub mod extended;
 pub mod gpu;
 pub mod memory;
 pub mod system;
@@ -19,6 +20,8 @@ pub struct MonitoringEngine {
     memory: MemoryMonitor,
     gpu: GpuMonitor,
     disk: DiskMonitor,
+    extended: extended::ExtendedMonitor,
+    pub want_processes: bool,
 }
 
 impl Default for MonitoringEngine {
@@ -35,6 +38,8 @@ impl MonitoringEngine {
             memory: MemoryMonitor::new(),
             gpu: GpuMonitor::new(),
             disk: DiskMonitor::new(),
+            extended: extended::ExtendedMonitor::default(),
+            want_processes: false,
         }
     }
 
@@ -42,6 +47,7 @@ impl MonitoringEngine {
         let sampled_at = Instant::now();
         TelemetrySnapshot {
             sampled_at,
+            extended: self.extended.collect(self.want_processes),
             system: self.system.collect(),
             cpu: self.cpu.collect(),
             memory: self.memory.collect(),

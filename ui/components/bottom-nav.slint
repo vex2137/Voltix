@@ -1,138 +1,38 @@
+import { Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
-
-component BottomNavItem inherits TouchArea {
-    in property <string> code;
+component Destination inherits Rectangle {
+    in property <bool> primary;
+    callback clicked();
     in property <string> label;
-    in property <bool> active: false;
-
-    horizontal-stretch: 1;
-    min-width: 56px;
-    height: 60px;
-    mouse-cursor: pointer;
-
-    Rectangle {
-        border-radius: Theme.radius-sm;
-        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : transparent);
-        border-width: root.active ? 1px : 0px;
-        border-color: Theme.accent-soft;
-
-        VerticalLayout {
-            padding-top: 5px;
-            padding-bottom: 5px;
-            padding-left: 4px;
-            padding-right: 4px;
-            spacing: 4px;
-            alignment: center;
-
-            HorizontalLayout {
-                alignment: center;
-
-                Rectangle {
-                    width: 32px;
-                    height: 22px;
-                    border-radius: 5px;
-                    background: root.active ? Theme.accent : Theme.bg-elevated;
-
-                    Text {
-                        text: root.code;
-                        color: root.active ? Theme.on-accent : Theme.text-secondary;
-                        font-size: 10.5px;
-                        font-weight: 700;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-
-            Text {
-                text: root.label;
-                color: root.active ? Theme.text-primary : Theme.text-secondary;
-                font-size: 11.5px;
-                font-weight: root.active ? 700 : 500;
-                horizontal-alignment: center;
-                overflow: elide;
-            }
-        }
+    in property <string> glyph;
+    Button { width: 100%; height: 100%; text: ""; accessible-label: root.label; primary: root.primary; clicked => { root.clicked(); } }
+    min-width: 0px; min-height: 60px;
+    VerticalLayout {
+        padding: 4px; spacing: 3px; alignment: center;
+        Text { text: root.glyph; font-size: 16px; horizontal-alignment: center; color: root.primary ? Theme.on-accent : Theme.text-secondary; }
+        Text { text: root.label; font-size: 11px; horizontal-alignment: center; color: root.primary ? Theme.on-accent : Theme.text-secondary; wrap: word-wrap; }
     }
 }
-
 export component BottomNav inherits Rectangle {
     in-out property <int> current-page: 0;
-    in property <length> bottom-inset: 0px;
-    in property <length> left-inset: 0px;
-    in property <length> right-inset: 0px;
-
+    in property <length> bottom-inset;
+    in property <length> left-inset;
+    in property <length> right-inset;
     background: Theme.bg-sidebar;
-
     VerticalLayout {
-        Rectangle {
-            height: 1px;
-            background: Theme.border-subtle;
-        }
-
-        Flickable {
-            height: 66px;
-            interactive: self.content-width > self.width;
-            content-width: max(self.width, 432px + root.left-inset + root.right-inset);
-            content-height: 66px;
-
-            HorizontalLayout {
-                width: parent.content-width;
-                height: 66px;
-                padding-left: 8px + root.left-inset;
-                padding-right: 8px + root.right-inset;
-                padding-top: 3px;
-                padding-bottom: 3px;
-                spacing: 4px;
-
-                BottomNavItem {
-                    code: "OV";
-                    label: I18n.nav-short-dashboard;
-                    active: root.current-page == 0;
-                    clicked => { root.current-page = 0; }
-                }
-                BottomNavItem {
-                    code: "CP";
-                    label: I18n.nav-short-cpu;
-                    active: root.current-page == 1;
-                    clicked => { root.current-page = 1; }
-                }
-                BottomNavItem {
-                    code: "GP";
-                    label: I18n.nav-short-gpu;
-                    active: root.current-page == 2;
-                    clicked => { root.current-page = 2; }
-                }
-                BottomNavItem {
-                    code: "RM";
-                    label: I18n.nav-short-memory;
-                    active: root.current-page == 3;
-                    clicked => { root.current-page = 3; }
-                }
-                BottomNavItem {
-                    code: "DS";
-                    label: I18n.nav-short-storage;
-                    active: root.current-page == 4;
-                    clicked => { root.current-page = 4; }
-                }
-                BottomNavItem {
-                    code: "SY";
-                    label: I18n.nav-short-system;
-                    active: root.current-page == 5;
-                    clicked => { root.current-page = 5; }
-                }
-                BottomNavItem {
-                    code: "ST";
-                    label: I18n.nav-short-settings;
-                    active: root.current-page == 6;
-                    clicked => { root.current-page = 6; }
-                }
+        Rectangle { height: 1px; background: Theme.border-subtle; }
+        HorizontalLayout {
+            padding-left: root.left-inset + 4px; padding-right: root.right-inset + 4px;
+            padding-top: 4px; padding-bottom: 4px; spacing: 3px;
+            for destination[index] in [0,1,2,8,12] : Destination {
+                horizontal-stretch: 1; min-width: 0px; min-height: 56px;
+                label: [I18n.nav-short-dashboard,"CPU","GPU",I18n.cc-battery-short,I18n.cc-more][index];
+                glyph: ["⌂","▦","◈","⚡","•••"][index];
+                primary: root.current-page == destination || (destination == 12 && root.current-page != 0 && root.current-page != 1 && root.current-page != 2 && root.current-page != 8);
+                clicked => { root.current-page = destination; }
             }
         }
-
-        if root.bottom-inset > 0px : Rectangle {
-            height: root.bottom-inset;
-        }
+        if root.bottom-inset > 0px : Rectangle { height: root.bottom-inset; }
     }
 }

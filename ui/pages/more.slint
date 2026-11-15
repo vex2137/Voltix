@@ -1,0 +1,18 @@
+import { ScrollView, Button } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+export component MorePage inherits Rectangle {
+    in property <length> left-inset;
+    in property <length> right-inset;
+    callback navigate(int);
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: max(0px, root.width - 14px); padding: 16px; padding-left: 16px + root.left-inset; padding-right: 16px + root.right-inset; spacing: 12px; alignment: start;
+            for destination[index] in [3,4,7,5,9,13,6,14] : Button {
+                text: [I18n.cc-memory,I18n.cc-storage,I18n.cc-network,I18n.cc-system,I18n.cc-sensors,I18n.cc-permissions,I18n.cc-settings,I18n.cc-about][index];
+                min-height: 48px; clicked => { root.navigate(destination); }
+            }
+        }
+    }
+}

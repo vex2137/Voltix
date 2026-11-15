@@ -1,0 +1,40 @@
+import { ScrollView, Button } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { ControlRow } from "../models.slint";
+import { Card, SectionTitle } from "../components/common.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
+import { HistoryPanel } from "../components/history-panel.slint";
+export component DetailsPage inherits Rectangle {
+    in property <length> left-inset;
+    in property <length> right-inset;
+    in property <string> title;
+    in property <string> note;
+    in property <[ControlRow]> rows;
+    in property <bool> show-history;
+    in property <bool> android-settings;
+    callback open-app-settings();
+    in-out property <int> history-source;
+    in-out property <int> history-range;
+    in property <string> history-line;
+    in property <string> history-area;
+    in property <bool> history-data;
+    in property <string> history-current;
+    in property <string> history-max;
+    in property <string> history-min;
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: max(0px, root.width - 14px); padding: 16px; padding-left: 16px + root.left-inset; padding-right: 16px + root.right-inset; spacing: 12px; alignment: start;
+            SectionTitle { text: root.title; }
+            Text { text: root.note; color: Theme.text-secondary; wrap: word-wrap; }
+            if root.android-settings : Button { text: I18n.cc-app-settings; clicked => { root.open-app-settings(); } }
+            Card { VerticalLayout { padding: 14px; TelemetryRows { rows: root.rows; } } }
+            if root.show-history : HistoryPanel {
+                source <=> root.history-source; range <=> root.history-range;
+                line: root.history-line; area: root.history-area; has-data: root.history-data;
+                current: root.history-current; maximum: root.history-max; minimum: root.history-min;
+            }
+        }
+    }
+}

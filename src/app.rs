@@ -55,6 +55,15 @@ struct SharedState {
     ram_history: BoundedHistory,
     gpu_histories: HashMap<String, BoundedHistory>,
     render_cache: RenderCache,
+    control_gpu_id: Option<String>,
+    control_histories: Vec<BoundedHistory>,
+    control_chart_stamp: Option<(
+        std::time::Instant,
+        i32,
+        i32,
+        crate::localization::LocaleCode,
+        i32,
+    )>,
 }
 
 // Histories for disconnected devices are useless once they leave the chart
@@ -72,7 +81,7 @@ fn prune_stale_gpu_histories(
     });
 }
 
-fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>, items: Vec<T>) {
+pub(crate) fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>, items: Vec<T>) {
     if let Some(vec_model) = model.as_any().downcast_ref::<VecModel<T>>() {
         // Keep the existing model and its unchanged rows alive. A full reset causes
         // Slint to rebuild every repeated component, even when one value changed.
@@ -99,6 +108,35 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
+    window.set_android_platform(cfg!(target_os = "android"));
+    window.set_cc_summaries(ModelRc::new(VecModel::default()));
+    window.set_cc_performance(ModelRc::new(VecModel::default()));
+    window.set_cc_network(ModelRc::new(VecModel::default()));
+    window.set_cc_disks(ModelRc::new(VecModel::default()));
+    window.set_cc_sensors(ModelRc::new(VecModel::default()));
+    window.set_cc_system(ModelRc::new(VecModel::default()));
+    window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
+    window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_process_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_export_directory(
+        config_path
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "/tmp".into())
+            .into(),
+    );
+    window.set_cc_updating(true);
+    window.set_current_page(settings.last_page);
+    window.set_cc_settings_category(if settings.last_page == 11 {
+        3
+    } else {
+        settings.settings_category
+    });
+    window.set_cc_chart_source(settings.history_source);
+    window.set_cc_chart_range(settings.history_range);
+    window.set_cc_sort(settings.process_sort);
+    window.set_cc_updating(false);
     #[cfg(target_os = "linux")]
     slint::set_xdg_app_id("voltix")?;
     #[cfg(target_os = "linux")]
@@ -174,6 +212,9 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         ram_history: BoundedHistory::new(HISTORY_CAPACITY),
         gpu_histories: HashMap::new(),
         render_cache: RenderCache::default(),
+        control_gpu_id: None,
+        control_histories: (0..10).map(|_| BoundedHistory::new(901)).collect(),
+        control_chart_stamp: None,
     }));
     let condvar = Arc::new(Condvar::new());
 
@@ -248,8 +289,118 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         let weak = window.as_weak();
         window.on_page_changed(move || {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let previous = state.settings.clone();
+                win.set_cc_updating(true);
+                if win.get_current_page() == 14 {
+                    win.set_current_page(6);
+                    win.set_cc_settings_category(4);
+                }
+                if win.get_current_page() == 11 {
+                    win.set_cc_settings_category(3);
+                }
+                if state.settings.last_page != win.get_current_page() {
+                    if win.get_current_page() == 8 {
+                        win.set_cc_chart_source(7);
+                    }
+                    if win.get_current_page() == 7 {
+                        win.set_cc_chart_source(3);
+                    }
+                }
+                state.settings.last_page = win.get_current_page();
+                state.settings.settings_category = win.get_cc_settings_category();
+                win.set_cc_updating(false);
+                if previous != state.settings {
+                    persist_settings(&state);
+                }
+                state.control_chart_stamp = None;
                 render_snapshot_to_window(&win, &mut state);
             }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_cc_options_changed(move || {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let previous = state.settings.clone();
+                state.settings.history_source = win.get_cc_chart_source().clamp(0, 9);
+                state.settings.history_range = win.get_cc_chart_range().clamp(0, 2);
+                state.settings.process_sort = win.get_cc_sort().clamp(0, 2);
+                if previous != state.settings {
+                    persist_settings(&state);
+                }
+                state.control_chart_stamp = None;
+                render_snapshot_to_window(&win, &mut state);
+            }
+        });
+    }
+    window.on_cc_app_settings(|| {
+        #[cfg(target_os = "android")]
+        crate::platform::android_bridge::request_settings();
+    });
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_cc_export(move |directory| {
+            let snapshot = shared_c.lock().ok().and_then(|s| s.latest_snapshot.clone());
+            let Some(snapshot) = snapshot else {
+                if let Some(win) = weak.upgrade() {
+                    win.set_cc_export_code("cc_no_snapshot".into());
+                    let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                        win.global::<I18n>().get_locale().as_str(),
+                    ));
+                    win.set_cc_export_status(loc.tr("cc_no_snapshot").into());
+                }
+                return;
+            };
+            if let Some(win) = weak.upgrade() {
+                win.set_cc_export_code("cc_export_running".into());
+                let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                    win.global::<I18n>().get_locale().as_str(),
+                ));
+                win.set_cc_export_status(loc.tr("cc_export_running").into());
+            }
+            let weak = weak.clone();
+            std::thread::spawn(move || {
+                let result = crate::control_center::export_json(&snapshot).and_then(|json| {
+                    #[cfg(target_os = "android")]
+                    {
+                        let _ = &directory;
+                        crate::platform::android_bridge::export(json);
+                        Ok(String::new())
+                    }
+                    #[cfg(not(target_os = "android"))]
+                    {
+                        crate::control_center::save_export(
+                            std::path::Path::new(directory.as_str()),
+                            &json,
+                        )
+                        .map(|p| p.display().to_string())
+                    }
+                });
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(win) = weak.upgrade() {
+                        let (key, detail) = match result {
+                            Ok(detail) => (
+                                if cfg!(target_os = "android") {
+                                    "cc_export_choose"
+                                } else {
+                                    "cc_export_saved"
+                                },
+                                detail,
+                            ),
+                            Err(detail) => ("cc_export_failed", detail),
+                        };
+                        win.set_cc_export_code(key.into());
+                        win.set_cc_export_detail(detail.clone().into());
+                        let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                            win.global::<I18n>().get_locale().as_str(),
+                        ));
+                        win.set_cc_export_status(format!("{}\n{detail}", loc.tr(key)).into());
+                    }
+                });
+            });
         });
     }
 
@@ -391,6 +542,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_select_gpu(move |idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 state.selected_gpu_index = idx.max(0) as usize;
+                state.control_histories[1] = BoundedHistory::new(901);
+                state.control_chart_stamp = None;
                 render_snapshot_to_window(&win, &mut state);
             }
         });
@@ -505,7 +658,20 @@ fn spawn_monitor_thread(
                 let (should_stop, interval) = match shared.lock() {
                     Ok(guard) => (
                         guard.shutdown,
-                        Duration::from_millis(guard.settings.polling_interval_ms),
+                        Duration::from_millis({
+                            #[cfg(target_os = "android")]
+                            {
+                                if !crate::platform::android_bridge::snapshot().foreground {
+                                    guard.settings.polling_interval_ms.max(5000)
+                                } else {
+                                    guard.settings.polling_interval_ms
+                                }
+                            }
+                            #[cfg(not(target_os = "android"))]
+                            {
+                                guard.settings.polling_interval_ms
+                            }
+                        }),
                     ),
                     Err(_) => break,
                 };
@@ -513,6 +679,10 @@ fn spawn_monitor_thread(
                     break;
                 }
 
+                engine.want_processes = shared
+                    .lock()
+                    .map(|s| s.settings.last_page == 10)
+                    .unwrap_or(false);
                 let snapshot = engine.collect_snapshot();
 
                 {
@@ -525,6 +695,8 @@ fn spawn_monitor_thread(
                     let ts = snapshot.sampled_at;
                     if state.last_cpu_scope != snapshot.cpu.utilization_scope {
                         state.cpu_history = BoundedHistory::new(HISTORY_CAPACITY);
+                        state.control_histories[0] = BoundedHistory::new(901);
+                        state.control_chart_stamp = None;
                         state.last_cpu_scope = snapshot.cpu.utilization_scope;
                     }
                     let cpu_sample = match snapshot.cpu.utilization_scope {
@@ -536,7 +708,32 @@ fn spawn_monitor_thread(
                         }
                         CpuUtilizationScope::Unavailable => None,
                     };
+                    let gpu_id = snapshot
+                        .gpus
+                        .get(state.selected_gpu_index)
+                        .map(|g| g.id.clone());
+                    if state.control_gpu_id != gpu_id {
+                        state.control_gpu_id = gpu_id;
+                        state.control_histories[1] = BoundedHistory::new(901);
+                        state.control_chart_stamp = None;
+                    }
                     state.cpu_history.push(ts, cpu_sample);
+                    if state.control_histories[0]
+                        .samples()
+                        .back()
+                        .is_none_or(|last| {
+                            ts.duration_since(last.timestamp) >= Duration::from_secs(1)
+                        })
+                    {
+                        let samples = crate::control_center::chart_samples(
+                            &snapshot,
+                            cpu_sample,
+                            state.selected_gpu_index,
+                        );
+                        for (history, value) in state.control_histories.iter_mut().zip(samples) {
+                            history.push(ts, value);
+                        }
+                    }
                     state
                         .ram_history
                         .push(ts, snapshot.memory.utilization_percent.copied());
@@ -595,6 +792,8 @@ fn apply_settings_to_window(
     settings: &UserSettings,
     config_path: Option<&std::path::Path>,
 ) {
+    #[cfg(target_os = "android")]
+    crate::platform::android_bridge::polling(settings.polling_interval_ms);
     window
         .global::<Theme>()
         .set_interface_mode(match settings.interface_mode {
@@ -679,6 +878,9 @@ fn apply_settings_to_window(
 }
 
 fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
+    let was_updating = window.get_cc_updating();
+    window.set_cc_updating(true);
+    crate::control_center::localize(window, loc);
     let i18n = window.global::<I18n>();
     window.set_custom_theme_status(
         loc.diagnostic(window.get_custom_theme_source().as_str())
@@ -821,6 +1023,7 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_chart_60s(SharedString::from(loc.tr("chart_60s")));
     i18n.set_chart_30s(SharedString::from(loc.tr("chart_30s")));
     i18n.set_diag_notice_title(SharedString::from(loc.tr("diag_notice_title")));
+    window.set_cc_updating(was_updating);
 }
 
 fn visible_charts(page: i32, mode: crate::settings::InterfaceMode) -> (bool, bool, bool) {
@@ -1167,6 +1370,29 @@ fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
     )));
     window.set_storage_notice_text(SharedString::from(build_storage_notice(&snap.storage, loc)));
 
+    crate::control_center::render(window, snap, loc, selected_idx);
+    if [0, 7, 8].contains(&window.get_current_page()) {
+        let source = window.get_cc_chart_source().clamp(0, 9) as usize;
+        if let Some(last) = state.control_histories[source].samples().back() {
+            let stamp = (
+                last.timestamp,
+                source as i32,
+                window.get_cc_chart_range(),
+                loc.locale(),
+                window.get_temp_unit(),
+            );
+            if state.control_chart_stamp != Some(stamp) {
+                crate::control_center::render_history(
+                    window,
+                    &state.control_histories[source],
+                    snap.sampled_at,
+                    state.settings.polling_interval_ms,
+                    loc,
+                );
+                state.control_chart_stamp = Some(stamp);
+            }
+        }
+    }
     // Real-time bounded 60s charts (update Slint paths only when changed)
     let now = snap.sampled_at;
 

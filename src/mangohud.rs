@@ -295,6 +295,10 @@ impl Manager {
                 self.profile.game = content.into();
             }
             "save" | "duplicate" => {
+                if !content.is_empty() {
+                    parse(content)?;
+                    self.profile.config = content.into();
+                }
                 self.profile.target = Some(self.target.clone());
                 let target = self.profile_path(name)?;
                 let old = existing(&target)?;
@@ -311,6 +315,10 @@ impl Manager {
                 ));
             }
             "review-save" => {
+                if !content.is_empty() {
+                    parse(content)?;
+                    self.profile.config = content.into();
+                }
                 self.profile.target = Some(self.target.clone());
                 let target = self.profile_path(name)?;
                 self.pending = Some(Pending {

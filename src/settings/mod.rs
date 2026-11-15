@@ -56,6 +56,11 @@ pub enum PalettePreset {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSettings {
+    pub last_page: i32,
+    pub settings_category: i32,
+    pub history_source: i32,
+    pub history_range: i32,
+    pub process_sort: i32,
     pub theme: ThemePreference,
     pub interface_mode: InterfaceMode,
     pub palette: PalettePreset,
@@ -71,6 +76,11 @@ pub struct UserSettings {
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
+            last_page: 0,
+            settings_category: 0,
+            history_source: 0,
+            history_range: 0,
+            process_sort: 0,
             theme: ThemePreference::Dark,
             interface_mode: InterfaceMode::Modern,
             palette: PalettePreset::VoltixDefault,
@@ -87,6 +97,11 @@ impl Default for UserSettings {
 
 impl UserSettings {
     pub fn validate(&mut self) {
+        self.last_page = self.last_page.clamp(0, 13);
+        self.settings_category = self.settings_category.clamp(0, 6);
+        self.history_source = self.history_source.clamp(0, 9);
+        self.history_range = self.history_range.clamp(0, 2);
+        self.process_sort = self.process_sort.clamp(0, 2);
         if self.custom_theme.validate().is_err() {
             self.custom_theme = crate::custom_theme::CustomTheme::default();
             if self.palette == PalettePreset::Custom {
@@ -259,6 +274,11 @@ mod tests {
         let _ = fs::remove_file(&tmp);
 
         let mut initial = UserSettings {
+            last_page: 0,
+            settings_category: 0,
+            history_source: 0,
+            history_range: 0,
+            process_sort: 0,
             theme: ThemePreference::Light,
             language: LanguagePreference::Polish,
             polling_interval_ms: 500,

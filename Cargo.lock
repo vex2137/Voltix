@@ -5036,6 +5036,7 @@ version = "0.1.0-alpha.4"
 dependencies = [
  "android_logger",
  "env_logger",
+ "jni 0.21.1",
  "libc",
  "log",
  "nvml-wrapper",

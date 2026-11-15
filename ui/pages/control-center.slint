@@ -1,0 +1,132 @@
+import { TelemetryGrid } from "../components/telemetry-grid.slint";
+import { ScrollView, Button } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { ControlSummary, ControlRow } from "../models.slint";
+import { Card, SectionTitle, SummaryCard } from "../components/common.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
+import { TelemetryChart } from "../components/chart.slint";
+import { HistoryPanel } from "../components/history-panel.slint";
+export component ControlCenter inherits Rectangle {
+    in property <bool> android-platform;
+    private property <bool> history-expanded: false;
+    in property <length> left-inset;
+    in property <length> right-inset;
+    in property <[ControlSummary]> summaries;
+    in property <[ControlRow]> performance;
+    in property <[ControlRow]> network;
+    in property <[ControlRow]> disks;
+    in property <[ControlRow]> sensors;
+    in property <[ControlRow]> system;
+    in property <string> cpu-line;
+    in property <string> cpu-area;
+    in property <bool> cpu-data;
+    in property <string> gpu-line;
+    in property <string> gpu-area;
+    in property <bool> gpu-data;
+    in property <string> history-line;
+    in property <string> history-area;
+    in property <bool> history-data;
+    in property <string> history-current;
+    in property <string> history-max;
+    in property <string> history-min;
+    in-out property <int> history-source;
+    in-out property <int> history-range;
+    callback navigate(int);
+    private property <int> columns: root.width < 620px ? 1 : (Theme.interface-mode == 1 && root.width >= 1000px ? 3 : 2);
+    private property <int> count: Theme.interface-mode == 1 ? 6 : 4;
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: max(0px, root.width - 14px); padding: root.width < 650px ? 12px : 20px; padding-left: (root.width < 650px ? 12px : 20px) + root.left-inset; padding-right: (root.width < 650px ? 12px : 20px) + root.right-inset; spacing: 14px; alignment: start;
+            SectionTitle { text: Theme.interface-mode == 0 ? I18n.cc-modern : (Theme.interface-mode == 1 ? I18n.cc-professional : I18n.cc-gaming); }
+            if root.summaries.length == 0 : Text { text: I18n.cc-sample-wait; color: Theme.text-secondary; wrap: word-wrap; }
+            if root.summaries.length >= 6 : VerticalLayout {
+                spacing: 10px;
+                for row in (root.columns == 1 ? root.count : (root.columns == 2 ? root.count / 2 : 2)) : HorizontalLayout {
+                    spacing: 10px;
+                    for column in root.columns : SummaryCard {
+                        private property <int> metric: Theme.interface-mode == 2 ? [1, 0, 3, 2][row * root.columns + column] : row * root.columns + column;
+                        horizontal-stretch: 1; compact: root.width < 850px || Theme.interface-mode == 1;
+                        label: root.summaries[self.metric].label; primary-value: root.summaries[self.metric].value;
+                        secondary-value: root.summaries[self.metric].detail; progress: root.summaries[self.metric].percent;
+                        status: root.summaries[self.metric].status;
+                        show-progress: self.metric < 5;
+                        accent-color: self.metric == 1 ? Theme.gpu-color : (self.metric == 2 ? Theme.accent-emerald : (self.metric == 3 ? Theme.accent-amber : Theme.cpu-color));
+                    }
+                }
+            }
+            if root.width >= 700px : HorizontalLayout {
+                spacing: 8px;
+                if !root.android-platform : Button { text: I18n.cc-open-studio; clicked => { root.navigate(11); } }
+                Button { text: I18n.cc-open-settings; clicked => { root.navigate(6); } }
+                Button { text: I18n.cc-open-diagnostics; clicked => { root.navigate(13); } }
+            }
+            if root.width < 700px : VerticalLayout {
+                spacing: 6px;
+                if !root.android-platform : Button { text: I18n.cc-open-studio; clicked => { root.navigate(11); } }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Button { text: I18n.cc-open-settings; clicked => { root.navigate(6); } }
+                    Button { text: I18n.cc-open-diagnostics; clicked => { root.navigate(13); } }
+                }
+            }
+            if Theme.interface-mode == 0 && root.summaries.length >= 6 : Card {
+                VerticalLayout {
+                    padding: 12px;
+                    TelemetryGrid { max-columns: 2; rows: [{label: root.summaries[4].label,value: root.summaries[4].value,detail: root.summaries[4].detail},{label: root.summaries[5].label,value: root.summaries[5].value,detail: root.summaries[5].detail}]; }
+                }
+            }
+            if Theme.interface-mode == 2 : Card {
+                VerticalLayout {
+                    padding: 14px; spacing: 10px;
+                    SectionTitle { text: I18n.messages[151] + " · MangoHud"; }
+                    Text { text: root.android-platform ? I18n.cc-android-fps-note : I18n.cc-fps-note; color: Theme.text-secondary; wrap: word-wrap; }
+                    if !root.android-platform : Button { text: I18n.cc-open-studio; primary: true; clicked => { root.navigate(11); } }
+                    TelemetryGrid { rows: root.performance; }
+                }
+            }
+            if root.width >= 950px : HorizontalLayout {
+                spacing: 12px;
+                for index in 2 : TelemetryChart {
+                    horizontal-stretch: 1; title: index == 0 ? "CPU · 60 s" : "GPU · 60 s";
+                    line-commands: index == 0 ? root.cpu-line : root.gpu-line; area-commands: index == 0 ? root.cpu-area : root.gpu-area;
+                    has-data: index == 0 ? root.cpu-data : root.gpu-data; empty-text: I18n.cc-sample-wait;
+                    line-color: index == 0 ? Theme.cpu-color : Theme.gpu-color;
+                }
+            }
+            if root.width < 950px : VerticalLayout {
+                spacing: 12px;
+                for index in 2 : TelemetryChart {
+                    title: index == 0 ? "CPU · 60 s" : "GPU · 60 s"; compact: root.width < 650px;
+                    line-commands: index == 0 ? root.cpu-line : root.gpu-line; area-commands: index == 0 ? root.cpu-area : root.gpu-area;
+                    has-data: index == 0 ? root.cpu-data : root.gpu-data; empty-text: I18n.cc-sample-wait;
+                    line-color: index == 0 ? Theme.cpu-color : Theme.gpu-color;
+                }
+            }
+            if Theme.interface-mode == 1 : Card {
+                VerticalLayout { padding: 14px; spacing: 10px; SectionTitle { text: I18n.cc-sensors; } TelemetryGrid { rows: root.performance; } }
+            }
+            Button { text: I18n.cc-history; primary: root.history-expanded; clicked => { root.history-expanded = !root.history-expanded; } }
+            if root.history-expanded : HistoryPanel {
+                source <=> root.history-source; range <=> root.history-range;
+                line: root.history-line; area: root.history-area; has-data: root.history-data;
+                current: root.history-current; maximum: root.history-max; minimum: root.history-min;
+            }
+            if Theme.interface-mode == 1 : GridLayout {
+                spacing: 12px;
+                Row {
+                    Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-network; } if root.network.length == 0 : Text { text: I18n.cc-no-network; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.network; } } }
+                    if root.width >= 950px : Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.disks; } } }
+                }
+                if root.width < 950px : Row {
+                    Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.disks; } } }
+                }
+            }
+            if Theme.interface-mode == 1 : Card {
+                VerticalLayout { padding: 14px; spacing: 10px; SectionTitle { text: I18n.cc-sensors; } if root.sensors.length == 0 : Text { text: I18n.cc-no-sensors; color: Theme.text-muted; wrap: word-wrap; } TelemetryGrid { rows: root.sensors; } }
+            }
+            Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-system-info; } TelemetryGrid { rows: root.system; } } }
+        }
+    }
+}

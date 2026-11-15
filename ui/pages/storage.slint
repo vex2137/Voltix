@@ -1,10 +1,13 @@
+import { ControlRow } from "../models.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { StorageItem } from "../models.slint";
-import { Card, DiagnosticNotice, ProgressBar } from "../components/common.slint";
+import { Card, SectionTitle, DiagnosticNotice, ProgressBar } from "../components/common.slint";
 
 export component StoragePage inherits Rectangle {
+    in property <[ControlRow]> activity;
     in property <bool> compact: false;
     in property <length> left-inset: 0px;
     in property <length> right-inset: 0px;
@@ -23,6 +26,8 @@ export component StoragePage inherits Rectangle {
             padding-left: (root.compact ? 12px : 20px) + root.left-inset;
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: 12px;
+            if root.activity.length > 0 : Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-activity; } TelemetryRows { rows: root.activity; } } }
+
 
             if root.disks.length == 0 : Card {
                 min-height: 140px;

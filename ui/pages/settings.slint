@@ -1,4 +1,6 @@
-import { ScrollView, TextEdit, LineEdit, ComboBox } from "std-widgets.slint";
+import { ControlRow } from "../models.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
+import { ScrollView, TextEdit, LineEdit, ComboBox, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
@@ -6,7 +8,15 @@ import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/
 import { MangoHudManager } from "../components/mangohud-manager.slint";
 
 export component SettingsPage inherits Rectangle {
-    private property <int> category: 0;
+    in-out property <int> category: 0;
+    in property <bool> android-platform;
+    in property <bool> studio-only;
+    private property <bool> quick-launch-expanded: false;
+    in property <[ControlRow]> diagnostic-rows;
+    in property <string> export-status;
+    in-out property <string> export-directory;
+    callback export-snapshot(string);
+    callback app-settings();
     in property <bool> compact: false;
     in property <length> left-inset: 0px;
     in property <length> right-inset: 0px;
@@ -63,12 +73,29 @@ export component SettingsPage inherits Rectangle {
     callback change-temp-unit(int);
     callback change-polling-ms(int);
 
-    ScrollView {
-        width: 100%;
+    HorizontalLayout {
+        spacing: 0px;
+        if root.width >= 850px && !root.studio-only : Rectangle {
+            width: 172px; background: Theme.bg-sidebar;
+            ScrollView {
+                width: 100%; height: 100%;
+                VerticalLayout {
+                    padding: 10px; spacing: 6px;
+                    for category in [0,1,2,3,5,6,4] : Button {
+                        text: [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export,I18n.cc-permissions][category];
+                        primary: root.category == category; min-height: 40px;
+                        clicked => { root.category = category; }
+                    }
+                }
+            }
+        }
+        settings-scroll := ScrollView {
+
+        horizontal-stretch: 1;
         height: 100%;
 
         VerticalLayout {
-            width: max(0px, min(1200px, root.width - 14px));
+            width: max(0px, min(1200px, settings-scroll.width - 14px));
             alignment: start;
             padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
@@ -76,9 +103,29 @@ export component SettingsPage inherits Rectangle {
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
-            ComboBox {
-                model: [I18n.messages[42], I18n.messages[43], I18n.messages[0], "MangoHud Studio", I18n.messages[44]];
+            if root.width < 850px && !root.studio-only : ComboBox {
+                model: [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export,I18n.cc-permissions];
                 current-index <=> root.category;
+            }
+            if root.category == 5 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: I18n.cc-data-export; }
+                    Text { text: I18n.cc-export-note; color: Theme.text-secondary; wrap: word-wrap; }
+                    if !root.android-platform : Text { text: I18n.cc-export-path; color: Theme.text-secondary; wrap: word-wrap; }
+                    if !root.android-platform : LineEdit { text <=> root.export-directory; }
+                    Button { text: I18n.cc-export; clicked => { root.export-snapshot(root.export-directory); } }
+                    Text { text: root.export-status; color: Theme.text-primary; wrap: word-wrap; }
+                }
+            }
+            if root.category == 6 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: I18n.cc-permissions; }
+                    Text { text: root.android-platform ? I18n.cc-permission-note : I18n.cc-linux-diagnostics; color: Theme.text-secondary; wrap: word-wrap; }
+                    if root.android-platform : Button { text: I18n.cc-app-settings; clicked => { root.app-settings(); } }
+                    TelemetryRows { rows: root.diagnostic-rows; }
+                }
             }
             if root.category == 4 : Card {
                 VerticalLayout {
@@ -224,7 +271,8 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            if root.category == 3 : Card {
+            if root.category == 3 : Button { text: I18n.messages[21]; clicked => { root.quick-launch-expanded = !root.quick-launch-expanded; } }
+            if root.category == 3 && root.quick-launch-expanded : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px; spacing: 10px;
                     SectionTitle { text: I18n.messages[21]; }
@@ -554,5 +602,6 @@ export component SettingsPage inherits Rectangle {
                 }
             }
         }
+    }
     }
 }

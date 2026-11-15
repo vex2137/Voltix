@@ -1,0 +1,25 @@
+import { ScrollView, LineEdit, ComboBox } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { ControlRow } from "../models.slint";
+import { SectionTitle } from "../components/common.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
+export component ProcessesPage inherits Rectangle {
+    in property <length> left-inset;
+    in property <length> right-inset;
+    in property <[ControlRow]> rows;
+    in property <bool> available;
+    in-out property <string> filter;
+    in-out property <int> sort;
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: max(0px, root.width - 14px); padding: 16px; padding-left: 16px + root.left-inset; padding-right: 16px + root.right-inset; spacing: 12px; alignment: start;
+            SectionTitle { text: I18n.cc-processes; }
+            Text { text: root.available ? I18n.cc-process-note : I18n.cc-process-unavailable; color: Theme.text-secondary; wrap: word-wrap; }
+            LineEdit { text <=> root.filter; placeholder-text: I18n.cc-filter; }
+            ComboBox { model: [I18n.cc-sort-cpu, I18n.cc-sort-memory, I18n.cc-sort-pid]; current-index <=> root.sort; }
+            TelemetryRows { rows: root.rows; }
+        }
+    }
+}
