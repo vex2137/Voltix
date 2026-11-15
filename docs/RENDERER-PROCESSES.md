@@ -21,7 +21,12 @@ If preferred backend selection fails, Voltix logs the failure and tries Slint's
 automatic selection. The pinned Slint Winit backend also tries other compiled
 renderers if creating its preferred window renderer fails. A missing graphical
 session can still prevent all backends from starting; both selection errors are
-reported. Voltix does not initialize a GPU to probe a software-rendered UI.
+reported. A later window/surface initialization error also gets one fresh-process
+retry with automatic selection, because Winit cannot recreate an event loop in
+the same process. Arguments and environment are inherited; only the private
+`VOLTIX_RENDERER_RETRY` marker is added to prevent retry loops. Explicit
+`SLINT_BACKEND` values disable this Voltix retry. Voltix does not initialize a GPU
+to probe a software-rendered UI.
 NVIDIA NVML may still be loaded for actual hardware telemetry.
 
 Set `VOLTIX_PROFILE_STARTUP=1` to report the selection path and existing startup
@@ -76,7 +81,7 @@ There are no process termination or permission-changing controls.
 
 ## Cloud validation (2026-11-15)
 
-One 30-sample run per renderer, following a 5-second warmup, using the local
+Measured build: `87b746a`. One 30-sample run per renderer, following a 5-second warmup, using the local
 release AppImage in extract-and-run mode on Xvfb/X11. The Processes page was
 visible with a 1-second polling interval. CPU is for the actual Voltix executable,
 expressed per logical core. PSS includes the launcher and UI process tree.
@@ -97,7 +102,11 @@ Virtual UI checks covered 1280x800, 740x620 and 740x480, a narrow details drawer
 Polish/light and English/dark themes, real process details, retained selection,
 keyboard arrows/activation, scrolling, filtering and persisted sort direction /
 own-user filtering. Strict Linux and Android Clippy, regression tests, native X11
-clipboard and release AppImage startup checks are part of validation. Physical
+clipboard and release AppImage startup checks are part of validation. A release
+helper injected a failure after software-backend selection, then verified that
+the exec retry selected automatic rendering and rendered the real application.
+An unavailable-display test exited cleanly after exactly one fresh-process retry;
+an empty `SLINT_BACKEND` retained its explicit override path. Physical
 Android behavior and sustained memory profiling remain manual checks.
 
 ## Implementation map
