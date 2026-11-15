@@ -61,6 +61,9 @@ pub struct UserSettings {
     pub history_source: i32,
     pub history_range: i32,
     pub process_sort: i32,
+    pub process_descending: bool,
+    pub process_quick_filter: i32,
+    pub process_own_user: bool,
     pub theme: ThemePreference,
     pub interface_mode: InterfaceMode,
     pub palette: PalettePreset,
@@ -81,6 +84,9 @@ impl Default for UserSettings {
             history_source: 0,
             history_range: 0,
             process_sort: 0,
+            process_descending: true,
+            process_quick_filter: 0,
+            process_own_user: false,
             theme: ThemePreference::Dark,
             interface_mode: InterfaceMode::Modern,
             palette: PalettePreset::VoltixDefault,
@@ -101,7 +107,8 @@ impl UserSettings {
         self.settings_category = self.settings_category.clamp(0, 6);
         self.history_source = self.history_source.clamp(0, 9);
         self.history_range = self.history_range.clamp(0, 2);
-        self.process_sort = self.process_sort.clamp(0, 2);
+        self.process_sort = self.process_sort.clamp(0, 3);
+        self.process_quick_filter = self.process_quick_filter.clamp(0, 2);
         if self.custom_theme.validate().is_err() {
             self.custom_theme = crate::custom_theme::CustomTheme::default();
             if self.palette == PalettePreset::Custom {
@@ -279,6 +286,9 @@ mod tests {
             history_source: 0,
             history_range: 0,
             process_sort: 0,
+            process_descending: true,
+            process_quick_filter: 0,
+            process_own_user: false,
             theme: ThemePreference::Light,
             language: LanguagePreference::Polish,
             polling_interval_ms: 500,

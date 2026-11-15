@@ -3,6 +3,7 @@ pub mod disk;
 pub mod extended;
 pub mod gpu;
 pub mod memory;
+pub mod processes;
 pub mod system;
 
 use std::time::Instant;
@@ -22,6 +23,7 @@ pub struct MonitoringEngine {
     disk: DiskMonitor,
     extended: extended::ExtendedMonitor,
     pub want_processes: bool,
+    pub selected_process: Option<processes::ProcessKey>,
 }
 
 impl Default for MonitoringEngine {
@@ -40,6 +42,7 @@ impl MonitoringEngine {
             disk: DiskMonitor::new(),
             extended: extended::ExtendedMonitor::default(),
             want_processes: false,
+            selected_process: None,
         }
     }
 
@@ -47,7 +50,9 @@ impl MonitoringEngine {
         let sampled_at = Instant::now();
         TelemetrySnapshot {
             sampled_at,
-            extended: self.extended.collect(self.want_processes),
+            extended: self
+                .extended
+                .collect(self.want_processes, self.selected_process),
             system: self.system.collect(),
             cpu: self.cpu.collect(),
             memory: self.memory.collect(),

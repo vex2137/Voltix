@@ -8,6 +8,7 @@ pub mod models;
 pub mod monitoring;
 pub mod overlay;
 pub mod platform;
+pub mod process_ui;
 pub mod settings;
 pub mod utils;
 

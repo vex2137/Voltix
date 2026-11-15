@@ -2,8 +2,8 @@ import { ControlCenter } from "pages/control-center.slint";
 import { DetailsPage } from "pages/details.slint";
 import { ProcessesPage } from "pages/processes.slint";
 import { MorePage } from "pages/more.slint";
-import { ControlRow, ControlSummary } from "models.slint";
-export { ControlRow, ControlSummary }
+import { ControlRow, ControlSummary, ProcessItem } from "models.slint";
+export { ControlRow, ControlSummary, ProcessItem }
 import { Palette } from "std-widgets.slint";
 import { Theme } from "themes/theme.slint";
 import { I18n } from "i18n/strings.slint";
@@ -61,7 +61,20 @@ export component AppWindow inherits Window {
     in property <[ControlRow]> cc-system;
     in property <[ControlRow]> cc-diagnostics;
     in property <[ControlRow]> cc-detail-rows;
-    in property <[ControlRow]> cc-process-rows;
+    in property <[ProcessItem]> proc-rows;
+    in property <[ControlSummary]> proc-summaries;
+    in property <[ControlRow]> proc-detail-rows;
+    in property <string> proc-detail-note;
+    in property <string> proc-count-note;
+    in-out property <string> proc-selected;
+    in property <int> proc-selected-index: -1;
+    in-out property <bool> proc-descending: true;
+    in-out property <int> proc-quick: 0;
+    in-out property <bool> proc-own: false;
+    changed proc-selected => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed proc-descending => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed proc-quick => { if !root.cc-updating { root.cc-options-changed(); } }
+    changed proc-own => { if !root.cc-updating { root.cc-options-changed(); } }
     in property <bool> cc-processes-available;
     in property <string> cc-detail-title;
     in property <string> cc-detail-note;
@@ -434,7 +447,9 @@ export component AppWindow inherits Window {
                 }
                 if root.current-page == 10 : ProcessesPage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
-                    width: 100%; height: 100%; rows: root.cc-process-rows; available: root.cc-processes-available;
+                    width: 100%; height: 100%; rows: root.proc-rows; available: root.cc-processes-available;
+                    summaries: root.proc-summaries; details: root.proc-detail-rows; detail-note: root.proc-detail-note; count-note: root.proc-count-note;
+                    selected <=> root.proc-selected; selected-index: root.proc-selected-index; descending <=> root.proc-descending; quick <=> root.proc-quick; own <=> root.proc-own;
                     filter <=> root.cc-filter; sort <=> root.cc-sort;
                 }
                 if root.current-page == 12 : MorePage {

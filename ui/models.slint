@@ -60,3 +60,5 @@ export struct SystemGpuItem {
 
 export struct ControlRow { label: string, value: string, detail: string }
 export struct ControlSummary { label: string, value: string, detail: string, percent: float, status: int }
+
+export struct ProcessItem { key: string, name: string, pid: string, cpu-text: string, memory-text: string, user: string, state: string, threads: string, cpu: float, ram: float, hot: bool, running: bool }

@@ -144,6 +144,17 @@ jobs:
             exit "$code"
           fi
 
+      - name: Verify explicit OpenGL renderer override
+        run: |
+          set +e
+          SLINT_BACKEND=winit-femtovg APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 \
+            timeout 5s xvfb-run -a ./Voltix-Alpha4-test-x86_64.AppImage
+          code=$?
+          set -e
+          if [ "$code" -ne 124 ] && [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+
       - name: Upload Voltix Linux executable
         uses: actions/upload-artifact@v4
         with:

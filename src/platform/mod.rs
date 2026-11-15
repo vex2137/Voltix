@@ -4,6 +4,8 @@ pub mod android;
 pub mod android_bridge;
 #[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "linux")]
+pub mod renderer;
 
 pub fn detect_system_dark_mode() -> bool {
     #[cfg(target_os = "linux")]

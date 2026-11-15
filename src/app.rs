@@ -55,6 +55,8 @@ struct SharedState {
     ram_history: BoundedHistory,
     gpu_histories: HashMap<String, BoundedHistory>,
     render_cache: RenderCache,
+    process_cache: crate::process_ui::ProcessUiCache,
+    selected_process: Option<crate::monitoring::processes::ProcessKey>,
     control_gpu_id: Option<String>,
     control_histories: Vec<BoundedHistory>,
     control_chart_stamp: Option<(
@@ -117,7 +119,9 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_system(ModelRc::new(VecModel::default()));
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
     window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
-    window.set_cc_process_rows(ModelRc::new(VecModel::default()));
+    window.set_proc_rows(ModelRc::new(VecModel::default()));
+    window.set_proc_summaries(ModelRc::new(VecModel::default()));
+    window.set_proc_detail_rows(ModelRc::new(VecModel::default()));
     window.set_cc_export_directory(
         config_path
             .as_ref()
@@ -136,6 +140,9 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_chart_source(settings.history_source);
     window.set_cc_chart_range(settings.history_range);
     window.set_cc_sort(settings.process_sort);
+    window.set_proc_descending(settings.process_descending);
+    window.set_proc_quick(settings.process_quick_filter);
+    window.set_proc_own(settings.process_own_user);
     window.set_cc_updating(false);
     #[cfg(target_os = "linux")]
     slint::set_xdg_app_id("voltix")?;
@@ -212,6 +219,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         ram_history: BoundedHistory::new(HISTORY_CAPACITY),
         gpu_histories: HashMap::new(),
         render_cache: RenderCache::default(),
+        process_cache: Default::default(),
+        selected_process: None,
         control_gpu_id: None,
         control_histories: (0..10).map(|_| BoundedHistory::new(901)).collect(),
         control_chart_stamp: None,
@@ -326,7 +335,13 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 let previous = state.settings.clone();
                 state.settings.history_source = win.get_cc_chart_source().clamp(0, 9);
                 state.settings.history_range = win.get_cc_chart_range().clamp(0, 2);
-                state.settings.process_sort = win.get_cc_sort().clamp(0, 2);
+                state.settings.process_sort = win.get_cc_sort().clamp(0, 3);
+                state.settings.process_descending = win.get_proc_descending();
+                state.settings.process_quick_filter = win.get_proc_quick().clamp(0, 2);
+                state.settings.process_own_user = win.get_proc_own();
+                state.selected_process = crate::monitoring::processes::ProcessKey::decode(
+                    win.get_proc_selected().as_str(),
+                );
                 if previous != state.settings {
                     persist_settings(&state);
                 }
@@ -678,10 +693,10 @@ fn spawn_monitor_thread(
                     break;
                 }
 
-                engine.want_processes = shared
-                    .lock()
-                    .map(|s| s.settings.last_page == 10)
-                    .unwrap_or(false);
+                if let Ok(state) = shared.lock() {
+                    engine.want_processes = state.settings.last_page == 10;
+                    engine.selected_process = state.selected_process;
+                }
                 let snapshot = engine.collect_snapshot();
 
                 {
@@ -1370,6 +1385,7 @@ fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
     window.set_storage_notice_text(SharedString::from(build_storage_notice(&snap.storage, loc)));
 
     crate::control_center::render(window, snap, loc, selected_idx);
+    crate::process_ui::render(window, snap, loc, &mut state.process_cache);
     if [0, 7, 8].contains(&window.get_current_page()) {
         let source = window.get_cc_chart_source().clamp(0, 9) as usize;
         if let Some(last) = state.control_histories[source].samples().back() {

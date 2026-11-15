@@ -11,6 +11,7 @@ use crate::{
 use slint::{ComponentHandle, ModelRc};
 use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
+    crate::process_ui::localize(window, loc);
     let i18n = window.global::<I18n>();
     i18n.set_cc_category_diagnostics(loc.tr("cc_category_diagnostics").into());
     i18n.set_cc_battery_short(loc.tr("cc_battery_short").into());
@@ -284,24 +285,15 @@ pub fn battery_rows(b: &Battery, loc: &Localizer, unit: i32) -> Vec<ControlRow> 
     ]
 }
 pub fn filter_processes<'a>(processes: &'a [Process], query: &str, sort: i32) -> Vec<&'a Process> {
-    let query = query.to_lowercase();
-    let mut list: Vec<_> = processes
-        .iter()
-        .filter(|p| p.name.to_lowercase().contains(&query) || p.pid.to_string().contains(&query))
-        .collect();
-    list.sort_by(|a, b| {
-        match sort {
-            1 => b.memory.cmp(&a.memory),
-            2 => a.pid.cmp(&b.pid),
-            _ => b
-                .cpu_percent
-                .unwrap_or(-1.0)
-                .total_cmp(&a.cpu_percent.unwrap_or(-1.0)),
-        }
-        .then(a.pid.cmp(&b.pid))
-    });
-    list.truncate(200);
-    list
+    crate::process_ui::filtered(
+        processes,
+        &crate::process_ui::Filter {
+            query: query.into(),
+            sort,
+            descending: sort != 2,
+            ..Default::default()
+        },
+    )
 }
 pub fn chart_samples(
     snap: &TelemetrySnapshot,
@@ -670,31 +662,6 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
         });
         rows(window.get_cc_detail_rows(), detail);
     }
-    if page == 10 {
-        let selected = filter_processes(
-            &e.processes,
-            window.get_cc_filter().as_str(),
-            window.get_cc_sort(),
-        );
-        rows(
-            window.get_cc_process_rows(),
-            selected
-                .into_iter()
-                .map(|p| {
-                    raw_row(
-                        format!("{} · PID {}", p.name, p.pid),
-                        format!(
-                            "CPU {} · {}",
-                            value(p.cpu_percent, "%", loc),
-                            format_bytes_binary(p.memory)
-                        ),
-                        String::new(),
-                    )
-                })
-                .collect(),
-        );
-        window.set_cc_processes_available(e.processes_available);
-    }
     if !e.platform.export_status.is_empty() {
         window.set_cc_export_code(e.platform.export_status.clone().into());
         window.set_cc_export_detail("".into());
@@ -833,12 +800,14 @@ mod tests {
                 name: "a".into(),
                 cpu_percent: Some(5.0),
                 memory: 10,
+                ..Default::default()
             },
             Process {
                 pid: 2,
                 name: "b".into(),
                 cpu_percent: None,
                 memory: 20,
+                ..Default::default()
             },
         ];
         assert_eq!(filter_processes(&p, "", 0)[0].pid, 1);

@@ -1,7 +1,10 @@
 //! Unprivileged, bounded collectors. Rates require two samples and never bridge resets.
+pub use super::processes::{parse_process, Process};
+use super::processes::{ProcessDetails, ProcessKey};
 use serde::{Deserialize, Serialize};
 #[cfg(target_os = "linux")]
 use std::fs;
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
@@ -53,13 +56,6 @@ pub struct DiskIo {
     pub write_bps: Option<f64>,
 }
 #[derive(Clone, Debug, Default, Serialize)]
-pub struct Process {
-    pub pid: u32,
-    pub name: String,
-    pub cpu_percent: Option<f64>,
-    pub memory: u64,
-}
-#[derive(Clone, Debug, Default, Serialize)]
 pub struct Sensor {
     pub name: String,
     pub value: f64,
@@ -69,7 +65,16 @@ pub struct Sensor {
 pub struct Extended {
     pub network: Vec<Network>,
     pub disks: Vec<DiskIo>,
-    pub processes: Vec<Process>,
+    pub processes: Arc<Vec<Process>>,
+    pub process_count: Option<u64>,
+    pub thread_count: Option<u64>,
+    pub process_generation: u64,
+    pub process_current_uid: Option<u32>,
+    pub process_truncated: bool,
+    // Selected-process arguments belong to the local details view, not the
+    // existing telemetry export (which only promises basic process readings).
+    #[serde(skip_serializing)]
+    pub process_details: Option<ProcessDetails>,
     pub sensors: Vec<Sensor>,
     pub battery: Option<Battery>,
     pub memory_pressure: Option<f64>,
@@ -115,28 +120,6 @@ pub fn parse_diskstats(text: &str) -> Vec<(String, u64, u64)> {
         })
         .collect()
 }
-pub fn parse_process(pid: u32, stat: &str, page_size: u64) -> Option<(Process, u64, u64)> {
-    let open = stat.find('(')?;
-    let close = stat.rfind(')')?;
-    let fields: Vec<_> = stat.get(close + 1..)?.split_whitespace().collect();
-    let ticks = fields
-        .get(11)?
-        .parse::<u64>()
-        .ok()?
-        .checked_add(fields.get(12)?.parse().ok()?)?;
-    let start = fields.get(19)?.parse().ok()?;
-    let rss = fields.get(21)?.parse::<i64>().ok()?.max(0) as u64;
-    Some((
-        Process {
-            pid,
-            name: stat[open + 1..close].into(),
-            cpu_percent: None,
-            memory: rss.checked_mul(page_size)?,
-        },
-        ticks,
-        start,
-    ))
-}
 #[cfg(target_os = "linux")]
 fn number(path: impl AsRef<std::path::Path>) -> Option<f64> {
     let v = fs::read_to_string(path).ok()?.trim().parse::<f64>().ok()?;
@@ -159,9 +142,7 @@ pub struct ExtendedMonitor {
     #[cfg(target_os = "linux")]
     disk: HashMap<String, (u64, u64)>,
     #[cfg(target_os = "linux")]
-    processes: HashMap<(u32, u64), u64>,
-    #[cfg(target_os = "linux")]
-    process_at: Option<Instant>,
+    process_monitor: super::processes::ProcessMonitor,
     cached: Extended,
 }
 impl Default for ExtendedMonitor {
@@ -175,15 +156,13 @@ impl Default for ExtendedMonitor {
             #[cfg(target_os = "linux")]
             disk: HashMap::new(),
             #[cfg(target_os = "linux")]
-            processes: HashMap::new(),
-            #[cfg(target_os = "linux")]
-            process_at: None,
+            process_monitor: super::processes::ProcessMonitor::default(),
             cached: Extended::default(),
         }
     }
 }
 impl ExtendedMonitor {
-    pub fn collect(&mut self, want_processes: bool) -> Extended {
+    pub fn collect(&mut self, want_processes: bool, selected: Option<ProcessKey>) -> Extended {
         let now = Instant::now();
         let seconds = now.duration_since(self.previous).as_secs_f64();
         self.previous = now;
@@ -272,16 +251,25 @@ impl ExtendedMonitor {
                             .find_map(|v| v.strip_prefix("avg10=").and_then(|n| n.parse().ok()))
                     });
                 if want_processes {
-                    self.sample_processes(now);
+                    let sample = self.process_monitor.sample(now, selected);
+                    self.cached.processes = sample.rows;
+                    self.cached.process_count = sample.count;
+                    self.cached.thread_count = sample.threads;
+                    self.cached.process_current_uid = Some(sample.current_uid);
+                    self.cached.processes_available = sample.available;
+                    self.cached.process_generation = sample.generation;
+                    self.cached.process_truncated = sample.truncated;
+                    self.cached.process_details = sample.details;
                 } else {
-                    self.processes.clear();
-                    self.process_at = None;
-                    self.cached.processes.clear();
+                    self.process_monitor.reset();
+                    self.cached.processes = Arc::default();
+                    self.cached.processes_available = false;
+                    self.cached.process_details = None;
                 }
             }
         }
         #[cfg(not(target_os = "linux"))]
-        let _ = want_processes;
+        let _ = (want_processes, selected);
         self.cached.clone()
     }
     fn network(&mut self, values: Vec<(String, u64, u64)>, seconds: f64) {
@@ -302,43 +290,6 @@ impl ExtendedMonitor {
             })
             .collect();
         self.net = next;
-    }
-    #[cfg(target_os = "linux")]
-    fn sample_processes(&mut self, now: Instant) {
-        let entries = fs::read_dir("/proc");
-        self.cached.processes_available = entries.is_ok();
-        let seconds = self
-            .process_at
-            .map(|last| now.duration_since(last).as_secs_f64());
-        self.process_at = Some(now);
-        let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
-        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
-        if ticks <= 0 || page_size <= 0 {
-            self.cached.processes_available = false;
-            return;
-        }
-        let mut next = HashMap::new();
-        self.cached.processes = entries
-            .into_iter()
-            .flatten()
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let pid = entry.file_name().to_str()?.parse().ok()?;
-                let stat = fs::read_to_string(entry.path().join("stat")).ok()?;
-                let (mut p, current, start) = parse_process(pid, &stat, page_size as u64)?;
-                p.cpu_percent = seconds
-                    .and_then(|dt| {
-                        self.processes
-                            .get(&(pid, start))
-                            .and_then(|previous| rate(*previous, current, dt))
-                    })
-                    .map(|per_second| per_second * 100.0 / ticks as f64);
-                next.insert((pid, start), current);
-                Some(p)
-            })
-            .take(2048)
-            .collect();
-        self.processes = next;
     }
 }
 #[cfg(target_os = "linux")]

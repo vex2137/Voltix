@@ -185,3 +185,7 @@ history is bounded and selectable; snapshots can be exported locally as JSON.
 Unavailable data remains explicit. See [sources, API limits and lifecycle behavior](docs/CONTROL-CENTER.md).
 MangoHud Studio retains its profiles and reviewed atomic writes, organized into
 Profiles, Metrics, Appearance, Preview and Editor & Apply sections.
+
+Linux defaults to the software UI renderer and offers a virtualized Processes
+view with resource bars, lifetime-safe selection and read-only details.
+See [renderer overrides, process sources and performance tradeoffs](docs/RENDERER-PROCESSES.md).
