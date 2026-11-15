@@ -363,21 +363,20 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
             }
             let weak = weak.clone();
             std::thread::spawn(move || {
-                let result = crate::control_center::export_json(&snapshot).and_then(|json| {
-                    #[cfg(target_os = "android")]
-                    {
-                        let _ = &directory;
-                        crate::platform::android_bridge::export(json);
-                        Ok(String::new())
-                    }
-                    #[cfg(not(target_os = "android"))]
-                    {
-                        crate::control_center::save_export(
-                            std::path::Path::new(directory.as_str()),
-                            &json,
-                        )
-                        .map(|p| p.display().to_string())
-                    }
+                let result = crate::control_center::export_json(&snapshot);
+                #[cfg(target_os = "android")]
+                let result = result.map(|json| {
+                    let _ = &directory;
+                    crate::platform::android_bridge::export(json);
+                    String::new()
+                });
+                #[cfg(not(target_os = "android"))]
+                let result = result.and_then(|json| {
+                    crate::control_center::save_export(
+                        std::path::Path::new(directory.as_str()),
+                        &json,
+                    )
+                    .map(|p| p.display().to_string())
                 });
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(win) = weak.upgrade() {

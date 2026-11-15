@@ -406,5 +406,6 @@
   "cc_android_fps_note": "Other-game FPS / frametime is unavailable. Android has no universal MangoHud overlay.",
   "cc_android_network_note": "Android rates and totals cover all TrafficStats interfaces; the name identifies the active link, not a per-interface counter.",
   "cc_network_aggregate": "Network summary/history sums non-loopback interfaces; bridges and tunnels may count traffic more than once. Per-interface counters are listed below.",
-  "cc_app_settings_failed": "Could not open Android application settings; open Voltix in system Settings manually."
+  "cc_app_settings_failed": "Could not open Android application settings; open Voltix in system Settings manually.",
+  "cc_category_diagnostics": "Permissions\n& diagnostics"
 }

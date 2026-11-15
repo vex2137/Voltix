@@ -12,6 +12,7 @@ use slint::{ComponentHandle, ModelRc};
 use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
     let i18n = window.global::<I18n>();
+    i18n.set_cc_category_diagnostics(loc.tr("cc_category_diagnostics").into());
     i18n.set_cc_battery_short(loc.tr("cc_battery_short").into());
     i18n.set_cc_android_fps_note(loc.tr("cc_android_fps_note").into());
 

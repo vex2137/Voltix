@@ -406,5 +406,6 @@
   "cc_android_fps_note": "FPS / czas klatek innej gry jest niedostępny. Android nie ma uniwersalnej nakładki MangoHud.",
   "cc_android_network_note": "Szybkości i sumy Android obejmują wszystkie interfejsy TrafficStats; nazwa wskazuje aktywne łącze, a nie licznik pojedynczego interfejsu.",
   "cc_network_aggregate": "Podsumowanie i historia sieci sumują interfejsy poza pętlą zwrotną; mosty i tunele mogą liczyć ruch wielokrotnie. Poniżej są liczniki poszczególnych interfejsów.",
-  "cc_app_settings_failed": "Nie można otworzyć ustawień aplikacji Android; otwórz Voltix ręcznie w ustawieniach systemowych."
+  "cc_app_settings_failed": "Nie można otworzyć ustawień aplikacji Android; otwórz Voltix ręcznie w ustawieniach systemowych.",
+  "cc_category_diagnostics": "Uprawnienia\ni diagnostyka"
 }
