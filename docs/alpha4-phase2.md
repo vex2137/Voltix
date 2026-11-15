@@ -49,15 +49,18 @@ The UI previously called `VecModel::set_vec()` each sample, resetting all
 repeated components. Models now retain the same vector and only update changed
 rows, append new rows, and remove surplus rows. This avoids full reset events; it
 does not eliminate construction of the incoming telemetry model vectors and no
-specific RSS reduction has been established. Histories already use a 240-entry
-`VecDeque`; only one monitoring engine serves all interface modes.
+specific RSS reduction has been established. Histories use a 240-entry
+`VecDeque`; disconnected GPU histories are pruned once older than the chart window
+plus a five-second grace period. Hidden chart paths are not rebuilt; changing page
+or interface mode refreshes the newly visible paths immediately. Only one
+monitoring engine serves all interface modes.
 
 ## Remaining work
 
-Allocation profiling, controlled native Wayland comparisons and interaction workloads,
-first-presented-frame timing, custom themes, contrast validation and theme import/export,
-deeper mode differentiation, additional MangoHud options, hardware/device checks and final Alpha 4 version synchronization are
-still outstanding. No FPS data or overlay behavior is simulated. An Android update
+Further allocation profiling, controlled native Wayland comparisons and interaction
+workloads, first-presented-frame timing, accessible contrast for the exact Minimal
+palette, deeper mode differentiation, overlay color/layout controls, hardware/device
+checks and final Alpha 4 version synchronization are still outstanding. No FPS data or overlay behavior is simulated. An Android update
 still requires the installed app's original signing certificate and has not been
 verified on a device. Do not merge, publish or call this branch a completed Alpha 4.
 
@@ -97,10 +100,14 @@ Four persisted palettes are selectable in Appearance: Voltix Default, Cyberpunk,
 Emerald and Minimal. Selecting the default restores the previous system/dark/light
 preference; choosing a theme or one of the existing accent swatches returns to the
 default palette. Palette colors propagate to CPU, GPU, RAM and VRAM indicators.
-The live application is the preview; custom HEX editing, named themes, file
-import/export and formal contrast enforcement remain unfinished. Minimal retains
-the requested #777777 secondary text on #101010; that pair does not meet WCAG AA
-4.5:1 for small text, so accessible contrast still needs a design decision.
+Custom themes are edited or imported as JSON via copy/paste in Appearance; applying
+the JSON updates the application immediately. It supports named themes persisted in
+settings (up to 32), loading saved themes, and copying the JSON to export. Import
+validates a bounded payload, known fields, name, `#RRGGBB` colors and a minimum
+4.5:1 text/metric contrast against both background and surface. A native file
+picker and graphical color picker are not implemented. Minimal retains the requested
+#777777 secondary text on #101010 (approximately 4.25:1); this falls below WCAG AA
+4.5:1 for small text and still needs a design decision.
 
 
 ## Overlay launch-option editor
@@ -120,3 +127,14 @@ The optional startup trace now reports the first `AfterRendering` callback when
 the renderer supports it. Slint documents that this happens before buffer
 presentation; it is not a first-visible-frame measurement. Unsupported backends
 report the unavailable callback rather than a fabricated time.
+
+## Heap allocation trace
+
+A Debian-verified Heaptrack package was extracted for local profiling. A graceful
+12.86-second Xvfb/software-renderer trace of the pre-optimization 2071d87 build
+reported 219,743 allocation calls, 36,062 temporary allocations and 2.02 MB peak
+heap. Fontconfig/font discovery accounted for many startup allocations. A separate
+interrupted current-build trace showed a similar 2.02 MB peak heap, but its shutdown
+was not clean and it cannot establish a before/after improvement or a leak. These
+are heap profiler figures, not total RSS or GPU memory. Raw traces are outside the
+checkout under `/workspace/voltix-heap-profile`; they are machine-specific.
