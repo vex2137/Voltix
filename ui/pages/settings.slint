@@ -260,7 +260,7 @@ export component SettingsPage inherits Rectangle {
                             clicked => { root.change-overlay(11, root.overlay-opengl-dlsym ? 0 : 1); }
                         }
                         Text { text: I18n.messages[30]; color: Theme.text-secondary; }
-                        for label[index] in ["FPS", "Frametime", "CPU", "GPU", I18n.messages[31], "RAM / VRAM", I18n.messages[7]] : SegmentedOption {
+                        for label[index] in ["FPS", I18n.messages[150], "CPU", "GPU", I18n.messages[31], "RAM / VRAM", I18n.messages[7]] : SegmentedOption {
                             height: 44px; label: label;
                             active: index == 0 ? root.overlay-fps : (index == 1 ? root.overlay-frametime : (index == 2 ? root.overlay-cpu : (index == 3 ? root.overlay-gpu : (index == 4 ? root.overlay-temperatures : (index == 5 ? root.overlay-memory : root.overlay-gpu-power)))));
                             clicked => { root.change-overlay(index, self.active ? 0 : 1); }
