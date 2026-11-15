@@ -354,7 +354,7 @@
   "cc_no_disk": "Brak dostępnych liczników aktywności urządzeń fizycznych. Pojemność pozostaje dostępna na stronie Dyski.",
   "cc_no_sensors": "Brak odczytywalnych wartości czujników. Sterowniki i uprawnienia ograniczają dostęp; nazwa czujnika nie oznacza dostępnego pomiaru.",
   "cc_process_note": "Lista procesów tylko do odczytu · odświeżanie najwyżej co 2 s przy otwartej stronie · CPU jako procent jednego rdzenia logicznego · do 2048 próbkowanych / 200 wyświetlanych procesów. Procesy bez dostępu są pomijane.",
-  "cc_process_unavailable": "Lista procesów jest niedostępna na tej platformie. Android ogranicza inne aplikacje; zużycie CPU przez Voltix jest na stronie Procesor.",
+  "cc_process_unavailable": "Zbieranie danych procesów, brak dostępu lub ograniczenia. Android ogranicza dostęp do innych aplikacji; zużycie CPU przez Voltix jest na stronie Procesor.",
   "cc_filter": "Filtruj według nazwy procesu lub PID",
   "cc_sort_cpu": "Sortuj według CPU",
   "cc_sort_memory": "Sortuj według pamięci",

@@ -354,7 +354,7 @@
   "cc_no_disk": "No accessible physical-device activity counters. Capacity remains available on the Storage page.",
   "cc_no_sensors": "No readable sensor values. Driver exposure and permissions vary; sensor names do not imply available measurements.",
   "cc_process_note": "Read-only process list · refreshed at most every 2 s while visible · CPU is a percentage of one logical core · up to 2048 processes sampled / 200 displayed. Restricted processes are omitted.",
-  "cc_process_unavailable": "Process inspection is unavailable on this platform. Android restricts other apps; Voltix's own CPU usage is shown on the CPU page.",
+  "cc_process_unavailable": "Process data is collecting, unavailable or restricted. Android limits access to other apps; Voltix's own CPU usage is shown on the CPU page.",
   "cc_filter": "Filter by process name or PID",
   "cc_sort_cpu": "Sort by CPU",
   "cc_sort_memory": "Sort by memory",

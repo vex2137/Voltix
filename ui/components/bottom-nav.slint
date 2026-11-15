@@ -19,10 +19,14 @@ export component BottomNav inherits Rectangle {
     in property <length> bottom-inset;
     in property <length> left-inset;
     in property <length> right-inset;
+    height: 65px + root.bottom-inset;
+    vertical-stretch: 0;
     background: Theme.bg-sidebar;
     VerticalLayout {
         Rectangle { height: 1px; background: Theme.border-subtle; }
         HorizontalLayout {
+            height: 64px;
+            vertical-stretch: 0;
             padding-left: root.left-inset + 4px; padding-right: root.right-inset + 4px;
             padding-top: 4px; padding-bottom: 4px; spacing: 3px;
             for destination[index] in [0,1,2,8,12] : Destination {

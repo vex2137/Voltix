@@ -116,11 +116,15 @@ export component TelemetryChart inherits Card {
                 }
 
                 if !root.has-data : Text {
+                    x: 8px;
+                    width: max(0px, parent.width - 16px);
+                    height: 100%;
                     text: root.empty-text;
                     color: Theme.text-muted;
                     font-size: 12px;
                     horizontal-alignment: center;
                     vertical-alignment: center;
+                    wrap: word-wrap;
                 }
             }
         }
