@@ -145,13 +145,10 @@ export component SettingsPage inherits Rectangle {
                     }
 
                     Text { text: I18n.messages[12]; color: Theme.text-secondary; }
-                    VerticalLayout {
-                        spacing: 6px;
-                        for label[index] in [I18n.messages[46], "Cyberpunk", I18n.messages[47], I18n.messages[48], I18n.messages[13]] : SegmentedOption {
-                            compact: true; label: label;
-                            active: Theme.palette == index;
-                            clicked => { root.change-palette(index); }
-                        }
+                    ComboBox {
+                        model: [I18n.messages[46], "Cyberpunk", I18n.messages[47], I18n.messages[48], I18n.messages[13]];
+                        current-index: Theme.palette;
+                        selected(_) => { root.change-palette(self.current-index); }
                     }
                     if Theme.palette == 4 : VerticalLayout {
                         spacing: 8px;
@@ -171,7 +168,16 @@ export component SettingsPage inherits Rectangle {
                         color: Theme.text-secondary; wrap: word-wrap;
                     }
                     Text { text: I18n.messages[19]; color: Theme.text-secondary; }
-                    VerticalLayout {
+                    if settings-scroll.width >= 520px : HorizontalLayout {
+                        spacing: 6px;
+                        for label[index] in [I18n.messages[49], I18n.messages[50], I18n.messages[51]] : SegmentedOption {
+                            compact: true;
+                            label: label;
+                            active: Theme.interface-mode == index;
+                            clicked => { root.change-interface(index); }
+                        }
+                    }
+                    if settings-scroll.width < 520px : VerticalLayout {
                         spacing: 6px;
                         for label[index] in [I18n.messages[49], I18n.messages[50], I18n.messages[51]] : SegmentedOption {
                             compact: true;
