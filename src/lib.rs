@@ -2,6 +2,7 @@ pub mod app;
 pub mod custom_theme;
 pub mod diagnostics;
 pub mod localization;
+pub mod mangohud;
 pub mod models;
 pub mod monitoring;
 pub mod overlay;

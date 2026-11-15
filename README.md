@@ -169,3 +169,5 @@ Clipboard failures are shown in Settings rather than reported as success.
 The AppImage uses the `voltix` desktop/application ID and the official bundled icon.
 On Plasma Wayland, install/integrate the bundled `voltix.desktop` and icon through your
 AppImage manager so Plasma can resolve that ID to its desktop entry.
+
+MangoHud file profiles, safe application, appearance controls and reload behavior are documented in [MangoHud Studio](docs/MANGOHUD.md).

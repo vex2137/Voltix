@@ -165,6 +165,18 @@ export component AppWindow inherits Window {
     in property <string> overlay-command;
     callback change-overlay(int, int);
     callback refresh-overlay();
+    callback manage-mangohud(string, string, string, string, bool);
+    in property <string> manager-config;
+    in property <string> manager-status;
+    in property <string> manager-preview;
+    in property <float> manager-preview-size;
+    in property <string> manager-target;
+    in property <string> manager-game;
+    in property <[string]> manager-profiles;
+    in property <[bool]> manager-flags;
+    in property <[string]> manager-values;
+    in property <color> manager-color;
+    in property <color> manager-background;
     callback copy-overlay(string);
     in property <string> overlay-copy-status;
     in-out property <string> custom-theme-json;
@@ -520,6 +532,11 @@ export component AppWindow inherits Window {
                     overlay-gpu-power: root.overlay-gpu-power; overlay-opengl-dlsym: root.overlay-opengl-dlsym; overlay-command: root.overlay-command;
                     change-overlay(field, value) => { root.change-overlay(field, value); }
                     refresh-overlay => { root.refresh-overlay(); }
+                    manager-config: root.manager-config; manager-status: root.manager-status;
+                    manager-preview: root.manager-preview; manager-preview-size: root.manager-preview-size; manager-target: root.manager-target; manager-game: root.manager-game;
+                    manager-profiles: root.manager-profiles; manager-flags: root.manager-flags; manager-values: root.manager-values;
+                    manager-color: root.manager-color; manager-background: root.manager-background;
+                    manage-mangohud(action, name, path, content, confirm) => { root.manage-mangohud(action, name, path, content, confirm); }
                     copy-overlay(command) => { root.copy-overlay(command); }
                     overlay-copy-status: root.overlay-copy-status;
                     custom-theme-json <=> root.custom-theme-json;

@@ -96,6 +96,8 @@ jobs:
           cp packaging/linux/voltix.desktop AppDir/voltix.desktop
           cp AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png AppDir/voltix.png
           ln -sfn voltix.png AppDir/.DirIcon
+          mkdir -p AppDir/usr/bin
+          install -m 755 target/release/voltix AppDir/usr/bin/voltix
           chmod -R a+rX AppDir
 
           curl -fsSL -o linuxdeploy-x86_64.AppImage \

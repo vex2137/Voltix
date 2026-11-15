@@ -3,6 +3,8 @@ import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
 
+import { MangoHudManager } from "../components/mangohud-manager.slint";
+
 export component SettingsPage inherits Rectangle {
     in property <bool> compact: false;
     in property <length> left-inset: 0px;
@@ -30,6 +32,18 @@ export component SettingsPage inherits Rectangle {
     in property <string> overlay-command;
     callback change-overlay(int, int);
     callback refresh-overlay();
+    callback manage-mangohud(string, string, string, string, bool);
+    in property <string> manager-config;
+    in property <string> manager-status;
+    in property <string> manager-preview;
+    in property <float> manager-preview-size;
+    in property <string> manager-target;
+    in property <string> manager-game;
+    in property <[string]> manager-profiles;
+    in property <[bool]> manager-flags;
+    in property <[string]> manager-values;
+    in property <color> manager-color;
+    in property <color> manager-background;
     callback copy-overlay(string);
     in property <string> overlay-copy-status;
     private property <string> overlay-target: "%command%";
@@ -185,10 +199,20 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
+            if root.overlay-linux : Card {
+                MangoHudManager {
+                    config: root.manager-config; status: root.manager-status; preview: root.manager-preview; preview-size: root.manager-preview-size;
+                    target: root.manager-target; game: root.manager-game;
+                    profiles: root.manager-profiles; flags: root.manager-flags; values: root.manager-values;
+                    preview-color: root.manager-color; preview-background: root.manager-background;
+                    manage(action, name, path, content, confirm) => { root.manage-mangohud(action, name, path, content, confirm); }
+                }
+            }
+
             Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px; spacing: 10px;
-                    SectionTitle { text: Theme.polish ? "Nakładka MangoHud" : "MangoHud overlay"; }
+                    SectionTitle { text: Theme.polish ? "Nakładka MangoHud" : "MangoHud quick launch · environment overrides"; }
                     if !root.overlay-linux : Text {
                         text: Theme.polish ? "MangoHud jest dostępny tylko w Linuksie. Android nie udostępnia uniwersalnej nakładki w grze." : "MangoHud is Linux-only. Android does not provide a universal in-game overlay.";
                         color: Theme.text-secondary; wrap: word-wrap;

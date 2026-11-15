@@ -101,6 +101,43 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     let window = AppWindow::new()?;
     #[cfg(target_os = "linux")]
     slint::set_xdg_app_id("voltix")?;
+    #[cfg(target_os = "linux")]
+    {
+        let root = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config")));
+        if let Some(root) = root {
+            let mut manager = crate::mangohud::Manager::new(root);
+            update_mangohud_manager(&window, &manager);
+            let weak = window.as_weak();
+            type Action = (String, String, String, String, bool);
+            let (sender, receiver) = std::sync::mpsc::channel::<Action>();
+            // One worker preserves user action order without blocking the GUI on I/O.
+            std::thread::spawn(move || {
+                for (action, name, path, content, confirmed) in receiver {
+                    manager.status = manager
+                        .action(&action, &name, &path, &content, confirmed)
+                        .unwrap_or_else(|e| format!("Error: {e}"));
+                    let snapshot = manager.clone();
+                    let weak = weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(win) = weak.upgrade() {
+                            update_mangohud_manager(&win, &snapshot);
+                        }
+                    });
+                }
+            });
+            window.on_manage_mangohud(move |action, name, path, content, confirmed| {
+                let _ = sender.send((
+                    action.to_string(),
+                    name.to_string(),
+                    path.to_string(),
+                    content.to_string(),
+                    confirmed,
+                ));
+            });
+        }
+    }
     window.set_overlay_linux(cfg!(target_os = "linux"));
     window.set_overlay_detected(crate::overlay::mangohud_available());
     crate::diagnostics::mark("Slint component initialized (not presented)");
@@ -1414,6 +1451,78 @@ fn build_storage_notice(storage: &[StorageDeviceTelemetry], loc: &Localizer) -> 
     } else {
         String::new()
     }
+}
+
+#[cfg(target_os = "linux")]
+fn update_mangohud_manager(window: &AppWindow, state: &crate::mangohud::Manager) {
+    let values = crate::mangohud::parse(&state.profile.config).unwrap_or_default();
+    window.set_manager_config(state.profile.config.clone().into());
+    let detection = if crate::overlay::mangohud_available() {
+        "MangoHud launcher detected; layer/library compatibility is checked by the game."
+    } else {
+        "MangoHud launcher missing. Install MangoHud before launching a game."
+    };
+    window.set_manager_status(
+        format!(
+            "{detection}\n{}\n{}",
+            crate::mangohud::components(),
+            state.status
+        )
+        .into(),
+    );
+    window.set_manager_preview(state.preview().into());
+    let size = values
+        .get("font_size")
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(24.0);
+    let scale = values
+        .get("font_scale")
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(1.0);
+    window.set_manager_preview_size((size * scale * 0.6).clamp(8.0, 36.0));
+    window.set_manager_target(state.target.display().to_string().into());
+    window.set_manager_game(state.profile.game.clone().into());
+    window.set_manager_profiles(ModelRc::new(VecModel::from(
+        state
+            .names()
+            .into_iter()
+            .map(SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_flags(ModelRc::new(VecModel::from(
+        crate::mangohud::METRICS
+            .iter()
+            .map(|key| values.get(*key).is_some_and(|v| v == "1"))
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_values(ModelRc::new(VecModel::from(
+        crate::mangohud::APPEARANCE
+            .iter()
+            .map(|key| SharedString::from(values.get(*key).map_or("", String::as_str)))
+            .collect::<Vec<_>>(),
+    )));
+    let color = |key: &str, fallback: u32| {
+        let rgb = values
+            .get(key)
+            .and_then(|s| u32::from_str_radix(s, 16).ok())
+            .unwrap_or(fallback);
+        let alpha = values
+            .get(if key == "text_color" {
+                "alpha"
+            } else {
+                "background_alpha"
+            })
+            .and_then(|s| s.parse::<f32>().ok())
+            .unwrap_or(1.0);
+        slint::Color::from_argb_u8(
+            (alpha * 255.0) as u8,
+            (rgb >> 16) as u8,
+            (rgb >> 8) as u8,
+            rgb as u8,
+        )
+    };
+    window.set_manager_color(color("text_color", 0xffffff));
+    window.set_manager_background(color("background_color", 0x020202));
 }
 
 #[cfg(test)]

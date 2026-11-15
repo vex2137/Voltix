@@ -1,0 +1,97 @@
+import { LineEdit, TextEdit, CheckBox, ComboBox } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { SegmentedOption, SectionTitle } from "common.slint";
+
+export component MangoHudManager inherits Rectangle {
+    in property <string> config;
+    in property <string> status;
+    in property <string> preview;
+    in property <float> preview-size: 14;
+    in property <[string]> profiles;
+    in property <[bool]> flags;
+    in property <[string]> values;
+    in property <string> target;
+    in property <string> game;
+    in property <color> preview-color: white;
+    in property <color> preview-background: black;
+    callback manage(string, string, string, string, bool);
+    private property <string> profile-name: "default";
+    private property <string> file-path: root.target;
+    private property <bool> confirmed: false;
+    private property <[string]> metric-keys: ["fps", "frametime", "frame_timing", "cpu_stats", "gpu_stats", "cpu_temp", "gpu_temp", "ram", "vram", "gpu_power", "cpu_power", "cpu_mhz", "core_load", "gpu_core_clock", "gpu_mem_clock", "gpu_mem_temp", "gpu_junction_temp", "gpu_fan", "gpu_voltage", "swap", "procmem", "io_read", "io_write", "battery", "battery_watt", "network", "wine", "engine_version", "resolution", "time", "horizontal", "no_small_font"];
+    private property <[string]> appearance-keys: ["position", "font_size", "font_scale", "font_file", "alpha", "background_alpha", "text_color", "background_color", "cpu_color", "gpu_color", "ram_color", "vram_color", "frametime_color", "width", "height", "table_columns", "legacy_layout", "reload_cfg"];
+    private property <[string]> metric-labels: ["FPS", "Frametime", "Frame graph", "CPU usage", "GPU usage", "CPU temperature", "GPU temperature", "RAM", "VRAM", "GPU power", "CPU power", "CPU clock", "Per-core usage", "GPU clock", "VRAM clock", "VRAM temperature", "GPU junction", "GPU fan", "GPU voltage (AMD)", "Swap", "Process RAM", "Read I/O", "Write I/O", "Battery", "Battery power", "Network", "Wine / Proton", "Graphics API", "Resolution", "Clock", "Horizontal layout", "Uniform font size"];
+    min-height: 1750px;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        SectionTitle { text: "MangoHud Studio · file profiles"; }
+        Text { text: "MangoHud 0.8.4 · Linux · Vulkan / OpenGL / Proton"; color: Theme.text-secondary; }
+        Text { text: root.status; color: Theme.text-primary; wrap: word-wrap; min-height: 70px; }
+        Text { text: "Profiles · choose a saved profile, then Load; use a new name to duplicate"; color: Theme.text-secondary; wrap: word-wrap; }
+        ComboBox { model: root.profiles; selected(value) => { root.profile-name = value; } }
+        LineEdit { text <=> root.profile-name; placeholder-text: "Profile name (letters, digits, - or _)"; }
+        HorizontalLayout {
+            for action in ["load", "save", "duplicate"] : SegmentedOption {
+                height: 40px; label: action;
+                clicked => { root.manage(action, root.profile-name, root.file-path, "", root.confirmed); root.confirmed = false; }
+            }
+        }
+        HorizontalLayout {
+            for action in ["review-save", "delete"] : SegmentedOption {
+                height: 40px; label: action == "review-save" ? "Review profile replacement" : "Delete profile (confirm below)";
+                clicked => { root.manage(action, root.profile-name, root.file-path, "", root.confirmed); root.confirmed = false; }
+            }
+        }
+        Text { text: "Metrics · hardware-dependent readings may be unavailable (GPU voltage is AMD-only)"; color: Theme.text-secondary; wrap: word-wrap; }
+        for row in (root.width < 700px ? 16 : 8) : HorizontalLayout {
+            for column in (root.width < 700px ? 2 : 4) : CheckBox {
+                text: root.metric-labels[row * (root.width < 700px ? 2 : 4) + column]; checked: root.flags[row * (root.width < 700px ? 2 : 4) + column];
+                toggled => { root.manage("option", root.metric-keys[row * (root.width < 700px ? 2 : 4) + column], "", self.checked ? "1" : "0", false); }
+            }
+        }
+        Text { text: "Appearance · enter a value and press Enter. Colors: six hexadecimal digits. Font: absolute TTF/OTF path."; color: Theme.text-secondary; wrap: word-wrap; }
+        for row in (root.width < 700px ? 18 : 9) : HorizontalLayout {
+            for column in (root.width < 700px ? 1 : 2) : HorizontalLayout {
+                visible: row * (root.width < 700px ? 1 : 2) + column < 18;
+                Text { text: root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column]; color: Theme.text-secondary; width: 130px; vertical-alignment: center; }
+                LineEdit {
+                    text: root.values[row * (root.width < 700px ? 1 : 2) + column];
+                    accepted => { root.manage("option", root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column], "", self.text, false); }
+                }
+            }
+        }
+        Text { text: "Layout preview · sample labels, not live sensor values or a pixel-exact MangoHud render"; color: Theme.text-secondary; wrap: word-wrap; }
+        Rectangle {
+            height: 170px; background: Theme.bg-app; border-radius: 8px; clip: true;
+            Rectangle {
+                x: root.values[0] == "top-right" || root.values[0] == "bottom-right" ? max(0px, parent.width - self.width - 8px) : (root.values[0] == "top-center" || root.values[0] == "bottom-center" ? (parent.width - self.width) / 2 : 8px);
+                y: root.values[0] == "bottom-left" || root.values[0] == "bottom-right" || root.values[0] == "bottom-center" ? max(0px, parent.height - self.height - 8px) : (root.values[0] == "middle-left" || root.values[0] == "middle-right" ? (parent.height - self.height) / 2 : 8px);
+                width: min(parent.width - 16px, 440px); height: 150px;
+                background: root.preview-background; border-radius: 6px;
+                Text { x: 8px; y: 8px; width: parent.width - 16px; height: parent.height - 16px; text: root.preview; color: root.preview-color; font-size: root.preview-size * 1px; wrap: word-wrap; overflow: elide; }
+            }
+        }
+        Text { text: "Configuration editor · documented curated options only; unknown/unsafe options are rejected. Import never writes the source."; color: Theme.text-secondary; wrap: word-wrap; }
+        editor := TextEdit { height: 190px; text: root.config; }
+        SegmentedOption { height: 38px; label: "Validate and use editor"; clicked => { root.manage("edit", "", "", editor.text, false); } }
+        Text { text: "Game command · %command% for Steam/Proton, or an executable with arguments. OpenGL dlsym defaults to enabled in 0.8.4."; color: Theme.text-secondary; wrap: word-wrap; }
+        game-input := LineEdit { text: root.game; accepted => { root.manage("game", "", "", self.text, false); } }
+        HorizontalLayout {
+            SegmentedOption { height: 38px; label: "Use game command"; clicked => { root.manage("game", "", "", game-input.text, false); } }
+            SegmentedOption { height: 38px; label: "Copy file-based launch command"; clicked => { root.manage("copy", "", "", "", false); } }
+        }
+        Text { text: "Configuration destination · global MangoHud.conf, native <executable>.conf, or wine-<executable without .exe>.conf. Custom paths work through MANGOHUD_CONFIGFILE."; color: Theme.text-secondary; wrap: word-wrap; }
+        LineEdit { text <=> root.file-path; }
+        HorizontalLayout {
+            for action in ["import", "export", "review", "target"] : SegmentedOption {
+                height: 38px; label: action == "review" ? "Review application" : (action == "target" ? "Use as launch file" : action);
+                clicked => { root.manage(action, "", root.file-path, "", false); root.confirmed = false; }
+            }
+        }
+        Text { text: root.status; color: Theme.text-primary; wrap: word-wrap; }
+        CheckBox { text: "I confirm the reviewed destination/configuration or profile deletion"; checked <=> root.confirmed; }
+        SegmentedOption { height: 42px; label: "Confirm reviewed write + backup"; clicked => { root.manage("confirm", "", "", "", root.confirmed); root.confirmed = false; } }
+        Text { text: "Live reload: MangoHud 0.8.4 watches its active file (including atomic replacement). Shift+F4 is the manual fallback. New fonts may need a restart. Changing API injection, Proton/runtime or launch options needs a game restart. MANGOHUD_CONFIG takes precedence over files; remove quick-launch overrides when using profiles."; color: Theme.text-secondary; wrap: word-wrap; }
+    }
+}
