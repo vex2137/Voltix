@@ -48,6 +48,8 @@ jobs:
             desktop-file-utils \
             xvfb \
             xauth \
+            xclip \
+            wl-clipboard \
             libgl1-mesa-dri
 
       - name: Install stable Rust toolchain
@@ -69,6 +71,9 @@ jobs:
       - name: Run unit and integration tests
         run: cargo test --locked
 
+      - name: Verify native X11 clipboard export
+        run: xvfb-run -a cargo test overlay::tests::native_clipboard_round_trip --lib -- --ignored
+
       - name: Build release binary
         run: cargo build --locked --release
 
@@ -77,6 +82,7 @@ jobs:
 
       - name: Package Linux AppImage
         run: |
+          umask 022
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
           mkdir -p AppDir/usr/share/licenses/voltix
@@ -86,6 +92,11 @@ jobs:
           cp assets/icons/voltix.svg \
             AppDir/usr/share/icons/hicolor/scalable/apps/voltix.svg
           cp LICENSE AppDir/usr/share/licenses/voltix/LICENSE
+          # AppImage root metadata and the Wayland app ID must share this basename.
+          cp packaging/linux/voltix.desktop AppDir/voltix.desktop
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png AppDir/voltix.png
+          ln -sfn voltix.png AppDir/.DirIcon
+          chmod -R a+rX AppDir
 
           curl -fsSL -o linuxdeploy-x86_64.AppImage \
             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -97,13 +108,26 @@ jobs:
             ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable target/release/voltix \
+            --executable /usr/bin/wl-copy \
+            --executable /usr/bin/xclip \
             --desktop-file packaging/linux/voltix.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png \
             --output appimage
 
+          desktop-file-validate AppDir/voltix.desktop
+          test -s AppDir/voltix.png
+          test "$(readlink AppDir/.DirIcon)" = voltix.png
+          cmp assets/icons/voltix.svg AppDir/usr/share/icons/hicolor/scalable/apps/voltix.svg
           chmod +x Voltix-0.1.0-alpha.3-x86_64.AppImage
           ls -lh Voltix-0.1.0-alpha.3-x86_64.AppImage
           file Voltix-0.1.0-alpha.3-x86_64.AppImage
+          ./Voltix-0.1.0-alpha.3-x86_64.AppImage --appimage-extract
+          desktop-file-validate squashfs-root/voltix.desktop
+          cmp AppDir/voltix.png squashfs-root/voltix.png
+          cmp assets/icons/voltix.svg squashfs-root/usr/share/icons/hicolor/scalable/apps/voltix.svg
+          test -s squashfs-root/.DirIcon
+          test -x squashfs-root/usr/bin/wl-copy
+          test -x squashfs-root/usr/bin/xclip
 
       - name: Verify AppImage launch in virtual display
         run: |

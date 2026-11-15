@@ -1,4 +1,4 @@
-import { ScrollView, TextEdit } from "std-widgets.slint";
+import { ScrollView, TextEdit, LineEdit } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
@@ -30,6 +30,9 @@ export component SettingsPage inherits Rectangle {
     in property <string> overlay-command;
     callback change-overlay(int, int);
     callback refresh-overlay();
+    callback copy-overlay(string);
+    in property <string> overlay-copy-status;
+    private property <string> overlay-target: "%command%";
     in-out property <string> custom-theme-json;
     in property <string> custom-theme-status;
     in property <[string]> saved-theme-names;
@@ -209,8 +212,9 @@ export component SettingsPage inherits Rectangle {
                             height: 44px;
                             label: Theme.polish ? "Uwzględnij MangoHud w poleceniu" : "Include MangoHud in launch options";
                             active: root.overlay-enabled;
-                            clicked => { root.change-overlay(10, root.overlay-enabled ? 0 : 1); }
+                            clicked => { root.change-overlay(10, 1); root.copy-overlay(root.overlay-target); }
                         }
+                        Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
                         SegmentedOption {
                             height: 44px; label: Theme.polish ? "Zgodność OpenGL (--dlsym)" : "OpenGL compatibility (--dlsym)";
                             active: root.overlay-opengl-dlsym;
@@ -237,6 +241,13 @@ export component SettingsPage inherits Rectangle {
                             height: 44px; label: value + "%"; active: root.overlay-opacity == value;
                             clicked => { root.change-overlay(9, value); }
                         }
+                        Text { text: Theme.polish ? "Polecenie gry (%command% dla Steam)" : "Game command (%command% for Steam)"; color: Theme.text-secondary; }
+                        LineEdit { text <=> root.overlay-target; }
+                        SegmentedOption {
+                            height: 44px; label: Theme.polish ? "Kopiuj polecenie" : "Copy command";
+                            clicked => { root.copy-overlay(root.overlay-target); }
+                        }
+                        Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
                         Text { text: Theme.polish ? "Opcje uruchamiania — podgląd" : "Launch options preview"; color: Theme.text-secondary; }
                         TextEdit { height: 100px; text: root.overlay-command; read-only: true; wrap: word-wrap; }
                     }

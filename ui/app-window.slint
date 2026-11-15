@@ -165,6 +165,8 @@ export component AppWindow inherits Window {
     in property <string> overlay-command;
     callback change-overlay(int, int);
     callback refresh-overlay();
+    callback copy-overlay(string);
+    in property <string> overlay-copy-status;
     in-out property <string> custom-theme-json;
     in property <string> custom-theme-status;
     in property <[string]> saved-theme-names;
@@ -518,6 +520,8 @@ export component AppWindow inherits Window {
                     overlay-gpu-power: root.overlay-gpu-power; overlay-opengl-dlsym: root.overlay-opengl-dlsym; overlay-command: root.overlay-command;
                     change-overlay(field, value) => { root.change-overlay(field, value); }
                     refresh-overlay => { root.refresh-overlay(); }
+                    copy-overlay(command) => { root.copy-overlay(command); }
+                    overlay-copy-status: root.overlay-copy-status;
                     custom-theme-json <=> root.custom-theme-json;
                     custom-theme-status: root.custom-theme-status;
                     saved-theme-names: root.saved-theme-names;

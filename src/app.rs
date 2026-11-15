@@ -99,6 +99,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
+    #[cfg(target_os = "linux")]
+    slint::set_xdg_app_id("voltix")?;
     window.set_overlay_linux(cfg!(target_os = "linux"));
     window.set_overlay_detected(crate::overlay::mangohud_available());
     crate::diagnostics::mark("Slint component initialized (not presented)");
@@ -234,8 +236,44 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                     11 => overlay.opengl_dlsym = value != 0,
                     _ => return,
                 }
+                win.set_overlay_copy_status("".into());
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_copy_overlay(move |target| {
+            if let (Ok(state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let result = state
+                    .settings
+                    .overlay
+                    .launch_options(target.as_str())
+                    .and_then(|command| {
+                        win.set_overlay_command(command.clone().into());
+                        crate::overlay::copy_launch_command(&command)
+                    });
+                let polish = state.localizer.locale() == crate::localization::LocaleCode::Pl;
+                let message = match result {
+                    Ok(()) => if polish {
+                        "Skopiowano do schowka"
+                    } else {
+                        "Copied to clipboard"
+                    }
+                    .to_string(),
+                    Err(err) => format!(
+                        "{}: {err}",
+                        if polish {
+                            "Nie udało się skopiować do schowka"
+                        } else {
+                            "Could not copy to clipboard"
+                        }
+                    ),
+                };
+                win.set_overlay_copy_status(message.into());
             }
         });
     }

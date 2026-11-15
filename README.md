@@ -156,3 +156,16 @@ No first-frame or sub-500ms claim is made. Normal runs do not emit timing logs.
 NVIDIA power draw uses NVML `power_usage` (mW converted to W), separately from the
 enforced/management power limit. Unsupported measurements remain unavailable;
 validation on real NVIDIA hardware is still required.
+
+### MangoHud clipboard export (Linux)
+
+AppImages bundle clipboard helpers. For development builds, install `wl-clipboard` for Wayland or `xclip` for X11 (`sudo pacman -S wl-clipboard xclip` on CachyOS).
+In Settings, “Include MangoHud in launch options” enables MangoHud and copies the command.
+After changing metrics or position, use “Copy command” again. Keep `%command%` for Steam;
+for other launchers enter the game command with its arguments and shell quoting.
+Voltix copies text only and never executes it or writes MangoHud configuration files.
+Clipboard failures are shown in Settings rather than reported as success.
+
+The AppImage uses the `voltix` desktop/application ID and the official bundled icon.
+On Plasma Wayland, install/integrate the bundled `voltix.desktop` and icon through your
+AppImage manager so Plasma can resolve that ID to its desktop entry.
