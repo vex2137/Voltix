@@ -1,3 +1,4 @@
+import { I18n } from "../i18n/strings.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { GpuItem, CoreRowItem } from "../models.slint";
@@ -30,7 +31,7 @@ export component PerformancePage inherits Rectangle {
             padding: root.compact ? 12px : 24px;
             spacing: 12px;
             alignment: start;
-            SectionTitle { text: Theme.interface-mode == 1 ? (Theme.polish ? "Telemetria • odczyty bieżące" : "Telemetry • current readings") : (Theme.polish ? "Wydajność w centrum" : "Performance at a glance"); }
+            SectionTitle { text: Theme.interface-mode == 1 ? (I18n.messages[1]) : (I18n.messages[2]); }
             if Theme.interface-mode == 2 : HorizontalLayout {
                 spacing: 10px;
                 SummaryCard {
@@ -48,21 +49,21 @@ export component PerformancePage inherits Rectangle {
                 VerticalLayout {
                     padding: 16px; spacing: 4px;
                     KeyValueRow { compact: root.compact; label: "CPU"; value: root.cpu; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Temperatura CPU" : "CPU temperature"; value: root.temperature; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie CPU" : "CPU clock"; value: root.frequency; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[3]; value: root.temperature; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[4]; value: root.frequency; }
                     KeyValueRow { compact: root.compact; label: "GPU"; value: root.gpu.util-text; status: root.gpu.util-status; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Temperatura GPU" : "GPU temperature"; value: root.gpu.temp-text; status: root.gpu.temp-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[5]; value: root.gpu.temp-text; status: root.gpu.temp-status; }
                     KeyValueRow { compact: root.compact; label: "RAM"; value: root.ram; }
-                    KeyValueRow { compact: root.compact; label: "VRAM"; value: root.vram == "" ? "N/A" : root.vram; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Taktowanie GPU" : "GPU clock"; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Pobór mocy GPU" : "GPU power draw"; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
-                    KeyValueRow { compact: root.compact; label: Theme.polish ? "Limit mocy GPU" : "GPU power limit"; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
+                    KeyValueRow { compact: root.compact; label: "VRAM"; value: root.vram == "" ? I18n.status-unavailable : root.vram; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[6]; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[7]; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[8]; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
                 }
             }
             if Theme.interface-mode == 1 : Card {
                 VerticalLayout {
                     padding: 12px; spacing: 4px;
-                    SectionTitle { text: Theme.polish ? "Rdzenie CPU" : "CPU cores"; }
+                    SectionTitle { text: I18n.messages[9]; }
                     for core in root.cores : KeyValueRow {
                         compact: root.compact;
                         label: core.left-label + "  " + core.left-freq-text;
@@ -74,13 +75,13 @@ export component PerformancePage inherits Rectangle {
             if Theme.interface-mode == 2 : Card {
                 VerticalLayout {
                     padding: 16px; spacing: 8px;
-                    SectionTitle { text: "FPS / Frametime"; }
-                    Text { text: Theme.polish ? "N/D • Brak źródła danych z gry" : "N/A • No game telemetry source connected"; color: Theme.text-muted; wrap: word-wrap; }
-                    SegmentedOption { label: Theme.polish ? "Ustawienia nakładki" : "Overlay settings"; clicked => { root.open-overlay(); } }
+                    SectionTitle { text: I18n.messages[151]; }
+                    Text { text: I18n.messages[10]; color: Theme.text-muted; wrap: word-wrap; }
+                    SegmentedOption { label: I18n.messages[11]; clicked => { root.open-overlay(); } }
                 }
             }
             TelemetryChart { line-color: Theme.cpu-color; area-color: Theme.cpu-color.with-alpha(0.14); title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }
-            TelemetryChart { line-color: Theme.gpu-color; area-color: Theme.gpu-color.with-alpha(0.14); title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: "N/A"; }
+            TelemetryChart { line-color: Theme.gpu-color; area-color: Theme.gpu-color.with-alpha(0.14); title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: I18n.status-unavailable; }
         }
     }
 }

@@ -214,10 +214,14 @@ pub fn replace(
         let _ = fs::remove_file(temp);
         return Err(e.to_string());
     }
+    if fs::read(path).map_err(|e| format!("Unable to verify written file: {e}"))? != bytes {
+        return Err("Written file differs from the reviewed content; backup retained".into());
+    }
     Ok(backup)
 }
 #[derive(Clone)]
 struct Pending {
+    configuration: bool,
     path: PathBuf,
     old: Option<Vec<u8>>,
     new: Vec<u8>,
@@ -228,11 +232,13 @@ pub struct Manager {
     pub directory: PathBuf,
     pub target: PathBuf,
     pub status: String,
+    pub review_before: String,
+    pub review_after: String,
     pending: Option<Pending>,
 }
 impl Manager {
     pub fn new(config_root: PathBuf) -> Self {
-        Self { profile: Profile::default(), directory: config_root.join("voltix/mangohud-profiles"), target: config_root.join("MangoHud/MangoHud.conf"), status: "MangoHud 0.8.4 options. GPU voltage: AMD only; temperatures, power and fan readings depend on drivers. Install MangoHud (including 32-bit libraries for 32-bit games).".into(), pending: None }
+        Self { review_before: String::new(), review_after: String::new(), profile: Profile::default(), directory: config_root.join("voltix/mangohud-profiles"), target: config_root.join("MangoHud/MangoHud.conf"), status: "MangoHud 0.8.4 options. GPU voltage: AMD only; temperatures, power and fan readings depend on drivers. Install MangoHud (including 32-bit libraries for 32-bit games).".into(), pending: None }
     }
     fn profile_path(&self, name: &str) -> Result<PathBuf, String> {
         if name.is_empty()
@@ -270,6 +276,8 @@ impl Manager {
     ) -> Result<String, String> {
         if action != "confirm" {
             self.pending = None;
+            self.review_before.clear();
+            self.review_after.clear();
         }
         match action {
             "option" => {
@@ -278,6 +286,7 @@ impl Manager {
             "edit" => {
                 parse(content)?;
                 self.profile.config = content.into();
+                return Ok("Validated editor draft. No file was written.".into());
             }
             "game" => {
                 if content.trim().is_empty() || content.contains(['\n', '\r', '\0']) {
@@ -297,11 +306,15 @@ impl Manager {
                     &serde_json::to_vec_pretty(&self.profile).map_err(|e| e.to_string())?,
                     &None,
                 )?;
+                return Ok(format!(
+                    "Profile {name} saved. MangoHud configuration was not changed."
+                ));
             }
             "review-save" => {
                 self.profile.target = Some(self.target.clone());
                 let target = self.profile_path(name)?;
                 self.pending = Some(Pending {
+                    configuration: false,
                     old: existing(&target)?,
                     path: target,
                     new: serde_json::to_vec_pretty(&self.profile).map_err(|e| e.to_string())?,
@@ -319,6 +332,9 @@ impl Manager {
                     self.target = target.clone();
                 }
                 self.profile = profile;
+                return Ok(format!(
+                    "Loaded profile {name} into the editor. No MangoHud file was changed."
+                ));
             }
             "delete" => {
                 let target = self.profile_path(name)?;
@@ -328,20 +344,35 @@ impl Manager {
                 let old = existing(&target)?.ok_or("Profile not found")?;
                 unique_write(&target, &old, "backup")?;
                 fs::remove_file(target).map_err(|e| e.to_string())?;
+                return Ok(format!("Deleted profile {name}; backup retained. MangoHud configuration was not changed."));
             }
             "import" => {
                 let text = read(Path::new(path))?;
                 parse(&text)?;
                 self.profile.config = text;
+                return Ok(
+                    "Imported configuration into the editor only. Review and confirm to apply it."
+                        .into(),
+                );
             }
             "review" | "export" => {
+                if !content.is_empty() {
+                    parse(content)?;
+                    self.profile.config = content.into();
+                }
                 parse(&self.profile.config)?;
                 let target = PathBuf::from(path);
                 if !target.is_absolute() {
                     return Err("Enter an absolute configuration file path".into());
                 }
                 let old = existing(&target)?;
+                self.review_before = old
+                    .as_ref()
+                    .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+                    .unwrap_or_default();
+                self.review_after = self.profile.config.clone();
                 self.pending = Some(Pending {
+                    configuration: true,
                     path: target.clone(),
                     old,
                     new: self.profile.config.as_bytes().to_vec(),
@@ -352,7 +383,14 @@ impl Manager {
                 if !confirmed {
                     return Err("Explicit confirmation is required".into());
                 }
+                if (!content.is_empty() || !path.is_empty()) && content != self.profile.config {
+                    self.pending = None;
+                    return Err("Editor changed after review; review the destination again".into());
+                }
                 let pending = self.pending.take().ok_or("Review the destination first")?;
+                if !path.is_empty() && pending.configuration && pending.path != Path::new(path) {
+                    return Err("Destination changed; review it again before confirming".into());
+                }
                 let backup = replace(&pending.path, &pending.new, &pending.old)?;
                 return Ok(format!("Saved {}. Backup: {}. In an already hooked game MangoHud 0.8.4 watches its active file and can reload automatically; Shift+F4 is the manual fallback. Library/API injection, Proton/runtime or launch-command changes require a game restart. Environment MANGOHUD_CONFIG overrides file settings.", pending.path.display(), backup.map_or("not needed (new file)".into(), |p| p.display().to_string())));
             }
@@ -378,6 +416,10 @@ impl Manager {
                 }
                 self.target = target.clone();
                 self.profile.target = Some(target);
+                return Ok(format!(
+                    "Selected launch file {}. This does not apply the editor configuration.",
+                    self.target.display()
+                ));
             }
             "refresh" => {}
             _ => return Err("Unknown manager action".into()),

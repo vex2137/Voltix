@@ -129,3 +129,41 @@ fn symlink_destination_is_rejected() {
         .is_err());
     assert_eq!(fs::read_to_string(original).unwrap(), "fps=1");
 }
+
+#[test]
+fn review_uses_visible_editor_and_verifies_selected_destination() {
+    let root = Workspace::new();
+    let mut m = Manager::new(root.0.clone());
+    let path = root.0.join("MangoHud.conf");
+    fs::write(&path, "position=top-left\n").unwrap();
+    let editor = "position=top-right\n";
+    m.action("review", "", path.to_str().unwrap(), editor, false)
+        .unwrap();
+    assert_eq!(m.review_before, "position=top-left\n");
+    assert_eq!(m.review_after, editor);
+    assert_eq!(fs::read_to_string(&path).unwrap(), "position=top-left\n");
+    assert!(m
+        .action("confirm", "", path.to_str().unwrap(), editor, false)
+        .is_err());
+    m.action("confirm", "", path.to_str().unwrap(), editor, true)
+        .unwrap();
+    assert_eq!(fs::read_to_string(&path).unwrap(), editor);
+    assert_eq!(
+        fs::read_to_string(path.with_file_name("MangoHud.conf.voltix-backup-0")).unwrap(),
+        "position=top-left\n"
+    );
+    // Edits and destination changes made after review cannot silently write stale bytes.
+    m.action("review", "", path.to_str().unwrap(), editor, false)
+        .unwrap();
+    assert!(m
+        .action("confirm", "", path.to_str().unwrap(), "", true)
+        .is_err());
+    m.action("review", "", path.to_str().unwrap(), editor, false)
+        .unwrap();
+    let other = root.0.join("other.conf");
+    assert!(m
+        .action("confirm", "", other.to_str().unwrap(), editor, true)
+        .is_err());
+    assert!(!other.exists());
+    assert_eq!(fs::read_to_string(path).unwrap(), editor);
+}

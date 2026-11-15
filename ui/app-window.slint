@@ -166,8 +166,12 @@ export component AppWindow inherits Window {
     callback change-overlay(int, int);
     callback refresh-overlay();
     callback manage-mangohud(string, string, string, string, bool);
-    in property <string> manager-config;
+    in-out property <string> manager-config;
+    in property <string> manager-review-before;
+    in property <string> manager-review-after;
     in property <string> manager-status;
+    in-out property <string> manager-status-source;
+    in-out property <string> manager-preview-source;
     in property <string> manager-preview;
     in property <float> manager-preview-size;
     in property <string> manager-target;
@@ -179,8 +183,10 @@ export component AppWindow inherits Window {
     in property <color> manager-background;
     callback copy-overlay(string);
     in property <string> overlay-copy-status;
+    in-out property <string> overlay-copy-source;
     in-out property <string> custom-theme-json;
     in property <string> custom-theme-status;
+    in-out property <string> custom-theme-source;
     in property <[string]> saved-theme-names;
     callback apply-custom-theme(string, int);
     callback load-custom-theme(string);
@@ -350,8 +356,8 @@ export component AppWindow inherits Window {
                 if root.current-page == 0 && Theme.interface-mode == 0 : DashboardPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
-                    narrow: root.narrow-mode;
+                    compact: self.width < 1050px;
+                    narrow: self.width < 560px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     cpu-card-label: root.dash-cpu-card-label;
@@ -388,7 +394,7 @@ export component AppWindow inherits Window {
                 }
 
                 if root.current-page == 0 && Theme.interface-mode != 0 : PerformancePage {
-                    width: 100%; height: 100%; compact: root.compact-mode;
+                    width: 100%; height: 100%; compact: self.width < 1050px;
                     open-overlay => { root.current-page = 6; }
                     cpu: root.cpu-sys-util-text; cpu-percent: root.cpu-sys-util-percent; cpu-status: root.cpu-sys-util-status; temperature: root.cpu-temp-text;
                     frequency: root.cpu-freq-text; ram: root.ram-util-text;
@@ -401,8 +407,8 @@ export component AppWindow inherits Window {
                 if root.current-page == 1 : CpuPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
-                    narrow: root.narrow-mode;
+                    compact: self.width < 1050px;
+                    narrow: self.width < 560px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     model-name: root.cpu-model;
@@ -434,8 +440,8 @@ export component AppWindow inherits Window {
                 if root.current-page == 2 : GpuPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
-                    narrow: root.narrow-mode;
+                    compact: self.width < 1050px;
+                    narrow: self.width < 560px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     gpus: root.gpus;
@@ -453,8 +459,8 @@ export component AppWindow inherits Window {
                 if root.current-page == 3 : MemoryPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
-                    narrow: root.narrow-mode;
+                    compact: self.width < 1050px;
+                    narrow: self.width < 560px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     total-text: root.mem-total-text;
@@ -482,7 +488,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 4 : StoragePage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
+                    compact: self.width < 1050px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     disks: root.disks;
@@ -492,7 +498,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 5 : SystemPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
+                    compact: self.width < 1050px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     os-name: root.os-name;
@@ -515,7 +521,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 6 : SettingsPage {
                     width: 100%;
                     height: 100%;
-                    compact: root.compact-mode;
+                    compact: self.width < 1050px;
                     left-inset: root.compact-mode ? root.safe-area-insets.left : 0px;
                     right-inset: root.compact-mode ? root.safe-area-insets.right : 0px;
                     theme-mode: root.theme-mode;
@@ -532,7 +538,7 @@ export component AppWindow inherits Window {
                     overlay-gpu-power: root.overlay-gpu-power; overlay-opengl-dlsym: root.overlay-opengl-dlsym; overlay-command: root.overlay-command;
                     change-overlay(field, value) => { root.change-overlay(field, value); }
                     refresh-overlay => { root.refresh-overlay(); }
-                    manager-config: root.manager-config; manager-status: root.manager-status;
+                    manager-config <=> root.manager-config; manager-review-before: root.manager-review-before; manager-review-after: root.manager-review-after; manager-status: root.manager-status;
                     manager-preview: root.manager-preview; manager-preview-size: root.manager-preview-size; manager-target: root.manager-target; manager-game: root.manager-game;
                     manager-profiles: root.manager-profiles; manager-flags: root.manager-flags; manager-values: root.manager-values;
                     manager-color: root.manager-color; manager-background: root.manager-background;

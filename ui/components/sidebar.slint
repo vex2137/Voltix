@@ -175,7 +175,7 @@ export component Sidebar inherits Rectangle {
                         overflow: elide;
                     }
                     Text {
-                        text: (Theme.polish ? "Monitorowanie" : "Monitoring") + " · " + root.polling-label;
+                        text: (I18n.messages[0]) + " · " + root.polling-label;
                         color: Theme.text-muted;
                         font-size: 11px;
                         overflow: elide;

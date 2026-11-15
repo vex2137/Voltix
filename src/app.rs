@@ -236,6 +236,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 // Built-in palettes describe dark surfaces. Default restores the
                 // existing theme preference rather than silently changing it.
                 win.set_custom_theme_status(SharedString::default());
+                win.set_custom_theme_source(SharedString::default());
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
             }
@@ -293,23 +294,12 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                         win.set_overlay_command(command.clone().into());
                         crate::overlay::copy_launch_command(&command)
                     });
-                let polish = state.localizer.locale() == crate::localization::LocaleCode::Pl;
                 let message = match result {
-                    Ok(()) => if polish {
-                        "Skopiowano do schowka"
-                    } else {
-                        "Copied to clipboard"
-                    }
-                    .to_string(),
-                    Err(err) => format!(
-                        "{}: {err}",
-                        if polish {
-                            "Nie udało się skopiować do schowka"
-                        } else {
-                            "Could not copy to clipboard"
-                        }
-                    ),
+                    Ok(()) => "Copied to clipboard".to_string(),
+                    Err(err) => format!("Could not copy to clipboard: {err}"),
                 };
+                win.set_overlay_copy_source(message.clone().into());
+                let message = state.localizer.diagnostic(&message);
                 win.set_overlay_copy_status(message.into());
             }
         });
@@ -332,14 +322,16 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 let theme = match crate::custom_theme::CustomTheme::from_json(json.as_str()) {
                     Ok(theme) => theme,
                     Err(_) => {
-                        let message = if state.localizer.locale()
-                            == crate::localization::LocaleCode::Pl
-                        {
-                            "Nieprawidłowy motyw. Sprawdź nazwę, format #RRGGBB i kontrast 4,5:1."
-                        } else {
+                        win.set_custom_theme_source(
                             "Invalid theme. Check the name, #RRGGBB format and 4.5:1 contrast."
-                        };
-                        win.set_custom_theme_status(SharedString::from(message));
+                                .into(),
+                        );
+                        win.set_custom_theme_status(
+                            state
+                                .localizer
+                                .diagnostic(win.get_custom_theme_source().as_str())
+                                .into(),
+                        );
                         return;
                     }
                 };
@@ -347,13 +339,13 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                     if !state.settings.saved_themes.contains_key(&theme.name)
                         && state.settings.saved_themes.len() >= 32
                     {
-                        win.set_custom_theme_status(SharedString::from(
-                            if state.localizer.locale() == crate::localization::LocaleCode::Pl {
-                                "Limit 32 zapisanych motywów."
-                            } else {
-                                "Limit of 32 saved themes reached."
-                            },
-                        ));
+                        win.set_custom_theme_source("Limit of 32 saved themes reached.".into());
+                        win.set_custom_theme_status(
+                            state
+                                .localizer
+                                .diagnostic(win.get_custom_theme_source().as_str())
+                                .into(),
+                        );
                         return;
                     }
                     state
@@ -365,13 +357,13 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                 state.settings.palette = crate::settings::PalettePreset::Custom;
                 persist_settings(&state);
                 apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
-                win.set_custom_theme_status(SharedString::from(
-                    if state.localizer.locale() == crate::localization::LocaleCode::Pl {
-                        "Motyw zastosowany."
-                    } else {
-                        "Theme applied."
-                    },
-                ));
+                win.set_custom_theme_source("Theme applied.".into());
+                win.set_custom_theme_status(
+                    state
+                        .localizer
+                        .diagnostic(win.get_custom_theme_source().as_str())
+                        .into(),
+                );
             }
         });
     }
@@ -384,6 +376,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
                     state.settings.custom_theme = theme;
                     state.settings.palette = crate::settings::PalettePreset::Custom;
                     win.set_custom_theme_status(SharedString::default());
+                    win.set_custom_theme_source(SharedString::default());
                     persist_settings(&state);
                     apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
                 }
@@ -687,8 +680,27 @@ fn apply_settings_to_window(
 
 fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     let i18n = window.global::<I18n>();
+    window.set_custom_theme_status(
+        loc.diagnostic(window.get_custom_theme_source().as_str())
+            .into(),
+    );
+    i18n.set_locale(loc.locale().as_str().into());
+    i18n.set_messages(ModelRc::new(VecModel::from(
+        crate::localization::UI_KEYS
+            .iter()
+            .map(|key| SharedString::from(loc.tr(key)))
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_status(
+        loc.diagnostic(window.get_manager_status_source().as_str())
+            .into(),
+    );
+    window.set_manager_preview(
+        loc.diagnostic(window.get_manager_preview_source().as_str())
+            .into(),
+    );
     i18n.set_app_name(SharedString::from(loc.tr("app_name")));
-    i18n.set_app_version(SharedString::from(loc.tr("app_version")));
+    i18n.set_app_version(SharedString::from(env!("CARGO_PKG_VERSION")));
     i18n.set_nav_dashboard(SharedString::from(loc.tr("nav_dashboard")));
     i18n.set_nav_cpu(SharedString::from(loc.tr("nav_cpu")));
     i18n.set_nav_gpu(SharedString::from(loc.tr("nav_gpu")));
@@ -1457,20 +1469,30 @@ fn build_storage_notice(storage: &[StorageDeviceTelemetry], loc: &Localizer) -> 
 fn update_mangohud_manager(window: &AppWindow, state: &crate::mangohud::Manager) {
     let values = crate::mangohud::parse(&state.profile.config).unwrap_or_default();
     window.set_manager_config(state.profile.config.clone().into());
+    window.set_manager_review_before(state.review_before.clone().into());
+    window.set_manager_review_after(state.review_after.clone().into());
     let detection = if crate::overlay::mangohud_available() {
         "MangoHud launcher detected; layer/library compatibility is checked by the game."
     } else {
         "MangoHud launcher missing. Install MangoHud before launching a game."
     };
-    window.set_manager_status(
-        format!(
-            "{detection}\n{}\n{}",
-            crate::mangohud::components(),
-            state.status
-        )
-        .into(),
+    let status = format!(
+        "{detection}\n{}\n{}",
+        crate::mangohud::components(),
+        state.status
     );
-    window.set_manager_preview(state.preview().into());
+    let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+        window.global::<I18n>().get_locale().as_str(),
+    ));
+    window.set_manager_status_source(status.clone().into());
+    window.set_overlay_copy_status(
+        loc.diagnostic(window.get_overlay_copy_source().as_str())
+            .into(),
+    );
+    window.set_manager_status(loc.diagnostic(&status).into());
+    let preview = state.preview();
+    window.set_manager_preview_source(preview.clone().into());
+    window.set_manager_preview(loc.diagnostic(&preview).into());
     let size = values
         .get("font_size")
         .and_then(|v| v.parse::<f32>().ok())

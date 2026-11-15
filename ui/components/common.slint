@@ -8,6 +8,7 @@ export component Card inherits Rectangle {
 }
 
 export component SectionTitle inherits Text {
+    wrap: word-wrap;
     color: Theme.text-primary;
     font-size: 14px;
     font-weight: 600;
@@ -34,6 +35,7 @@ export component ProgressBar inherits Rectangle {
 }
 
 export component SummaryCard inherits Card {
+    min-width: 0px;
     in property <string> label;
     in property <string> primary-value;
     in property <string> secondary-value: "";
@@ -206,6 +208,7 @@ export component SegmentedOption inherits TouchArea {
                 font-size: 12px;
                 font-weight: root.active ? 600 : 500;
                 vertical-alignment: center;
+                wrap: word-wrap;
                 overflow: elide;
             }
         }

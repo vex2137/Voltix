@@ -54,7 +54,7 @@ export component DashboardPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : min(1200px, max(280px, root.width - 14px));
+            width: max(0px, min(1200px, root.width - 14px));
             alignment: start;
             padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
@@ -63,9 +63,9 @@ export component DashboardPage inherits Rectangle {
             spacing: root.compact ? 10px : 14px;
 
             // Top summary cards row (desktop)
-            if !root.compact : HorizontalLayout {
+            if !root.compact : GridLayout {
                 spacing: 12px;
-
+                Row {
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: root.cpu-card-label;
@@ -75,7 +75,6 @@ export component DashboardPage inherits Rectangle {
                     status: root.cpu-util-status;
                     accent-color: Theme.cpu-color;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.dash-gpu-card;
@@ -85,7 +84,6 @@ export component DashboardPage inherits Rectangle {
                     status: root.gpu-util-status;
                     accent-color: Theme.gpu-color;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.dash-ram-card;
@@ -95,7 +93,8 @@ export component DashboardPage inherits Rectangle {
                     status: root.ram-util-status;
                     accent-color: Theme.accent-emerald;
                 }
-
+                }
+                Row {
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.dash-vram-card;
@@ -105,7 +104,6 @@ export component DashboardPage inherits Rectangle {
                     status: root.vram-util-status;
                     accent-color: Theme.accent-amber;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.dash-uptime-card;
@@ -114,9 +112,9 @@ export component DashboardPage inherits Rectangle {
                     show-progress: false;
                     status: root.uptime-status;
                 }
+                }
             }
 
-            // Compact summary grid (2-column mobile)
             if root.compact && !root.narrow : VerticalLayout {
                 spacing: 10px;
 

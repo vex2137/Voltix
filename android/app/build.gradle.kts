@@ -10,8 +10,9 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.1.0-alpha.3"
+        versionCode = 5
+        versionName = rootProject.file("../Cargo.toml").readLines()
+            .first { it.startsWith("version = ") }.substringAfter("=").trim().trim('"')
 
         ndk {
             abiFilters += listOf("arm64-v8a")

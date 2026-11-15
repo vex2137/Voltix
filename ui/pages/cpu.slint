@@ -100,7 +100,7 @@ export component CpuPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : min(1200px, max(280px, root.width - 14px));
+            width: max(0px, min(1200px, root.width - 14px));
             alignment: start;
             padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
@@ -109,9 +109,9 @@ export component CpuPage inherits Rectangle {
             spacing: root.compact ? 12px : 16px;
 
             // Top KPI cards (desktop)
-            if !root.compact : HorizontalLayout {
+            if !root.compact : GridLayout {
                 spacing: 12px;
-
+                Row {
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-overall-util;
@@ -120,7 +120,6 @@ export component CpuPage inherits Rectangle {
                     status: root.sys-util-status;
                     accent-color: Theme.cpu-color;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-process-util;
@@ -129,7 +128,6 @@ export component CpuPage inherits Rectangle {
                     status: root.process-util-status;
                     accent-color: Theme.cpu-color;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-frequency;
@@ -137,7 +135,8 @@ export component CpuPage inherits Rectangle {
                     show-progress: false;
                     status: root.freq-status;
                 }
-
+                }
+                Row {
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-temperature;
@@ -146,7 +145,6 @@ export component CpuPage inherits Rectangle {
                     show-progress: false;
                     status: root.temp-status;
                 }
-
                 SummaryCard {
                     horizontal-stretch: 1;
                     label: I18n.cpu-cores-threads;
@@ -154,6 +152,7 @@ export component CpuPage inherits Rectangle {
                     secondary-value: root.arch;
                     show-progress: false;
                     status: 0;
+                }
                 }
             }
 

@@ -1,4 +1,4 @@
-import { ScrollView, TextEdit, LineEdit } from "std-widgets.slint";
+import { ScrollView, TextEdit, LineEdit, ComboBox } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
@@ -6,6 +6,7 @@ import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/
 import { MangoHudManager } from "../components/mangohud-manager.slint";
 
 export component SettingsPage inherits Rectangle {
+    private property <int> category: 0;
     in property <bool> compact: false;
     in property <length> left-inset: 0px;
     in property <length> right-inset: 0px;
@@ -33,7 +34,9 @@ export component SettingsPage inherits Rectangle {
     callback change-overlay(int, int);
     callback refresh-overlay();
     callback manage-mangohud(string, string, string, string, bool);
-    in property <string> manager-config;
+    in-out property <string> manager-config;
+    in property <string> manager-review-before;
+    in property <string> manager-review-after;
     in property <string> manager-status;
     in property <string> manager-preview;
     in property <float> manager-preview-size;
@@ -65,7 +68,7 @@ export component SettingsPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : min(1200px, max(280px, root.width - 14px));
+            width: max(0px, min(1200px, root.width - 14px));
             alignment: start;
             padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
@@ -73,7 +76,19 @@ export component SettingsPage inherits Rectangle {
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
-            Card {
+            ComboBox {
+                model: [I18n.messages[42], I18n.messages[43], I18n.messages[0], "MangoHud Studio", I18n.messages[44]];
+                current-index <=> root.category;
+            }
+            if root.category == 4 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: "Voltix " + I18n.app-version; }
+                    Text { text: I18n.messages[45]; color: Theme.text-secondary; wrap: word-wrap; }
+                    Text { text: "MIT · vex2137/Voltix · Rust + Slint"; color: Theme.text-secondary; wrap: word-wrap; }
+                }
+            }
+            if root.category == 1 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 12px;
@@ -82,10 +97,10 @@ export component SettingsPage inherits Rectangle {
                         text: I18n.settings-appearance;
                     }
 
-                    Text { text: Theme.polish ? "Paleta kolorów" : "Color palette"; color: Theme.text-secondary; }
+                    Text { text: I18n.messages[12]; color: Theme.text-secondary; }
                     VerticalLayout {
                         spacing: 6px;
-                        for label[index] in ["Voltix Default", "Cyberpunk", "Emerald", "Minimal", Theme.polish ? "Własny" : "Custom"] : SegmentedOption {
+                        for label[index] in [I18n.messages[46], "Cyberpunk", I18n.messages[47], I18n.messages[48], I18n.messages[13]] : SegmentedOption {
                             compact: true; label: label;
                             active: Theme.palette == index;
                             clicked => { root.change-palette(index); }
@@ -94,31 +109,31 @@ export component SettingsPage inherits Rectangle {
                     if Theme.palette == 4 : VerticalLayout {
                         spacing: 8px;
                         Text {
-                            text: Theme.polish ? "Edytuj lub wklej JSON motywu; skopiuj go, aby wyeksportować. Kolory #RRGGBB muszą mieć kontrast co najmniej 4,5:1 z tłem i powierzchnią." : "Edit or paste theme JSON; copy it to export. #RRGGBB colors must have at least 4.5:1 contrast against background and surface.";
+                            text: I18n.messages[14];
                             color: Theme.text-secondary; wrap: word-wrap;
                         }
                         TextEdit { height: 220px; text <=> root.custom-theme-json; wrap: word-wrap; }
-                        SegmentedOption { height: 44px; label: Theme.polish ? "Zastosuj / importuj JSON" : "Apply / import JSON"; clicked => { root.apply-custom-theme(root.custom-theme-json, 0); } }
-                        SegmentedOption { height: 44px; label: Theme.polish ? "Zapisz motyw pod nazwą z JSON" : "Save theme using JSON name"; clicked => { root.apply-custom-theme(root.custom-theme-json, 1); } }
+                        SegmentedOption { height: 44px; label: I18n.messages[15]; clicked => { root.apply-custom-theme(root.custom-theme-json, 0); } }
+                        SegmentedOption { height: 44px; label: I18n.messages[16]; clicked => { root.apply-custom-theme(root.custom-theme-json, 1); } }
                         if root.custom-theme-status != "" : Text { text: root.custom-theme-status; color: Theme.text-primary; wrap: word-wrap; }
-                        if root.saved-theme-names.length > 0 : Text { text: Theme.polish ? "Zapisane motywy" : "Saved themes"; color: Theme.text-secondary; }
+                        if root.saved-theme-names.length > 0 : Text { text: I18n.messages[17]; color: Theme.text-secondary; }
                         for name in root.saved-theme-names : SegmentedOption { height: 44px; label: name; clicked => { root.load-custom-theme(name); } }
                     }
                     if Theme.palette != 0 && Theme.palette != 4 : Text {
-                        text: Theme.polish ? "Paleta ma ciemne tło. Wybór motywu lub akcentu przywróci paletę domyślną." : "This palette uses dark surfaces. Choosing a theme or accent restores the default palette.";
+                        text: I18n.messages[18];
                         color: Theme.text-secondary; wrap: word-wrap;
                     }
-                    Text { text: Theme.polish ? "Tryb interfejsu" : "Interface Mode"; color: Theme.text-secondary; }
+                    Text { text: I18n.messages[19]; color: Theme.text-secondary; }
                     VerticalLayout {
                         spacing: 6px;
-                        for label[index] in ["Modern", "Professional", "Gaming"] : SegmentedOption {
+                        for label[index] in [I18n.messages[49], I18n.messages[50], I18n.messages[51]] : SegmentedOption {
                             compact: true;
                             label: label;
                             active: Theme.interface-mode == index;
                             clicked => { root.change-interface(index); }
                         }
                     }
-                    if Theme.palette == 0 : Text { text: Theme.polish ? "Kolor akcentu" : "Accent color"; color: Theme.text-secondary; }
+                    if Theme.palette == 0 : Text { text: I18n.messages[20]; color: Theme.text-secondary; }
                     if Theme.palette == 0 : HorizontalLayout {
                         spacing: 8px;
                         for color[index] in [#38bdf8, #a78bfa, #10b981, #f97316] : TouchArea {
@@ -199,9 +214,9 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            if root.overlay-linux : Card {
+            if root.category == 3 && root.overlay-linux : Card {
                 MangoHudManager {
-                    config: root.manager-config; status: root.manager-status; preview: root.manager-preview; preview-size: root.manager-preview-size;
+                    config <=> root.manager-config; review-before: root.manager-review-before; review-after: root.manager-review-after; status: root.manager-status; preview: root.manager-preview; preview-size: root.manager-preview-size;
                     target: root.manager-target; game: root.manager-game;
                     profiles: root.manager-profiles; flags: root.manager-flags; values: root.manager-values;
                     preview-color: root.manager-color; preview-background: root.manager-background;
@@ -209,76 +224,76 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            Card {
+            if root.category == 3 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px; spacing: 10px;
-                    SectionTitle { text: Theme.polish ? "Nakładka MangoHud" : "MangoHud quick launch · environment overrides"; }
+                    SectionTitle { text: I18n.messages[21]; }
                     if !root.overlay-linux : Text {
-                        text: Theme.polish ? "MangoHud jest dostępny tylko w Linuksie. Android nie udostępnia uniwersalnej nakładki w grze." : "MangoHud is Linux-only. Android does not provide a universal in-game overlay.";
+                        text: I18n.messages[22];
                         color: Theme.text-secondary; wrap: word-wrap;
                     }
                     if root.overlay-linux : VerticalLayout {
                         spacing: 10px;
                         Text {
-                            text: root.overlay-detected ? (Theme.polish ? "Wykryto program MangoHud; obsługa gry zależy od środowiska." : "MangoHud executable detected; game support depends on the environment.") : (Theme.polish ? "Nie znaleziono programu MangoHud w PATH." : "MangoHud executable not found in PATH.");
+                            text: root.overlay-detected ? (I18n.messages[23]) : (I18n.messages[24]);
                             color: Theme.text-secondary; wrap: word-wrap;
                         }
                         Text {
-                            text: Theme.polish ? "Odczyty zapewnia MangoHud; dostępność czujników zależy od sterownika." : "MangoHud supplies these readings; sensor availability depends on the driver.";
+                            text: I18n.messages[25];
                             color: Theme.text-secondary; wrap: word-wrap;
                         }
-                        SegmentedOption { height: 44px; label: Theme.polish ? "Sprawdź ponownie" : "Check again"; clicked => { root.refresh-overlay(); } }
+                        SegmentedOption { height: 44px; label: I18n.messages[26]; clicked => { root.refresh-overlay(); } }
                         Text {
-                            text: Theme.polish ? "Skopiuj opcje do ustawień gry w Steam. Nadpisują one konfigurację MangoHud dla tej gry i nie wpływają na działające gry. Poza Steam zastąp %command% poleceniem gry." : "Copy these options into the game's Steam launch settings. They override MangoHud config for that game and do not affect running games. Outside Steam, replace %command% with the game command.";
+                            text: I18n.messages[27];
                             color: Theme.text-secondary; wrap: word-wrap;
                         }
                         SegmentedOption {
                             height: 44px;
-                            label: Theme.polish ? "Uwzględnij MangoHud w poleceniu" : "Include MangoHud in launch options";
+                            label: I18n.messages[28];
                             active: root.overlay-enabled;
                             clicked => { root.change-overlay(10, 1); root.copy-overlay(root.overlay-target); }
                         }
                         Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
                         SegmentedOption {
-                            height: 44px; label: Theme.polish ? "Zgodność OpenGL (--dlsym)" : "OpenGL compatibility (--dlsym)";
+                            height: 44px; label: I18n.messages[29];
                             active: root.overlay-opengl-dlsym;
                             clicked => { root.change-overlay(11, root.overlay-opengl-dlsym ? 0 : 1); }
                         }
-                        Text { text: Theme.polish ? "Metryki" : "Metrics"; color: Theme.text-secondary; }
-                        for label[index] in ["FPS", "Frametime", "CPU", "GPU", Theme.polish ? "Temperatury" : "Temperatures", "RAM / VRAM", Theme.polish ? "Pobór mocy GPU" : "GPU power draw"] : SegmentedOption {
+                        Text { text: I18n.messages[30]; color: Theme.text-secondary; }
+                        for label[index] in ["FPS", "Frametime", "CPU", "GPU", I18n.messages[31], "RAM / VRAM", I18n.messages[7]] : SegmentedOption {
                             height: 44px; label: label;
                             active: index == 0 ? root.overlay-fps : (index == 1 ? root.overlay-frametime : (index == 2 ? root.overlay-cpu : (index == 3 ? root.overlay-gpu : (index == 4 ? root.overlay-temperatures : (index == 5 ? root.overlay-memory : root.overlay-gpu-power)))));
                             clicked => { root.change-overlay(index, self.active ? 0 : 1); }
                         }
-                        Text { text: Theme.polish ? "Pozycja" : "Position"; color: Theme.text-secondary; }
-                        for label[index] in [Theme.polish ? "Lewy górny" : "Top left", Theme.polish ? "Prawy górny" : "Top right", Theme.polish ? "Lewy dolny" : "Bottom left", Theme.polish ? "Prawy dolny" : "Bottom right"] : SegmentedOption {
+                        Text { text: I18n.messages[32]; color: Theme.text-secondary; }
+                        for label[index] in [I18n.messages[33], I18n.messages[34], I18n.messages[35], I18n.messages[36]] : SegmentedOption {
                             height: 44px; label: label; active: root.overlay-position == index;
                             clicked => { root.change-overlay(7, index); }
                         }
-                        Text { text: Theme.polish ? "Rozmiar tekstu" : "Text size"; color: Theme.text-secondary; }
+                        Text { text: I18n.messages[37]; color: Theme.text-secondary; }
                         for size in [18, 24, 32] : SegmentedOption {
                             height: 44px; label: size + " px"; active: root.overlay-font == size;
                             clicked => { root.change-overlay(8, size); }
                         }
-                        Text { text: Theme.polish ? "Krycie" : "Opacity"; color: Theme.text-secondary; }
+                        Text { text: I18n.messages[38]; color: Theme.text-secondary; }
                         for value in [25, 50, 75, 100] : SegmentedOption {
                             height: 44px; label: value + "%"; active: root.overlay-opacity == value;
                             clicked => { root.change-overlay(9, value); }
                         }
-                        Text { text: Theme.polish ? "Polecenie gry (%command% dla Steam)" : "Game command (%command% for Steam)"; color: Theme.text-secondary; }
+                        Text { text: I18n.messages[39]; color: Theme.text-secondary; }
                         LineEdit { text <=> root.overlay-target; }
                         SegmentedOption {
-                            height: 44px; label: Theme.polish ? "Kopiuj polecenie" : "Copy command";
+                            height: 44px; label: I18n.messages[40];
                             clicked => { root.copy-overlay(root.overlay-target); }
                         }
                         Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
-                        Text { text: Theme.polish ? "Opcje uruchamiania — podgląd" : "Launch options preview"; color: Theme.text-secondary; }
+                        Text { text: I18n.messages[41]; color: Theme.text-secondary; }
                         TextEdit { height: 100px; text: root.overlay-command; read-only: true; wrap: word-wrap; }
                     }
                 }
             }
 
-            Card {
+            if root.category == 0 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 14px;
@@ -415,7 +430,7 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            Card {
+            if root.category == 2 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 14px;

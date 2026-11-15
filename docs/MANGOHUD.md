@@ -1,12 +1,12 @@
 # MangoHud Studio
 
-Settings → MangoHud Studio manages **file profiles**, separately from the existing
+Settings → MangoHud Studio category manages **file profiles**, separately from the existing
 quick-launch environment overrides. `MANGOHUD_CONFIG` overrides files: do not combine
 the two workflows unintentionally.
 
 - Select a profile and Load. Edit the metric checkboxes or appearance values (press
   Enter to commit a field). Colors are six hexadecimal digits; fonts are absolute
-  TTF/OTF paths accessible to the game. Validate and use editor commits raw edits.
+  TTF/OTF paths accessible to the game. Validate and use editor commits raw edits to the draft. Review application also reads the visible editor directly, stages the selected destination and shows its before/after contents. Confirm rejects changed drafts or destinations and verifies the bytes written before reporting success.
 - Save creates a named JSON profile in `$XDG_CONFIG_HOME/voltix/mangohud-profiles`
   (fallback `~/.config`). Duplicate saves the current draft under a new name.
   Review profile replacement → tick confirmation → Confirm replaces an existing
