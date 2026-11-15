@@ -57,8 +57,8 @@ monitoring engine serves all interface modes.
 
 ## Remaining work
 
-Further allocation profiling, controlled native Wayland comparisons and interaction
-workloads, first-presented-frame timing, accessible contrast for the exact Minimal
+Controlled native Wayland comparisons and interaction workloads,
+first-presented-frame timing, accessible contrast for the exact Minimal
 palette, deeper mode differentiation, overlay color/layout controls, hardware/device
 checks and final Alpha 4 version synchronization are still outstanding. No FPS data or overlay behavior is simulated. An Android update
 still requires the installed app's original signing certificate and has not been
@@ -133,8 +133,14 @@ report the unavailable callback rather than a fabricated time.
 A Debian-verified Heaptrack package was extracted for local profiling. A graceful
 12.86-second Xvfb/software-renderer trace of the pre-optimization 2071d87 build
 reported 219,743 allocation calls, 36,062 temporary allocations and 2.02 MB peak
-heap. Fontconfig/font discovery accounted for many startup allocations. A separate
-interrupted current-build trace showed a similar 2.02 MB peak heap, but its shutdown
-was not clean and it cannot establish a before/after improvement or a leak. These
-are heap profiler figures, not total RSS or GPU memory. Raw traces are outside the
-checkout under `/workspace/voltix-heap-profile`; they are machine-specific.
+heap. A graceful 12.71-second trace of the later build reported 216,454 allocation
+calls, 35,832 temporary allocations and 2.02 MB peak heap. Fontconfig/font discovery
+accounted for many startup allocations. These short traces cannot establish an
+improvement or a leak; heap figures exclude other RSS and GPU memory. Raw traces
+are machine-specific and stored outside the checkout under
+`/workspace/voltix-heap-profile`.
+
+A separate Xvfb/software-renderer interaction run navigated pages and modes and
+resized the window. It reported RSS/PSS 26,432/21,936 KiB at 3 seconds and
+27,700/23,200 KiB at 25 seconds. This brief workload is not a long-term or native
+Wayland measurement.
