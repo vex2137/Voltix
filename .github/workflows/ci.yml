@@ -155,6 +155,7 @@ jobs:
       - name: Record test-build checksum and source
         run: |
           sha256sum Voltix-Alpha4-test-x86_64.AppImage > SHA256SUMS
+          echo "::notice title=AppImage SHA-256::$(cat SHA256SUMS)"
           {
             echo "Voltix Alpha 4 pre-release test build"
             echo "Source: $(git rev-parse HEAD)"
