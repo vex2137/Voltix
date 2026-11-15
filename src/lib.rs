@@ -3,6 +3,7 @@ pub mod diagnostics;
 pub mod localization;
 pub mod models;
 pub mod monitoring;
+pub mod overlay;
 pub mod platform;
 pub mod settings;
 pub mod utils;

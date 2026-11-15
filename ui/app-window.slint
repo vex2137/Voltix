@@ -148,6 +148,23 @@ export component AppWindow inherits Window {
 
     callback page-changed();
     changed current-page => { root.page-changed(); }
+    in property <bool> overlay-linux;
+    in property <bool> overlay-detected;
+    in property <bool> overlay-enabled;
+    in property <int> overlay-position;
+    in property <int> overlay-font;
+    in property <int> overlay-opacity;
+    in property <bool> overlay-fps;
+    in property <bool> overlay-frametime;
+    in property <bool> overlay-cpu;
+    in property <bool> overlay-gpu;
+    in property <bool> overlay-temperatures;
+    in property <bool> overlay-memory;
+    in property <bool> overlay-gpu-power;
+    in property <bool> overlay-opengl-dlsym;
+    in property <string> overlay-command;
+    callback change-overlay(int, int);
+    callback refresh-overlay();
     callback change-palette(int);
     callback change-interface(int);
     callback change-accent(int);
@@ -353,6 +370,7 @@ export component AppWindow inherits Window {
 
                 if root.current-page == 0 && Theme.interface-mode != 0 : PerformancePage {
                     width: 100%; height: 100%; compact: root.compact-mode;
+                    open-overlay => { root.current-page = 6; }
                     cpu: root.cpu-sys-util-text; cpu-percent: root.cpu-sys-util-percent; cpu-status: root.cpu-sys-util-status; temperature: root.cpu-temp-text;
                     frequency: root.cpu-freq-text; ram: root.ram-util-text;
                     vram: root.dash-vram-detail-text; gpu: root.selected-gpu;
@@ -486,6 +504,15 @@ export component AppWindow inherits Window {
                     temp-unit: root.temp-unit;
                     polling-ms: root.polling-ms;
                     config-path: root.config-path;
+                    overlay-linux: root.overlay-linux; overlay-detected: root.overlay-detected;
+                    overlay-enabled: root.overlay-enabled; overlay-position: root.overlay-position;
+                    overlay-font: root.overlay-font; overlay-opacity: root.overlay-opacity;
+                    overlay-fps: root.overlay-fps; overlay-frametime: root.overlay-frametime;
+                    overlay-cpu: root.overlay-cpu; overlay-gpu: root.overlay-gpu;
+                    overlay-temperatures: root.overlay-temperatures; overlay-memory: root.overlay-memory;
+                    overlay-gpu-power: root.overlay-gpu-power; overlay-opengl-dlsym: root.overlay-opengl-dlsym; overlay-command: root.overlay-command;
+                    change-overlay(field, value) => { root.change-overlay(field, value); }
+                    refresh-overlay => { root.refresh-overlay(); }
                     change-palette(v) => { root.change-palette(v); }
                     change-interface(v) => { root.change-interface(v); }
                     change-accent(v) => { root.change-accent(v); }

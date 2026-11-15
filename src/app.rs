@@ -99,7 +99,24 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
+    window.set_overlay_linux(cfg!(target_os = "linux"));
+    window.set_overlay_detected(crate::overlay::mangohud_available());
     crate::diagnostics::mark("Slint component initialized (not presented)");
+    if crate::diagnostics::enabled() {
+        let mut recorded = false;
+        if window
+            .window()
+            .set_rendering_notifier(move |state, _| {
+                if !recorded && matches!(state, slint::RenderingState::AfterRendering) {
+                    recorded = true;
+                    crate::diagnostics::mark("first frame rendered (before presentation)");
+                }
+            })
+            .is_err()
+        {
+            crate::diagnostics::mark("rendering notifier unavailable for this backend");
+        }
+    }
 
     window.set_cpu_core_rows(ModelRc::from(Rc::new(VecModel::default())));
     window.set_gpus(ModelRc::from(Rc::new(VecModel::default())));
@@ -190,6 +207,42 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_page_changed(move || {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 render_snapshot_to_window(&win, &mut state);
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_overlay(move |field, value| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let overlay = &mut state.settings.overlay;
+                match field {
+                    0 => overlay.fps = value != 0,
+                    1 => overlay.frametime = value != 0,
+                    2 => overlay.cpu = value != 0,
+                    3 => overlay.gpu = value != 0,
+                    4 => overlay.temperatures = value != 0,
+                    5 => overlay.memory = value != 0,
+                    6 => overlay.gpu_power = value != 0,
+                    7 => overlay.position = crate::overlay::OverlayPosition::from_index(value),
+                    8 => overlay.font_size = value.clamp(16, 48) as u8,
+                    9 => overlay.opacity = value.clamp(0, 100) as u8,
+                    10 => overlay.enabled = value != 0,
+                    11 => overlay.opengl_dlsym = value != 0,
+                    _ => return,
+                }
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let weak = window.as_weak();
+        window.on_refresh_overlay(move || {
+            if let Some(win) = weak.upgrade() {
+                win.set_overlay_detected(crate::overlay::mangohud_available());
             }
         });
     }
@@ -426,6 +479,20 @@ fn apply_settings_to_window(
     window
         .global::<Theme>()
         .set_polish(resolve_locale(settings.language) == crate::localization::LocaleCode::Pl);
+    let overlay = &settings.overlay;
+    window.set_overlay_enabled(overlay.enabled);
+    window.set_overlay_position(overlay.position.index());
+    window.set_overlay_font(i32::from(overlay.font_size));
+    window.set_overlay_opacity(i32::from(overlay.opacity));
+    window.set_overlay_fps(overlay.fps);
+    window.set_overlay_frametime(overlay.frametime);
+    window.set_overlay_cpu(overlay.cpu);
+    window.set_overlay_gpu(overlay.gpu);
+    window.set_overlay_temperatures(overlay.temperatures);
+    window.set_overlay_memory(overlay.memory);
+    window.set_overlay_gpu_power(overlay.gpu_power);
+    window.set_overlay_opengl_dlsym(overlay.opengl_dlsym);
+    window.set_overlay_command(SharedString::from(overlay.steam_launch_options()));
     window.set_theme_mode(match settings.theme {
         ThemePreference::System => 0,
         ThemePreference::Dark => 1,
@@ -1226,11 +1293,12 @@ mod model_update_tests {
 
     #[test]
     fn stale_gpu_histories_are_pruned_without_losing_recent_samples() {
-        let now = std::time::Instant::now();
+        let earlier = std::time::Instant::now();
+        let now = earlier + Duration::from_secs(66);
         let mut recent = BoundedHistory::new(4);
         recent.push(now - Duration::from_secs(60), Some(42.0));
         let mut stale = BoundedHistory::new(4);
-        stale.push(now - Duration::from_secs(66), Some(20.0));
+        stale.push(earlier, Some(20.0));
         let mut histories = HashMap::from([
             ("recent".to_string(), recent),
             ("stale".to_string(), stale),

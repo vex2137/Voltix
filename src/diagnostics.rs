@@ -7,8 +7,11 @@ use std::time::Instant;
 static START: OnceLock<Instant> = OnceLock::new();
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static FIRST_SAMPLE: AtomicBool = AtomicBool::new(false);
+pub fn enabled() -> bool {
+    *ENABLED.get_or_init(|| std::env::var_os("VOLTIX_PROFILE_STARTUP").is_some())
+}
 pub fn mark(stage: &str) {
-    if !*ENABLED.get_or_init(|| std::env::var_os("VOLTIX_PROFILE_STARTUP").is_some()) {
+    if !enabled() {
         return;
     }
     let start = START.get_or_init(Instant::now);

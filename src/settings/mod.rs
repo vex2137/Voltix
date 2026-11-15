@@ -58,6 +58,7 @@ pub struct UserSettings {
     pub theme: ThemePreference,
     pub interface_mode: InterfaceMode,
     pub palette: PalettePreset,
+    pub overlay: crate::overlay::OverlaySettings,
     pub accent: u8,
     pub language: LanguagePreference,
     pub polling_interval_ms: u64,
@@ -70,6 +71,7 @@ impl Default for UserSettings {
             theme: ThemePreference::Dark,
             interface_mode: InterfaceMode::Modern,
             palette: PalettePreset::VoltixDefault,
+            overlay: crate::overlay::OverlaySettings::default(),
             accent: 0,
             language: LanguagePreference::System,
             polling_interval_ms: DEFAULT_POLLING_INTERVAL_MS,
@@ -81,6 +83,7 @@ impl Default for UserSettings {
 impl UserSettings {
     pub fn validate(&mut self) {
         self.accent = self.accent.min(3);
+        self.overlay.validate();
         self.polling_interval_ms = self
             .polling_interval_ms
             .clamp(MIN_POLLING_INTERVAL_MS, MAX_POLLING_INTERVAL_MS);
@@ -155,6 +158,13 @@ mod tests {
         let old = UserSettings::from_json_str(r#"{"theme":"light"}"#).unwrap();
         assert_eq!(old.interface_mode, InterfaceMode::Modern);
         assert_eq!(old.accent, 0);
+        assert!(!old.overlay.enabled);
+        let bounded = UserSettings::from_json_str(
+            r#"{"overlay":{"enabled":true,"font_size":255,"opacity":255}}"#,
+        )
+        .unwrap();
+        assert_eq!(bounded.overlay.font_size, 48);
+        assert_eq!(bounded.overlay.opacity, 100);
         for mode in [
             InterfaceMode::Modern,
             InterfaceMode::Professional,
@@ -238,6 +248,7 @@ mod tests {
             temperature_unit: TemperatureUnit::Fahrenheit,
             interface_mode: InterfaceMode::Gaming,
             palette: PalettePreset::Cyberpunk,
+            overlay: crate::overlay::OverlaySettings::default(),
             accent: 2,
         };
         initial.save_to(&tmp).expect("save should succeed");

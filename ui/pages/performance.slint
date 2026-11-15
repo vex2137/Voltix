@@ -1,10 +1,11 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { GpuItem, CoreRowItem } from "../models.slint";
-import { Card, KeyValueRow, SectionTitle, SummaryCard } from "../components/common.slint";
+import { Card, KeyValueRow, SectionTitle, SummaryCard, SegmentedOption } from "../components/common.slint";
 import { TelemetryChart } from "../components/chart.slint";
 
 export component PerformancePage inherits Rectangle {
+    callback open-overlay();
     in property <bool> compact;
     in property <string> cpu;
     in property <float> cpu-percent;
@@ -75,6 +76,7 @@ export component PerformancePage inherits Rectangle {
                     padding: 16px; spacing: 8px;
                     SectionTitle { text: "FPS / Frametime"; }
                     Text { text: Theme.polish ? "N/D • Brak źródła danych z gry" : "N/A • No game telemetry source connected"; color: Theme.text-muted; wrap: word-wrap; }
+                    SegmentedOption { label: Theme.polish ? "Ustawienia nakładki" : "Overlay settings"; clicked => { root.open-overlay(); } }
                 }
             }
             TelemetryChart { line-color: Theme.cpu-color; area-color: Theme.cpu-color.with-alpha(0.14); title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }

@@ -1,4 +1,4 @@
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
@@ -13,6 +13,23 @@ export component SettingsPage inherits Rectangle {
     in property <int> polling-ms: 1000;
     in property <string> config-path;
 
+    in property <bool> overlay-linux;
+    in property <bool> overlay-detected;
+    in property <bool> overlay-enabled;
+    in property <int> overlay-position;
+    in property <int> overlay-font;
+    in property <int> overlay-opacity;
+    in property <bool> overlay-fps;
+    in property <bool> overlay-frametime;
+    in property <bool> overlay-cpu;
+    in property <bool> overlay-gpu;
+    in property <bool> overlay-temperatures;
+    in property <bool> overlay-memory;
+    in property <bool> overlay-gpu-power;
+    in property <bool> overlay-opengl-dlsym;
+    in property <string> overlay-command;
+    callback change-overlay(int, int);
+    callback refresh-overlay();
     callback change-palette(int);
     callback change-interface(int);
     callback change-accent(int);
@@ -143,6 +160,67 @@ export component SettingsPage inherits Rectangle {
                                 clicked => { root.change-theme(2); }
                             }
                         }
+                    }
+                }
+            }
+
+            Card {
+                VerticalLayout {
+                    padding: root.compact ? 14px : 16px; spacing: 10px;
+                    SectionTitle { text: Theme.polish ? "Nakładka MangoHud" : "MangoHud overlay"; }
+                    if !root.overlay-linux : Text {
+                        text: Theme.polish ? "MangoHud jest dostępny tylko w Linuksie. Android nie udostępnia uniwersalnej nakładki w grze." : "MangoHud is Linux-only. Android does not provide a universal in-game overlay.";
+                        color: Theme.text-secondary; wrap: word-wrap;
+                    }
+                    if root.overlay-linux : VerticalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: root.overlay-detected ? (Theme.polish ? "Wykryto program MangoHud; obsługa gry zależy od środowiska." : "MangoHud executable detected; game support depends on the environment.") : (Theme.polish ? "Nie znaleziono programu MangoHud w PATH." : "MangoHud executable not found in PATH.");
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        Text {
+                            text: Theme.polish ? "Odczyty zapewnia MangoHud; dostępność czujników zależy od sterownika." : "MangoHud supplies these readings; sensor availability depends on the driver.";
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        SegmentedOption { height: 44px; label: Theme.polish ? "Sprawdź ponownie" : "Check again"; clicked => { root.refresh-overlay(); } }
+                        Text {
+                            text: Theme.polish ? "Skopiuj opcje do ustawień gry w Steam. Nadpisują one konfigurację MangoHud dla tej gry i nie wpływają na działające gry. Poza Steam zastąp %command% poleceniem gry." : "Copy these options into the game's Steam launch settings. They override MangoHud config for that game and do not affect running games. Outside Steam, replace %command% with the game command.";
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        SegmentedOption {
+                            height: 44px;
+                            label: Theme.polish ? "Uwzględnij MangoHud w poleceniu" : "Include MangoHud in launch options";
+                            active: root.overlay-enabled;
+                            clicked => { root.change-overlay(10, root.overlay-enabled ? 0 : 1); }
+                        }
+                        SegmentedOption {
+                            height: 44px; label: Theme.polish ? "Zgodność OpenGL (--dlsym)" : "OpenGL compatibility (--dlsym)";
+                            active: root.overlay-opengl-dlsym;
+                            clicked => { root.change-overlay(11, root.overlay-opengl-dlsym ? 0 : 1); }
+                        }
+                        Text { text: Theme.polish ? "Metryki" : "Metrics"; color: Theme.text-secondary; }
+                        for label[index] in ["FPS", "Frametime", "CPU", "GPU", Theme.polish ? "Temperatury" : "Temperatures", "RAM / VRAM", Theme.polish ? "Pobór mocy GPU" : "GPU power draw"] : SegmentedOption {
+                            height: 44px; label: label;
+                            active: index == 0 ? root.overlay-fps : (index == 1 ? root.overlay-frametime : (index == 2 ? root.overlay-cpu : (index == 3 ? root.overlay-gpu : (index == 4 ? root.overlay-temperatures : (index == 5 ? root.overlay-memory : root.overlay-gpu-power)))));
+                            clicked => { root.change-overlay(index, self.active ? 0 : 1); }
+                        }
+                        Text { text: Theme.polish ? "Pozycja" : "Position"; color: Theme.text-secondary; }
+                        for label[index] in [Theme.polish ? "Lewy górny" : "Top left", Theme.polish ? "Prawy górny" : "Top right", Theme.polish ? "Lewy dolny" : "Bottom left", Theme.polish ? "Prawy dolny" : "Bottom right"] : SegmentedOption {
+                            height: 44px; label: label; active: root.overlay-position == index;
+                            clicked => { root.change-overlay(7, index); }
+                        }
+                        Text { text: Theme.polish ? "Rozmiar tekstu" : "Text size"; color: Theme.text-secondary; }
+                        for size in [18, 24, 32] : SegmentedOption {
+                            height: 44px; label: size + " px"; active: root.overlay-font == size;
+                            clicked => { root.change-overlay(8, size); }
+                        }
+                        Text { text: Theme.polish ? "Krycie" : "Opacity"; color: Theme.text-secondary; }
+                        for value in [25, 50, 75, 100] : SegmentedOption {
+                            height: 44px; label: value + "%"; active: root.overlay-opacity == value;
+                            clicked => { root.change-overlay(9, value); }
+                        }
+                        Text { text: Theme.polish ? "Opcje uruchamiania — podgląd" : "Launch options preview"; color: Theme.text-secondary; }
+                        TextEdit { height: 100px; text: root.overlay-command; read-only: true; wrap: word-wrap; }
                     }
                 }
             }
