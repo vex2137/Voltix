@@ -106,7 +106,7 @@ jobs:
 
           ARCH=x86_64 \
           APPIMAGE_EXTRACT_AND_RUN=1 \
-            OUTPUT="Voltix-0.1.0-alpha.3-x86_64.AppImage" \
+            OUTPUT="Voltix-Alpha4-test-x86_64.AppImage" \
             ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable target/release/voltix \
@@ -120,10 +120,10 @@ jobs:
           test -s AppDir/voltix.png
           test "$(readlink AppDir/.DirIcon)" = voltix.png
           cmp assets/icons/voltix.svg AppDir/usr/share/icons/hicolor/scalable/apps/voltix.svg
-          chmod +x Voltix-0.1.0-alpha.3-x86_64.AppImage
-          ls -lh Voltix-0.1.0-alpha.3-x86_64.AppImage
-          file Voltix-0.1.0-alpha.3-x86_64.AppImage
-          ./Voltix-0.1.0-alpha.3-x86_64.AppImage --appimage-extract
+          chmod +x Voltix-Alpha4-test-x86_64.AppImage
+          ls -lh Voltix-Alpha4-test-x86_64.AppImage
+          file Voltix-Alpha4-test-x86_64.AppImage
+          ./Voltix-Alpha4-test-x86_64.AppImage --appimage-extract
           desktop-file-validate squashfs-root/voltix.desktop
           cmp AppDir/voltix.png squashfs-root/voltix.png
           cmp assets/icons/voltix.svg squashfs-root/usr/share/icons/hicolor/scalable/apps/voltix.svg
@@ -135,7 +135,7 @@ jobs:
         run: |
           set +e
           APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 \
-            timeout 5s xvfb-run -a ./Voltix-0.1.0-alpha.3-x86_64.AppImage
+            timeout 5s xvfb-run -a ./Voltix-Alpha4-test-x86_64.AppImage
           code=$?
           set -e
           echo "Xvfb launch exit code: $code"
@@ -152,13 +152,40 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Voltix Linux AppImage
+      - name: Record test-build checksum and source
+        run: |
+          sha256sum Voltix-Alpha4-test-x86_64.AppImage > SHA256SUMS
+          {
+            echo "Voltix Alpha 4 pre-release test build"
+            echo "Source: $(git rev-parse HEAD)"
+            echo "Cargo profile: release"
+            rustc --version
+          } > BUILD-INFO.txt
+
+      - name: Upload Voltix Alpha 4 test AppImage
+        id: appimage
         uses: actions/upload-artifact@v4
         with:
-          name: voltix-linux-x86_64-appimage
-          path: Voltix-0.1.0-alpha.3-x86_64.AppImage
+          name: voltix-alpha4-test-linux-x86_64
+          path: |
+            Voltix-Alpha4-test-x86_64.AppImage
+            SHA256SUMS
+            BUILD-INFO.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Link downloadable test artifact
+        env:
+          ARTIFACT_URL: ${{ steps.appimage.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Voltix Alpha 4 pre-release test build"
+            echo "[Download AppImage, checksum and source information]($ARTIFACT_URL)"
+            echo '```text'
+            cat SHA256SUMS
+            echo '```'
+            echo "Wayland and MangoHud gameplay integration are not verified by this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   android-arm64-apk:
     name: Android ARM64-v8a (API 26+ APK)
