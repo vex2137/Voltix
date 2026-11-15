@@ -65,7 +65,7 @@ export component SummaryCard inherits Card {
 
         if root.show-progress && root.status == 0 : ProgressBar {
             value: root.progress;
-            bar-color: root.progress > 92.0 ? Theme.accent-red : (root.progress > 80.0 ? Theme.accent-amber : root.accent-color);
+            bar-color: root.accent-color;
             available: true;
         }
 

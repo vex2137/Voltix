@@ -20,6 +20,7 @@ export global Theme {
     out property <color> accent: root.palette == 1 ? #fcee0a : (root.palette == 2 ? #10b981 : (root.minimal ? #f5f5f5 : (root.accent-index == 1 ? #a78bfa : (root.accent-index == 2 ? #10b981 : (root.accent-index == 3 ? #f97316 : (root.dark-mode ? #38bdf8 : #0284c7))))));
     out property <color> on-accent: root.minimal ? #101010 : #0b1019;
     out property <color> accent-soft: root.minimal ? #101010 : root.accent.with-alpha(0.14);
+    out property <color> cpu-color: root.palette == 2 ? #34d399 : root.accent;
     out property <color> gpu-color: root.palette == 1 ? #ff365a : (root.palette == 2 ? #2dd4bf : (root.minimal ? #f5f5f5 : (root.dark-mode ? #a78bfa : #6d28d9)));
     out property <color> accent-emerald: root.palette == 1 ? #00e5ff : (root.palette == 2 ? #a3e635 : (root.minimal ? #f5f5f5 : (root.dark-mode ? #4ade80 : #16a34a)));
     out property <color> accent-emerald-soft: root.minimal ? #101010 : root.accent-emerald.with-alpha(0.14);

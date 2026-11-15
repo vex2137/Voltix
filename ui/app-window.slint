@@ -156,13 +156,13 @@ export component AppWindow inherits Window {
     callback change-polling-ms(int);
 
     // Keep standard widget scrollbars synced with active theme
-    private property <bool> sync-palette: Theme.dark-mode;
+    private property <bool> sync-palette: Theme.palette != 0 || Theme.dark-mode;
     changed sync-palette => {
         Palette.color-scheme = root.sync-palette ? ColorScheme.dark : ColorScheme.light;
     }
     init => {
         root.update-breakpoints();
-        Palette.color-scheme = Theme.dark-mode ? ColorScheme.dark : ColorScheme.light;
+        Palette.color-scheme = root.sync-palette ? ColorScheme.dark : ColorScheme.light;
     }
 
     function page-title() -> string {

@@ -178,6 +178,26 @@ mod tests {
     }
 
     #[test]
+    fn palette_presets_roundtrip_and_legacy_settings_default() {
+        let legacy = UserSettings::from_json_str(r#"{"theme":"dark"}"#).unwrap();
+        assert_eq!(legacy.palette, PalettePreset::VoltixDefault);
+        for palette in [
+            PalettePreset::VoltixDefault,
+            PalettePreset::Cyberpunk,
+            PalettePreset::Emerald,
+            PalettePreset::Minimal,
+        ] {
+            let settings = UserSettings {
+                palette,
+                ..UserSettings::default()
+            };
+            let encoded = serde_json::to_string(&settings).unwrap();
+            assert_eq!(UserSettings::from_json_str(&encoded).unwrap(), settings);
+        }
+        assert!(UserSettings::from_json_str(r#"{"palette":"unknown"}"#).is_err());
+    }
+
+    #[test]
     fn settings_clamp_polling_interval() {
         let mut too_low = UserSettings {
             polling_interval_ms: 50,

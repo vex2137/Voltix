@@ -73,7 +73,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.cpu-secondary-text;
                     progress: root.cpu-util-percent;
                     status: root.cpu-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -83,7 +83,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.gpu-temp-text;
                     progress: root.gpu-util-percent;
                     status: root.gpu-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.gpu-color;
                 }
 
                 SummaryCard {
@@ -103,7 +103,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.vram-detail-text;
                     progress: root.vram-util-percent;
                     status: root.vram-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.accent-amber;
                 }
 
                 SummaryCard {
@@ -131,7 +131,7 @@ export component DashboardPage inherits Rectangle {
                         secondary-value: root.cpu-secondary-text;
                         progress: root.cpu-util-percent;
                         status: root.cpu-util-status;
-                        accent-color: Theme.accent;
+                        accent-color: Theme.cpu-color;
                     }
 
                     SummaryCard {
@@ -142,7 +142,7 @@ export component DashboardPage inherits Rectangle {
                         secondary-value: root.gpu-temp-text;
                         progress: root.gpu-util-percent;
                         status: root.gpu-util-status;
-                        accent-color: Theme.accent;
+                        accent-color: Theme.gpu-color;
                     }
                 }
 
@@ -168,7 +168,7 @@ export component DashboardPage inherits Rectangle {
                         secondary-value: root.vram-detail-text;
                         progress: root.vram-util-percent;
                         status: root.vram-util-status;
-                        accent-color: Theme.accent;
+                        accent-color: Theme.accent-amber;
                     }
                 }
 
@@ -193,7 +193,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.cpu-secondary-text;
                     progress: root.cpu-util-percent;
                     status: root.cpu-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -203,7 +203,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.gpu-temp-text;
                     progress: root.gpu-util-percent;
                     status: root.gpu-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.gpu-color;
                 }
 
                 SummaryCard {
@@ -223,7 +223,7 @@ export component DashboardPage inherits Rectangle {
                     secondary-value: root.vram-detail-text;
                     progress: root.vram-util-percent;
                     status: root.vram-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.accent-amber;
                 }
 
                 SummaryCard {
@@ -245,8 +245,8 @@ export component DashboardPage inherits Rectangle {
                 area-commands: root.cpu-area-commands;
                 has-data: root.cpu-has-history;
                 empty-text: I18n.status-sampling;
-                line-color: Theme.accent;
-                area-color: Theme.accent-soft;
+                line-color: Theme.cpu-color;
+                area-color: Theme.cpu-color.with-alpha(0.14);
             }
 
             if !root.compact : HorizontalLayout {
@@ -272,8 +272,8 @@ export component DashboardPage inherits Rectangle {
                     area-commands: root.gpu-area-commands;
                     has-data: root.gpu-has-history;
                     empty-text: root.gpu-chart-empty-text;
-                    line-color: Theme.accent;
-                    area-color: Theme.accent-soft;
+                    line-color: Theme.gpu-color;
+                    area-color: Theme.gpu-color.with-alpha(0.14);
                 }
             }
 
@@ -300,8 +300,8 @@ export component DashboardPage inherits Rectangle {
                     area-commands: root.gpu-area-commands;
                     has-data: root.gpu-has-history;
                     empty-text: root.gpu-chart-empty-text;
-                    line-color: Theme.accent;
-                    area-color: Theme.accent-soft;
+                    line-color: Theme.gpu-color;
+                    area-color: Theme.gpu-color.with-alpha(0.14);
                 }
             }
         }

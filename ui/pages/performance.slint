@@ -33,12 +33,12 @@ export component PerformancePage inherits Rectangle {
             if Theme.interface-mode == 2 : HorizontalLayout {
                 spacing: 10px;
                 SummaryCard {
-                    label: "CPU"; primary-value: root.cpu;
+                    label: "CPU"; primary-value: root.cpu; accent-color: Theme.cpu-color;
                     secondary-value: root.temperature; progress: root.cpu-percent;
                     status: root.cpu-status; compact: root.compact;
                 }
                 SummaryCard {
-                    label: "GPU"; primary-value: root.gpu.util-text;
+                    label: "GPU"; primary-value: root.gpu.util-text; accent-color: Theme.gpu-color;
                     secondary-value: root.gpu.temp-text; progress: root.gpu.util-percent;
                     status: root.gpu.util-status; compact: root.compact;
                 }
@@ -77,8 +77,8 @@ export component PerformancePage inherits Rectangle {
                     Text { text: Theme.polish ? "N/D • Brak źródła danych z gry" : "N/A • No game telemetry source connected"; color: Theme.text-muted; wrap: word-wrap; }
                 }
             }
-            TelemetryChart { title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }
-            TelemetryChart { title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: "N/A"; }
+            TelemetryChart { line-color: Theme.cpu-color; area-color: Theme.cpu-color.with-alpha(0.14); title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }
+            TelemetryChart { line-color: Theme.gpu-color; area-color: Theme.gpu-color.with-alpha(0.14); title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: "N/A"; }
         }
     }
 }

@@ -53,7 +53,7 @@ component CoreCell inherits Rectangle {
         ProgressBar {
             value: root.percent;
             available: root.status == 0;
-            bar-color: Theme.accent;
+            bar-color: Theme.cpu-color;
         }
     }
 }
@@ -118,7 +118,7 @@ export component CpuPage inherits Rectangle {
                     primary-value: root.sys-util-text;
                     progress: root.sys-util-percent;
                     status: root.sys-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -127,7 +127,7 @@ export component CpuPage inherits Rectangle {
                     primary-value: root.process-util-text;
                     progress: root.process-util-percent;
                     status: root.process-util-status;
-                    accent-color: Theme.accent-emerald;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -171,7 +171,7 @@ export component CpuPage inherits Rectangle {
                         primary-value: root.sys-util-text;
                         progress: root.sys-util-percent;
                         status: root.sys-util-status;
-                        accent-color: Theme.accent;
+                        accent-color: Theme.cpu-color;
                     }
 
                     SummaryCard {
@@ -181,7 +181,7 @@ export component CpuPage inherits Rectangle {
                         primary-value: root.process-util-text;
                         progress: root.process-util-percent;
                         status: root.process-util-status;
-                        accent-color: Theme.accent-emerald;
+                        accent-color: Theme.cpu-color;
                     }
                 }
 
@@ -228,7 +228,7 @@ export component CpuPage inherits Rectangle {
                     primary-value: root.sys-util-text;
                     progress: root.sys-util-percent;
                     status: root.sys-util-status;
-                    accent-color: Theme.accent;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -237,7 +237,7 @@ export component CpuPage inherits Rectangle {
                     primary-value: root.process-util-text;
                     progress: root.process-util-percent;
                     status: root.process-util-status;
-                    accent-color: Theme.accent-emerald;
+                    accent-color: Theme.cpu-color;
                 }
 
                 SummaryCard {
@@ -309,8 +309,8 @@ export component CpuPage inherits Rectangle {
                 area-commands: root.area-commands;
                 has-data: root.has-history;
                 empty-text: I18n.status-sampling;
-                line-color: Theme.accent;
-                area-color: Theme.accent-soft;
+                line-color: Theme.cpu-color;
+                area-color: Theme.cpu-color.with-alpha(0.14);
             }
 
             // Per-core utilization grid

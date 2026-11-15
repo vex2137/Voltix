@@ -66,8 +66,8 @@ export component SettingsPage inherits Rectangle {
                             clicked => { root.change-interface(index); }
                         }
                     }
-                    Text { text: Theme.polish ? "Kolor akcentu" : "Accent color"; color: Theme.text-secondary; }
-                    HorizontalLayout {
+                    if Theme.palette == 0 : Text { text: Theme.polish ? "Kolor akcentu" : "Accent color"; color: Theme.text-secondary; }
+                    if Theme.palette == 0 : HorizontalLayout {
                         spacing: 8px;
                         for color[index] in [#38bdf8, #a78bfa, #10b981, #f97316] : TouchArea {
                             height: 44px;
