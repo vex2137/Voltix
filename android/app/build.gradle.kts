@@ -10,7 +10,7 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
+        versionCode = 6
         versionName = rootProject.file("../Cargo.toml").readLines()
             .first { it.startsWith("version = ") }.substringAfter("=").trim().trim('"')
 
@@ -56,6 +56,11 @@ android {
             }
         }
         debug {
+            // Validation APKs coexist with installed Voltix when an old CI signing
+            // key is unavailable. Never require clearing the existing app's data.
+            if (providers.gradleProperty("voltixPreview").orNull == "true") {
+                applicationIdSuffix = ".alpha4test"
+            }
             isDebuggable = true
         }
     }

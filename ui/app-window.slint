@@ -39,6 +39,13 @@ export component AppWindow inherits Window {
     }
     changed width => { root.update-breakpoints(); }
     changed safe-area-insets => { root.update-breakpoints(); }
+    in property <string> build-identifier;
+    in property <string> source-commit;
+    public function navigate-to(page: int) {
+        if root.android-platform && page == 6 { root.cc-settings-category = -1; }
+        if page == 14 { root.cc-settings-category = 4; root.current-page = 6; }
+        else { root.current-page = page; }
+    }
     in property <bool> android-platform: false;
     changed android-platform => { root.update-breakpoints(); }
     in property <bool> cc-has-battery;
@@ -334,6 +341,10 @@ export component AppWindow inherits Window {
                                 font-weight: 700;
                                 overflow: elide;
                             }
+                            if root.android-platform : Text {
+                                text: "R2 · " + root.source-commit;
+                                font-size: 9px; color: Theme.accent; overflow: elide;
+                            }
                             if !root.compact-mode : Text {
                                 text: root.page-subtitle();
                                 color: Theme.text-secondary;
@@ -432,7 +443,7 @@ export component AppWindow inherits Window {
                     history-source <=> root.cc-chart-source; history-range <=> root.cc-chart-range;
                     history-line: root.cc-history-line; history-area: root.cc-history-area; history-data: root.cc-history-data;
                     history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
-                    navigate(page) => { root.current-page = page; }
+                    navigate(page) => { root.navigate-to(page); }
                 }
                 if root.current-page == 7 || root.current-page == 8 || root.current-page == 9 || root.current-page == 13 : DetailsPage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
@@ -454,7 +465,7 @@ export component AppWindow inherits Window {
                 }
                 if root.current-page == 12 : MorePage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
-                    width: 100%; height: 100%; navigate(page) => { root.current-page = page; }
+                    width: 100%; height: 100%; navigate(page) => { root.navigate-to(page); }
                 }
                 if root.current-page == 1 : CpuPage {
                     width: 100%;
@@ -573,6 +584,7 @@ export component AppWindow inherits Window {
                 }
 
                 if root.current-page == 6 || root.current-page == 11 : SettingsPage {
+                    build-identifier: root.build-identifier; source-commit: root.source-commit;
                     category <=> root.cc-settings-category; studio-only: root.current-page == 11;
                     android-platform: root.android-platform; diagnostic-rows: root.cc-diagnostics;
                     export-directory <=> root.cc-export-directory; export-status: root.cc-export-status;

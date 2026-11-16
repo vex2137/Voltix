@@ -1,6 +1,7 @@
 import { ScrollView, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
+import { Card, SectionTitle } from "../components/common.slint";
 import { NavigationRow } from "../components/navigation-row.slint";
 export component MorePage inherits Rectangle {
     in property <length> left-inset;
@@ -10,18 +11,23 @@ export component MorePage inherits Rectangle {
         width: 100%; height: 100%;
         VerticalLayout {
             width: max(0px, root.width - 14px); padding: 16px; padding-left: 16px + root.left-inset; padding-right: 16px + root.right-inset; spacing: 12px; alignment: start;
+            SectionTitle { text: I18n.cc-more; font-size: 24px; }
             Text { text: I18n.mobile-hardware; color: Theme.text-muted; font-size: 12px; }
+            Card { VerticalLayout { padding: 4px; spacing: 0px;
             for destination[index] in [3,4,7,5,9] : NavigationRow {
                 title: [I18n.cc-memory,I18n.cc-storage,I18n.cc-network,I18n.cc-system,I18n.cc-sensors][index];
                 icon: [@image-url("../../assets/icons/mobile/memory.svg"),@image-url("../../assets/icons/mobile/disk.svg"),@image-url("../../assets/icons/mobile/network.svg"),@image-url("../../assets/icons/mobile/system.svg"),@image-url("../../assets/icons/mobile/sensor.svg")][index];
                 clicked => { root.navigate(destination); }
             }
+            } }
             Text { text: I18n.mobile-application; color: Theme.text-muted; font-size: 12px; }
+            Card { VerticalLayout { padding: 4px; spacing: 0px;
             for destination[index] in [13,6,14] : NavigationRow {
                 title: [I18n.cc-permissions,I18n.cc-settings,I18n.cc-about][index];
                 icon: [@image-url("../../assets/icons/mobile/sensor.svg"),@image-url("../../assets/icons/mobile/settings.svg"),@image-url("../../assets/icons/mobile/about.svg")][index];
                 clicked => { root.navigate(destination); }
             }
+            } }
         }
     }
 }

@@ -102,6 +102,13 @@ pub(crate) fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>
     }
 }
 
+/// Shared by the Android entry point and headless mobile interaction tests.
+pub fn configure_platform_window(window: &AppWindow, android: bool) {
+    window.set_android_platform(android);
+    window.set_build_identifier(crate::build_info::BUILD_IDENTIFIER.into());
+    window.set_source_commit(crate::build_info::SOURCE_COMMIT.into());
+}
+
 pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError> {
     crate::diagnostics::mark("application initialization begins");
     let config_path = config_override.or_else(UserSettings::config_file_path);
@@ -110,7 +117,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
-    window.set_android_platform(cfg!(target_os = "android"));
+    configure_platform_window(&window, cfg!(target_os = "android"));
     window.set_cc_summaries(ModelRc::new(VecModel::default()));
     window.set_cc_performance(ModelRc::new(VecModel::default()));
     window.set_cc_network(ModelRc::new(VecModel::default()));
@@ -893,7 +900,7 @@ fn apply_settings_to_window(
     ));
 }
 
-fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
+pub fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     let was_updating = window.get_cc_updating();
     window.set_cc_updating(true);
     crate::control_center::localize(window, loc);

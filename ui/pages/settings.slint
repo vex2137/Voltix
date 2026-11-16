@@ -10,6 +10,8 @@ import { MangoHudManager } from "../components/mangohud-manager.slint";
 import { NavigationRow } from "../components/navigation-row.slint";
 
 export component SettingsPage inherits Rectangle {
+    in property <string> build-identifier;
+    in property <string> source-commit;
     in-out property <int> category: 0;
     in property <bool> android-platform;
     in property <bool> studio-only;
@@ -96,11 +98,17 @@ export component SettingsPage inherits Rectangle {
             VerticalLayout {
                 width: max(0px, root.width - 14px);
                 padding: 12px; padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset; spacing: 8px; alignment: start;
+                SectionTitle { text: I18n.nav-settings; font-size: 24px; }
+                Text { text: root.build-identifier; font-size: 11px; color: Theme.text-muted; overflow: elide; }
+                Card { VerticalLayout { padding: 4px; spacing: 0px;
                 for title[index] in [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export] : NavigationRow {
                     title: title;
+                    description: [I18n.settings-localization,I18n.settings-theme,I18n.settings-polling-interval,"MangoHud",I18n.app-version,""][index];
                     icon: [@image-url("../../assets/icons/mobile/settings.svg"),@image-url("../../assets/icons/mobile/dashboard.svg"),@image-url("../../assets/icons/mobile/sensor.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/about.svg"),@image-url("../../assets/icons/mobile/export.svg")][index];
                     clicked => { root.category = index; }
                 }
+                } }
+
             }
         }
         if !root.android-platform || root.category >= 0 : VerticalLayout {
@@ -153,6 +161,8 @@ export component SettingsPage inherits Rectangle {
                 VerticalLayout {
                     padding: 16px; spacing: 12px;
                     SectionTitle { text: "Voltix " + I18n.app-version; }
+                    Text { text: root.build-identifier; color: Theme.accent; font-size: 15px; font-weight: 700; wrap: word-wrap; }
+                    Text { text: root.source-commit; color: Theme.text-secondary; font-size: 12px; wrap: char-wrap; }
                     Text { text: I18n.messages[45]; color: Theme.text-secondary; wrap: word-wrap; }
                     Text { text: "MIT · vex2137/Voltix · Rust + Slint"; color: Theme.text-secondary; wrap: word-wrap; }
                 }

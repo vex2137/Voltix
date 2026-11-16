@@ -7,13 +7,13 @@ component Destination inherits Rectangle {
     in property <image> icon;
     background: touch.pressed || root.primary ? Theme.accent-soft : (touch.has-hover ? Theme.bg-hover : transparent);
     border-radius: Theme.radius-sm;
-    touch := TouchArea { accessible-role: button; accessible-label: root.label; clicked => { root.clicked(); } }
-    min-width: 0px; min-height: 60px;
+    min-width: 0px; min-height: 56px; vertical-stretch: 0;
     VerticalLayout {
         padding: 4px; spacing: 3px; alignment: center;
         HorizontalLayout { alignment: center; Image { source: root.icon; width: 24px; height: 24px; colorize: root.primary ? Theme.accent : Theme.text-secondary; } }
         Text { text: root.label; font-size: 11px; horizontal-alignment: center; color: root.primary ? Theme.accent : Theme.text-secondary; wrap: word-wrap; }
     }
+    touch := TouchArea { accessible-role: button; accessible-label: root.label; clicked => { root.clicked(); } }
 }
 export component BottomNav inherits Rectangle {
     in-out property <int> current-page: 0;

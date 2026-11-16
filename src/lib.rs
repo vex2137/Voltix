@@ -1,4 +1,5 @@
 pub mod app;
+pub mod build_info;
 pub mod control_center;
 pub mod custom_theme;
 pub mod diagnostics;

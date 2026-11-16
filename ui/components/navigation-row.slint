@@ -1,17 +1,23 @@
 import { Theme } from "../themes/theme.slint";
 export component NavigationRow inherits Rectangle {
     in property <string> title;
+    in property <string> description;
     in property <image> icon;
     callback clicked();
-    min-height: 56px;
+    min-height: 64px;
     vertical-stretch: 0;
     border-radius: Theme.radius-sm;
-    background: touch.pressed ? Theme.accent-soft : (touch.has-hover ? Theme.bg-hover : Theme.bg-card);
-    border-width: 1px; border-color: Theme.border-subtle;
+    background: touch.pressed ? Theme.accent-soft : (touch.has-hover ? Theme.bg-hover : transparent);
+
     HorizontalLayout {
         padding: 12px; spacing: 12px;
-        Image { source: root.icon; width: 24px; height: 24px; colorize: Theme.accent; }
-        Text { text: root.title; color: Theme.text-primary; font-size: 14px; vertical-alignment: center; horizontal-stretch: 1; wrap: word-wrap; }
+        Rectangle { width: 36px; height: 36px; border-radius: 10px; background: Theme.accent-soft;
+            Image { x: 6px; y: 6px; source: root.icon; width: 24px; height: 24px; colorize: Theme.accent; }
+        }
+        VerticalLayout { horizontal-stretch: 1; alignment: center; spacing: 3px;
+            Text { text: root.title; color: Theme.text-primary; font-size: 14px; font-weight: 600; wrap: word-wrap; }
+            if root.description != "" : Text { text: root.description; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+        }
         Image { source: @image-url("../../assets/icons/mobile/chevron.svg"); width: 18px; height: 24px; colorize: Theme.text-muted; }
     }
     touch := TouchArea { accessible-role: button; accessible-label: root.title; clicked => { root.clicked(); } }
