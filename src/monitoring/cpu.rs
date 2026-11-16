@@ -78,6 +78,12 @@ impl CpuMonitor {
         }
     }
 
+    #[cfg(target_os = "android")]
+    pub(crate) fn reset_sampling_baseline(&mut self) {
+        self.prev_stat = None;
+        self.prev_proc_usage = None;
+    }
+
     pub fn collect(&mut self) -> CpuTelemetry {
         let stat_read = fs::read_to_string("/proc/stat");
         let stat_perm_denied =

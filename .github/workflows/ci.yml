@@ -6,6 +6,7 @@ on:
       - main
       - master
       - feat/alpha4-performance-ui
+      - feat/android-vulkan-apk-optimization
   pull_request:
   workflow_dispatch:
 
@@ -18,7 +19,7 @@ jobs:
   # An opt-in [alpha4-apk] commit marker also launches it without API dispatch.
   alpha4-apk-download:
     if: >-
-      github.ref_name == 'feat/alpha4-performance-ui' &&
+      (github.ref_name == 'feat/alpha4-performance-ui' || github.ref_name == 'feat/android-vulkan-apk-optimization') &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
     permissions:
@@ -218,7 +219,7 @@ jobs:
 
   android-arm64-apk:
     if: >-
-      github.ref_name != 'feat/alpha4-performance-ui' ||
+      (github.ref_name != 'feat/alpha4-performance-ui' && github.ref_name != 'feat/android-vulkan-apk-optimization') ||
       (github.event_name != 'workflow_dispatch' &&
        !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
     name: Android ARM64-v8a (API 26+ APK)
@@ -284,7 +285,7 @@ jobs:
 
       - name: Build native Android library (arm64-v8a)
         run: |
-          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --release
+          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
           ls -lh android/app/src/main/jniLibs/arm64-v8a/libvoltix.so
 
       - name: Set up Gradle
@@ -324,7 +325,7 @@ jobs:
           fi
           echo "path=$apk_name" >> "$GITHUB_OUTPUT"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='7'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='8'"
           unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
           unzip -l "$apk_name" | grep 'classes.dex'
           sha256sum "$apk_name" > SHA256SUMS-android
@@ -343,3 +344,28 @@ jobs:
             SHA256SUMS-android
           if-no-files-found: error
           retention-days: 14
+
+  open-vulkan-optimization-pr:
+    if: github.event_name == 'push' && github.ref_name == 'feat/android-vulkan-apk-optimization'
+    name: Open focused Vulkan and APK optimization PR
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open PR without merging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          existing=$(gh pr list --head feat/android-vulkan-apk-optimization --base feat/alpha4-performance-ui --state open --json url --jq '.[0].url // empty')
+          if [ -n "$existing" ]; then
+            echo "$existing" >> "$GITHUB_STEP_SUMMARY"
+          elif url=$(gh pr create --head feat/android-vulkan-apk-optimization --base feat/alpha4-performance-ui --title 'Add cached Android Vulkan diagnostics and reduce APK size' --body-file docs/PR-ANDROID-VULKAN.md 2> "$RUNNER_TEMP/voltix-pr-error.txt"); then
+            echo "$url" >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat "$RUNNER_TEMP/voltix-pr-error.txt"
+            echo '::warning::Repository policy prevented automatic PR creation. No merge was attempted.'
+            echo 'Open https://github.com/vex2137/Voltix/compare/feat/alpha4-performance-ui...feat/android-vulkan-apk-optimization?expand=1 to create the prepared PR.' >> "$GITHUB_STEP_SUMMARY"
+          fi

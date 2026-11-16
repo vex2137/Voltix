@@ -1,6 +1,11 @@
 use std::process::Command;
 
 fn main() {
+    // Android 15/16 can use 16 KiB pages. Apply only to this final cdylib,
+    // leaving dependency fingerprints and Linux release linking unchanged.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        println!("cargo:rustc-link-arg-cdylib=-Wl,-z,max-page-size=16384");
+    }
     println!("cargo:rerun-if-env-changed=VOLTIX_SOURCE_COMMIT");
     println!("cargo:rerun-if-changed=.git/HEAD");
     if let Ok(output) = Command::new("git")

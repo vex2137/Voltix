@@ -41,6 +41,8 @@ export component AppWindow inherits Window {
     changed width => { root.update-breakpoints(); }
     changed safe-area-insets => { root.update-breakpoints(); }
     in property <string> build-short;
+    in-out property <bool> cc-vulkan-ready: false;
+    in property <[ControlRow]> cc-vulkan-rows;
     in property <[ControlRow]> cc-permission-rows;
     in property <[ControlRow]> cc-gpu-diagnostic-rows;
     in property <[ControlRow]> cc-platform-diagnostic-rows;
@@ -465,7 +467,7 @@ export component AppWindow inherits Window {
                 if root.current-page == 13 && root.android-platform : DiagnosticsPage {
                     width: 100%; height: 100%; android-platform: root.android-platform;
                     left-inset: root.safe-area-insets.left; right-inset: root.safe-area-insets.right;
-                    permissions: root.cc-permission-rows; gpu: root.cc-gpu-diagnostic-rows; platform: root.cc-platform-diagnostic-rows;
+                    vulkan: root.cc-vulkan-rows; permissions: root.cc-permission-rows; gpu: root.cc-gpu-diagnostic-rows; platform: root.cc-platform-diagnostic-rows;
                     source-commit: root.source-commit; build-short: root.build-short;
                     open-app-settings => { root.cc-app-settings(); }
                 }

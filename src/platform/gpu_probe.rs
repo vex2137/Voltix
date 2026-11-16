@@ -51,3 +51,45 @@ mod tests {
         assert!(matches!(value, MetricValue::Unsupported(_)));
     }
 }
+
+/// Discover only explicitly identified Mali devfreq devices, not GPU buses,
+/// CPU/DDR devfreq counters or arbitrary vendor utilization files. cur_freq is
+/// the standard devfreq frequency-in-Hz ABI. Discovery is cached by the caller.
+pub fn discover_mali_devfreq(root: &Path) -> io::Result<Vec<std::path::PathBuf>> {
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(root)?.take(128) {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if name.contains("mali") && !name.contains("bus") && !name.contains("mem") {
+            paths.push(entry.path().join("cur_freq"));
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+#[cfg(test)]
+mod devfreq_tests {
+    use super::*;
+    #[test]
+    fn only_identified_gpu_core_frequency_sources_are_discovered() {
+        let root = std::env::temp_dir().join(format!("voltix-devfreq-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        for name in [
+            "13000000.mali",
+            "cpu0",
+            "gpu-bus",
+            "mali-bus",
+            "mali-mem",
+            "ddr",
+        ] {
+            std::fs::create_dir_all(root.join(name)).unwrap();
+        }
+        assert_eq!(
+            discover_mali_devfreq(&root).unwrap(),
+            vec![root.join("13000000.mali/cur_freq")]
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

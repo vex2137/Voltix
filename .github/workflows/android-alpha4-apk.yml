@@ -1,5 +1,5 @@
 name: Alpha 4 Android APK download
-run-name: Alpha 4 Android R2.1 density hotfix
+run-name: Alpha 4 Android Vulkan diagnostics and APK size
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ github.sha }}
       CARGO_TERM_COLOR: always
-      APK_NAME: Voltix-0.1.0-alpha.4-r2.1-arm64-debug.apk
+      APK_NAME: Voltix-0.1.0-alpha.4-vulkan-arm64-debug.apk
 
     steps:
       - name: Check out the exact Alpha 4 source
@@ -94,7 +94,7 @@ jobs:
 
       - name: Build ARM64 native library
         run: |
-          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --release
+          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
           test -s android/app/src/main/jniLibs/arm64-v8a/libvoltix.so
 
       - name: Set up Gradle 8.9
@@ -136,7 +136,7 @@ jobs:
           apk = pathlib.Path('artifacts') / os.environ['APK_NAME']
           metadata = pathlib.Path('artifacts/APK-METADATA.txt').read_text()
           expected = [
-              "package: name='com.voltix.monitor.alpha4test' versionCode='7' versionName='0.1.0-alpha.4'",
+              "package: name='com.voltix.monitor.alpha4test' versionCode='8' versionName='0.1.0-alpha.4'",
               "sdkVersion:'26'", "targetSdkVersion:'35'", "native-code: 'arm64-v8a'",
               'application-debuggable',
           ]
@@ -153,6 +153,7 @@ jobs:
               native_bytes = archive.read(libraries[0])
               marker = ('Mobile UI R2.1 / ' + os.environ['SOURCE_COMMIT']).encode()
               assert marker in native_bytes, 'APK does not contain the requested UI/source build identifier'
+              (pathlib.Path(os.environ['RUNNER_TEMP']) / 'voltix-apk-native.so').write_bytes(native_bytes)
               for icon in ['dashboard', 'cpu', 'gpu', 'battery', 'more']:
                   resource = pathlib.Path('assets/icons/mobile') / (icon + '.svg')
                   assert resource.read_bytes() in native_bytes, f'APK is missing embedded {icon} SVG'
@@ -162,6 +163,16 @@ jobs:
               'Headless PNGs use simulated presentation fixtures and a Linux software renderer, not Android-device screenshots.\n')
           print('Verified package, version, SDK levels, debug variant, and ARM64 native library')
           PY
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D --defined-only "$RUNNER_TEMP/voltix-apk-native.so" > artifacts/ANDROID-EXPORTS.txt
+          for symbol in ANativeActivity_onCreate android_main Java_com_voltix_monitor_VoltixActivity_nativeSnapshot Java_com_voltix_monitor_VoltixActivity_nativeCommand Java_com_voltix_monitor_VoltixActivity_nativePollingInterval Java_com_voltix_monitor_VoltixActivity_nativeExportJson; do
+            grep -w "$symbol" artifacts/ANDROID-EXPORTS.txt
+          done
+
+      - name: Record APK payload size and verify 16 KiB ZIP alignment
+        run: |
+          python3 scripts/apk_size_report.py "artifacts/$APK_NAME" --output artifacts/APK-SIZE.json
+          python3 -c 'import json; x=json.load(open("artifacts/APK-SIZE.json"))["before"]; assert x["abis"] == ["arm64-v8a"]; assert x["ordinary_symbol_bytes"] == 0; assert min(x["elf_load_alignments"]) >= 16384'
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "artifacts/$APK_NAME" > artifacts/APK-ALIGNMENT.txt
 
       - name: Record and verify APK SHA-256 and source provenance
         working-directory: artifacts
@@ -175,7 +186,7 @@ jobs:
             echo "Source commit: $SOURCE_COMMIT"
             echo "Workflow commit: $WORKFLOW_COMMIT"
             echo "Run: $RUN_URL"
-            echo 'Rust profile: release; APK variant: isolated debug preview; package: com.voltix.monitor.alpha4test; signing: cached Android debug key'
+            echo 'Rust profile: android-apk; APK variant: isolated debug preview; package: com.voltix.monitor.alpha4test; signing: cached Android debug key'
             echo 'Minimum Android API: 26; target API: 35; ABI: arm64-v8a'
             echo 'Android device appearance and Mali telemetry access are not verified by this workflow.'
             rustc --version
@@ -186,7 +197,7 @@ jobs:
         id: apk
         uses: actions/upload-artifact@v4
         with:
-          name: Voltix-Alpha4-R2.1-Density-Hotfix-ARM64-APK
+          name: Voltix-Alpha4-Vulkan-ARM64-APK
           path: artifacts/
           if-no-files-found: error
           compression-level: 0

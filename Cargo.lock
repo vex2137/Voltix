@@ -5035,6 +5035,7 @@ name = "voltix"
 version = "0.1.0-alpha.4"
 dependencies = [
  "android_logger",
+ "ash",
  "env_logger",
  "jni 0.21.1",
  "libc",

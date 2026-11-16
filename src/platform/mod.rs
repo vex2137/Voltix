@@ -19,3 +19,6 @@ pub fn detect_system_dark_mode() -> bool {
 }
 
 pub mod gpu_probe;
+#[cfg(any(target_os = "android", test))]
+pub mod vulkan;
+pub mod vulkan_present;

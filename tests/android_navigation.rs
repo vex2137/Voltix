@@ -124,6 +124,18 @@ fn density_fixtures(ui: &AppWindow, loc: &voltix::localization::Localizer) {
             detail: loc.tr("probe_uma").into(),
         },
     ])));
+    ui.set_cc_vulkan_rows(ModelRc::new(VecModel::from(vec![
+        ControlRow {
+            label: loc.tr("vk_api").into(),
+            value: "1.3.0".into(),
+            detail: loc.tr("vk_static_note").into(),
+        },
+        ControlRow {
+            label: loc.tr("vk_heaps").into(),
+            value: "1".into(),
+            detail: loc.tr("vk_heap_note").into(),
+        },
+    ])));
     ui.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::from(vec![ControlRow {
         label: loc.tr("cc_sensors").into(),
         value: "12".into(),

@@ -126,6 +126,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_sensors(ModelRc::new(VecModel::default()));
     window.set_cc_system(ModelRc::new(VecModel::default()));
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
+    window.set_cc_vulkan_rows(ModelRc::new(VecModel::default()));
     window.set_cc_permission_rows(ModelRc::new(VecModel::default()));
     window.set_cc_gpu_diagnostic_rows(ModelRc::new(VecModel::default()));
     window.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::default()));
@@ -681,6 +682,8 @@ fn spawn_monitor_thread(
                 }
             }
 
+            #[cfg(target_os = "android")]
+            let mut paused = false;
             loop {
                 let (should_stop, interval) = match shared.lock() {
                     Ok(guard) => (
@@ -704,6 +707,24 @@ fn spawn_monitor_thread(
                 };
                 if should_stop {
                     break;
+                }
+
+                #[cfg(target_os = "android")]
+                {
+                    if !crate::platform::android_bridge::snapshot().foreground {
+                        paused = true;
+                        if let Ok(guard) = shared.lock() {
+                            if guard.shutdown {
+                                break;
+                            }
+                            let _ = condvar.wait_timeout(guard, Duration::from_secs(1));
+                        }
+                        continue;
+                    }
+                    if paused {
+                        engine.resume_after_pause();
+                        paused = false;
+                    }
                 }
 
                 if let Ok(state) = shared.lock() {
@@ -1538,6 +1559,14 @@ fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
     }
 }
 
+fn gpu_measurement_text(text: SharedString, status: i32, loc: &Localizer) -> SharedString {
+    if cfg!(target_os = "android") && status != 0 {
+        loc.tr("status_unavailable").into()
+    } else {
+        text
+    }
+}
+
 fn gpu_to_ui_item(gpu: &GpuTelemetry, loc: &Localizer, temp_unit: TemperatureUnit) -> GpuItem {
     let (driver_text, driver_status) = format_metric_str(&gpu.driver_version, loc, |s| s.clone());
     let (util_text, util_status) =
@@ -1573,24 +1602,24 @@ fn gpu_to_ui_item(gpu: &GpuTelemetry, loc: &Localizer, temp_unit: TemperatureUni
         pci_slot: SharedString::from(gpu.pci_slot.clone().unwrap_or_default()),
         driver_text,
         driver_status,
-        util_text,
+        util_text: gpu_measurement_text(util_text, util_status, loc),
         util_percent: gpu.utilization_percent.copied().unwrap_or(0.0) as f32,
         util_status,
-        vram_text,
+        vram_text: gpu_measurement_text(vram_text, vram_status, loc),
         vram_subtext: SharedString::from(vram_subtext),
         vram_percent: gpu.vram_utilization_percent.copied().unwrap_or(0.0) as f32,
         vram_status,
-        temp_text,
+        temp_text: gpu_measurement_text(temp_text, temp_status, loc),
         temp_status,
-        core_clock_text,
+        core_clock_text: gpu_measurement_text(core_clock_text, core_clock_status, loc),
         core_clock_status,
-        mem_clock_text,
+        mem_clock_text: gpu_measurement_text(mem_clock_text, mem_clock_status, loc),
         mem_clock_status,
-        power_draw_text,
+        power_draw_text: gpu_measurement_text(power_draw_text, power_draw_status, loc),
         power_draw_status,
-        power_limit_text,
+        power_limit_text: gpu_measurement_text(power_limit_text, power_limit_status, loc),
         power_limit_status,
-        fan_text,
+        fan_text: gpu_measurement_text(fan_text, fan_status, loc),
         fan_status,
     }
 }
