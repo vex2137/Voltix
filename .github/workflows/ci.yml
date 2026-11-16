@@ -13,7 +13,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # This existing workflow is discoverable from the default branch on mobile.
+  # Select feat/alpha4-performance-ui in Run workflow to build only the pinned APK.
+  # An opt-in [alpha4-apk] commit marker also launches it without API dispatch.
+  alpha4-apk-download:
+    if: >-
+      github.ref_name == 'feat/alpha4-performance-ui' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
+    permissions:
+      contents: read
+    uses: ./.github/workflows/android-alpha4-apk.yml
+
   linux-build-and-appimage:
+    if: >-
+      github.ref_name != 'feat/alpha4-performance-ui' ||
+      (github.event_name != 'workflow_dispatch' &&
+       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
     name: Linux x86_64 (Build, Test, AppImage)
     runs-on: ubuntu-22.04
 
@@ -201,6 +217,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   android-arm64-apk:
+    if: >-
+      github.ref_name != 'feat/alpha4-performance-ui' ||
+      (github.event_name != 'workflow_dispatch' &&
+       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
     name: Android ARM64-v8a (API 26+ APK)
     runs-on: ubuntu-latest
 
