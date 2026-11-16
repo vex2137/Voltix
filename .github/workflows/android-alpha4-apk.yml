@@ -1,5 +1,5 @@
 name: Alpha 4 Android APK download
-run-name: Alpha 4 Android Mobile UI R2
+run-name: Alpha 4 Android R2.1 density hotfix
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ github.sha }}
       CARGO_TERM_COLOR: always
-      APK_NAME: Voltix-0.1.0-alpha.4-mobile-ui-r2-arm64-debug.apk
+      APK_NAME: Voltix-0.1.0-alpha.4-r2.1-arm64-debug.apk
 
     steps:
       - name: Check out the exact Alpha 4 source
@@ -83,7 +83,7 @@ jobs:
         env:
           VOLTIX_UI_SNAPSHOTS: artifacts/mobile-root-snapshots
         run: |
-          cargo test --locked --test android_navigation -- --nocapture
+          cargo test --locked --test android_navigation --test android_diagnostics -- --nocapture
           /usr/bin/python3 - <<'PY'
           from pathlib import Path
           from PIL import Image
@@ -103,17 +103,19 @@ jobs:
           gradle-version: '8.9'
 
       - name: Restore stable test signing key
+        id: test-signing-key
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: voltix-alpha4-debug-signing-v1
 
-      - name: Create test signing key only on first run
+      - name: Require existing test signing key for an in-place update
+        env:
+          KEY_CACHE_HIT: ${{ steps.test-signing-key.outputs.cache-hit }}
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -keypass android \
-              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          if [ "$KEY_CACHE_HIT" != true ] || [ ! -s "$HOME/.android/debug.keystore" ]; then
+            echo '::error::The existing R2 signing key was not restored. Refusing to create a different key that would prevent an in-place update.'
+            exit 1
           fi
 
       - name: Build debug-signed installable APK
@@ -134,7 +136,7 @@ jobs:
           apk = pathlib.Path('artifacts') / os.environ['APK_NAME']
           metadata = pathlib.Path('artifacts/APK-METADATA.txt').read_text()
           expected = [
-              "package: name='com.voltix.monitor.alpha4test' versionCode='6' versionName='0.1.0-alpha.4'",
+              "package: name='com.voltix.monitor.alpha4test' versionCode='7' versionName='0.1.0-alpha.4'",
               "sdkVersion:'26'", "targetSdkVersion:'35'", "native-code: 'arm64-v8a'",
               'application-debuggable',
           ]
@@ -149,14 +151,15 @@ jobs:
               assert header[:4] == b'\x7fELF' and header[4:6] == b'\x02\x01'
               assert struct.unpack_from('<H', header, 18)[0] == 183, 'Expected AArch64 ELF'
               native_bytes = archive.read(libraries[0])
-              marker = ('Mobile UI R2 / ' + os.environ['SOURCE_COMMIT']).encode()
+              marker = ('Mobile UI R2.1 / ' + os.environ['SOURCE_COMMIT']).encode()
               assert marker in native_bytes, 'APK does not contain the requested UI/source build identifier'
               for icon in ['dashboard', 'cpu', 'gpu', 'battery', 'more']:
                   resource = pathlib.Path('assets/icons/mobile') / (icon + '.svg')
                   assert resource.read_bytes() in native_bytes, f'APK is missing embedded {icon} SVG'
           pathlib.Path('artifacts/UI-VERIFICATION.txt').write_text(
-              'Actual APK native library contains Mobile UI R2/source identity and all five bundled navigation SVG resources.\n'
-              'This binary-content check does not establish on-device visual correctness.\n')
+              'Actual APK native library contains Mobile UI R2.1/source identity and all five bundled navigation SVG resources.\n'
+              'This binary-content check does not establish on-device visual correctness.\n'
+              'Headless PNGs use simulated presentation fixtures and a Linux software renderer, not Android-device screenshots.\n')
           print('Verified package, version, SDK levels, debug variant, and ARM64 native library')
           PY
 
@@ -183,7 +186,7 @@ jobs:
         id: apk
         uses: actions/upload-artifact@v4
         with:
-          name: Voltix-Alpha4-Mobile-UI-R2-ARM64-APK
+          name: Voltix-Alpha4-R2.1-Density-Hotfix-ARM64-APK
           path: artifacts/
           if-no-files-found: error
           compression-level: 0
@@ -204,8 +207,9 @@ jobs:
             echo '```'
             echo ''
             echo 'On Android: sign in to GitHub in Chrome, download the artifact ZIP, extract it in Files, then tap the APK. If the download control is hidden, enable Desktop site in Chrome.'
-            echo 'Confirm the header says R2 and About shows the source commit above. Test signing keys are cached for future updates; the old CI #38 key cannot be recovered from its APK.'
+            echo 'Confirm the header says R2.1 and About shows the source commit above. Test signing keys are cached for future updates; the old CI #38 key cannot be recovered from its APK.'
             echo 'Allow installation from that browser/file manager when Android asks. This preview installs alongside Voltix as Voltix Alpha4 R2 (com.voltix.monitor.alpha4test). Do not uninstall the original app; its settings/data remain there. Preview settings are separate.'
+            echo 'Included PNGs use simulated presentation fixtures and a Linux software renderer; Android-device visual testing remains unverified.'
             echo 'The SHA-256 above verifies the APK inside the ZIP. GitHub also supplies a separate digest for the uploaded artifact archive.'
             echo 'Artifacts expire after 30 days; rerun this manual workflow to create a fresh download.'
           } >> "$GITHUB_STEP_SUMMARY"

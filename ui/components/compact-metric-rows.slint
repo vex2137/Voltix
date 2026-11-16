@@ -1,0 +1,21 @@
+import { Theme } from "../themes/theme.slint";
+import { ControlRow } from "../models.slint";
+export component CompactMetricRows inherits VerticalLayout {
+    in property <[ControlRow]> rows;
+    in property <int> start-index: 0;
+    in property <int> end-index: 100000;
+    alignment: start; spacing: 0px;
+    for row[index] in root.rows : VerticalLayout {
+        alignment: start; vertical-stretch: 0;
+        if index >= root.start-index && index < root.end-index : VerticalLayout {
+        alignment: start; vertical-stretch: 0; spacing: 3px;
+        HorizontalLayout {
+            padding-top: 7px; padding-bottom: 7px; spacing: 10px;
+            Text { text: row.label; width: 48%; min-width: 0px; vertical-stretch: 0; vertical-alignment: center; wrap: word-wrap; color: Theme.text-secondary; font-size: 12px; }
+            Text { text: row.value; horizontal-stretch: 1; min-width: 0px; vertical-stretch: 0; vertical-alignment: center; horizontal-alignment: right; wrap: word-wrap; color: Theme.text-primary; font-size: 14px; font-weight: 600; }
+        }
+        if row.detail != "" : Text { text: row.detail; vertical-stretch: 0; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+        Rectangle { height: 1px; background: Theme.border-subtle; }
+        }
+    }
+}

@@ -1,6 +1,7 @@
 import { ControlCenter } from "pages/control-center.slint";
 import { DetailsPage } from "pages/details.slint";
 import { ProcessesPage } from "pages/processes.slint";
+import { DiagnosticsPage } from "pages/diagnostics.slint";
 import { MorePage } from "pages/more.slint";
 import { ControlRow, ControlSummary, ProcessItem } from "models.slint";
 export { ControlRow, ControlSummary, ProcessItem }
@@ -39,6 +40,10 @@ export component AppWindow inherits Window {
     }
     changed width => { root.update-breakpoints(); }
     changed safe-area-insets => { root.update-breakpoints(); }
+    in property <string> build-short;
+    in property <[ControlRow]> cc-permission-rows;
+    in property <[ControlRow]> cc-gpu-diagnostic-rows;
+    in property <[ControlRow]> cc-platform-diagnostic-rows;
     in property <string> build-identifier;
     in property <string> source-commit;
     public function navigate-to(page: int) {
@@ -288,7 +293,7 @@ export component AppWindow inherits Window {
         if root.current-page == 10 { return I18n.cc-processes; }
         if root.current-page == 11 { return I18n.cc-studio; }
         if root.current-page == 12 { return I18n.cc-more; }
-        if root.current-page == 13 { return I18n.cc-permissions; }
+        if root.current-page == 13 { return I18n.hotfix-diagnostics; }
         return I18n.nav-settings;
     }
 
@@ -342,7 +347,7 @@ export component AppWindow inherits Window {
                                 overflow: elide;
                             }
                             if root.android-platform : Text {
-                                text: "R2 · " + root.source-commit;
+                                text: root.build-short;
                                 font-size: 9px; color: Theme.accent; overflow: elide;
                             }
                             if !root.compact-mode : Text {
@@ -445,16 +450,24 @@ export component AppWindow inherits Window {
                     history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
                     navigate(page) => { root.navigate-to(page); }
                 }
-                if root.current-page == 7 || root.current-page == 8 || root.current-page == 9 || root.current-page == 13 : DetailsPage {
+                if root.current-page == 7 || root.current-page == 8 || root.current-page == 9 || (root.current-page == 13 && !root.android-platform) : DetailsPage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
                     width: 100%; height: 100%;
                     title: root.cc-detail-title; note: root.cc-detail-note; rows: root.cc-detail-rows;
+                    battery: root.current-page == 8;
                     show-history: root.current-page == 7 || root.current-page == 8;
                     android-settings: root.android-platform && root.current-page == 13;
                     open-app-settings => { root.cc-app-settings(); }
                     history-source <=> root.cc-chart-source; history-range <=> root.cc-chart-range;
                     history-line: root.cc-history-line; history-area: root.cc-history-area; history-data: root.cc-history-data;
                     history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
+                }
+                if root.current-page == 13 && root.android-platform : DiagnosticsPage {
+                    width: 100%; height: 100%; android-platform: root.android-platform;
+                    left-inset: root.safe-area-insets.left; right-inset: root.safe-area-insets.right;
+                    permissions: root.cc-permission-rows; gpu: root.cc-gpu-diagnostic-rows; platform: root.cc-platform-diagnostic-rows;
+                    source-commit: root.source-commit; build-short: root.build-short;
+                    open-app-settings => { root.cc-app-settings(); }
                 }
                 if root.current-page == 10 : ProcessesPage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;

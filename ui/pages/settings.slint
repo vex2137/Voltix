@@ -99,7 +99,7 @@ export component SettingsPage inherits Rectangle {
                 width: max(0px, root.width - 14px);
                 padding: 12px; padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset; spacing: 8px; alignment: start;
                 SectionTitle { text: I18n.nav-settings; font-size: 24px; }
-                Text { text: root.build-identifier; font-size: 11px; color: Theme.text-muted; overflow: elide; }
+                Text { text: I18n.app-version + " · R2.1"; font-size: 11px; color: Theme.text-muted; overflow: elide; }
                 Card { VerticalLayout { padding: 4px; spacing: 0px;
                 for title[index] in [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export] : NavigationRow {
                     title: title;

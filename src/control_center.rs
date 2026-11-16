@@ -13,6 +13,25 @@ use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
     crate::process_ui::localize(window, loc);
     let i18n = window.global::<I18n>();
+    i18n.set_hotfix_diagnostics(loc.tr("hotfix_diagnostics").into());
+    i18n.set_hotfix_permissions(loc.tr("hotfix_permissions").into());
+    i18n.set_hotfix_gpu(loc.tr("hotfix_gpu").into());
+    i18n.set_hotfix_platform(loc.tr("hotfix_platform").into());
+    i18n.set_hotfix_build(loc.tr("hotfix_build").into());
+    i18n.set_hotfix_source(loc.tr("hotfix_source").into());
+    i18n.set_hotfix_technical(loc.tr("hotfix_technical").into());
+    i18n.set_hotfix_battery_status(loc.tr("hotfix_battery_status").into());
+    i18n.set_hotfix_battery_measurements(loc.tr("hotfix_battery_measurements").into());
+    i18n.set_hotfix_battery_condition(loc.tr("hotfix_battery_condition").into());
+    i18n.set_hotfix_runtime(loc.tr("hotfix_runtime").into());
+    i18n.set_hotfix_not_required(loc.tr("hotfix_not_required").into());
+    i18n.set_hotfix_network_permission(loc.tr("hotfix_network_permission").into());
+    i18n.set_hotfix_network_normal(loc.tr("hotfix_network_normal").into());
+    i18n.set_hotfix_gpu_policy(loc.tr("hotfix_gpu_policy").into());
+    i18n.set_hotfix_gpu_policy_value(loc.tr("hotfix_gpu_policy_value").into());
+    i18n.set_hotfix_gpu_policy_detail(loc.tr("hotfix_gpu_policy_detail").into());
+    i18n.set_hotfix_gpu_vram(loc.tr("hotfix_gpu_vram").into());
+    i18n.set_hotfix_no_gpu(loc.tr("hotfix_no_gpu").into());
     i18n.set_cc_category_diagnostics(loc.tr("cc_category_diagnostics").into());
     i18n.set_mobile_hardware(loc.tr("mobile_hardware").into());
     i18n.set_mobile_application(loc.tr("mobile_application").into());
@@ -334,6 +353,90 @@ pub fn chart_samples(
         e.battery.as_ref().and_then(|b| b.temperature_c),
     ]
 }
+pub fn android_permission_rows(
+    platform: &crate::monitoring::extended::Platform,
+    loc: &Localizer,
+) -> Vec<ControlRow> {
+    vec![
+        row(
+            "hotfix_runtime",
+            loc.tr("hotfix_not_required").into(),
+            loc.tr("cc_permission_note").into(),
+            loc,
+        ),
+        row(
+            "hotfix_network_permission",
+            loc.tr(if platform.elapsed_ms == 0 {
+                "status_sampling"
+            } else if platform.network_permission {
+                "cc_granted"
+            } else {
+                "cc_denied"
+            })
+            .into(),
+            loc.tr("hotfix_network_normal").into(),
+            loc,
+        ),
+    ]
+}
+
+pub fn gpu_diagnostic_rows(
+    gpu: Option<&crate::models::telemetry::GpuTelemetry>,
+    loc: &Localizer,
+) -> Vec<ControlRow> {
+    use crate::models::metrics::MetricStatus;
+    let Some(gpu) = gpu else {
+        return vec![row(
+            "nav_gpu",
+            loc.tr("status_unavailable").into(),
+            loc.tr("hotfix_no_gpu").into(),
+            loc,
+        )];
+    };
+    let mut out = Vec::new();
+    for (label, status, reason) in [
+        (
+            "gpu_utilization",
+            gpu.utilization_percent.status(),
+            gpu.utilization_percent.reason(),
+        ),
+        (
+            "cc_gpu_temp",
+            gpu.temperature_celsius.status(),
+            gpu.temperature_celsius.reason(),
+        ),
+        (
+            "cc_gpu_freq",
+            gpu.core_clock_mhz.status(),
+            gpu.core_clock_mhz.reason(),
+        ),
+        (
+            "hotfix_gpu_vram",
+            gpu.vram_total_bytes.status(),
+            gpu.vram_total_bytes.reason(),
+        ),
+        (
+            "cc_gpu_power",
+            gpu.power_draw_watts.status(),
+            gpu.power_draw_watts.reason(),
+        ),
+    ] {
+        let key = match status {
+            MetricStatus::Available => "gpu_readable",
+            MetricStatus::Unsupported => "status_unsupported",
+            MetricStatus::PermissionError => "status_permission_denied",
+            MetricStatus::Unavailable => "status_unavailable",
+        };
+        out.push(row(
+            label,
+            loc.tr(key).into(),
+            loc.diagnostic(reason.unwrap_or("")),
+            loc,
+        ));
+    }
+    out
+}
+
 pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu_index: usize) {
     let e = &snap.extended;
     let gpu = snap.gpus.get(gpu_index);
@@ -535,7 +638,11 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
     );
     let mut diagnostics = vec![row(
         "cc_sensors",
-        (e.sensors.len() + e.platform.sensors.len()).to_string(),
+        if window.get_android_platform() && e.platform.elapsed_ms == 0 {
+            loc.tr("status_sampling").into()
+        } else {
+            (e.sensors.len() + e.platform.sensors.len()).to_string()
+        },
         loc.tr("cc_sensors_note").into(),
         loc,
     )];
@@ -558,72 +665,6 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
             loc,
         ));
     }
-    if let Some(gpu) = gpu {
-        for (label, status, reason) in [
-            (
-                loc.tr("dash_gpu_card"),
-                gpu.utilization_percent.status(),
-                gpu.utilization_percent.reason(),
-            ),
-            (
-                loc.tr("cc_gpu_temp"),
-                gpu.temperature_celsius.status(),
-                gpu.temperature_celsius.reason(),
-            ),
-            (
-                loc.tr("cc_gpu_freq"),
-                gpu.core_clock_mhz.status(),
-                gpu.core_clock_mhz.reason(),
-            ),
-            (
-                "GPU · VRAM",
-                gpu.vram_total_bytes.status(),
-                gpu.vram_total_bytes.reason(),
-            ),
-            (
-                loc.tr("cc_gpu_power"),
-                gpu.power_draw_watts.status(),
-                gpu.power_draw_watts.reason(),
-            ),
-        ] {
-            let status_key = match status {
-                crate::models::metrics::MetricStatus::Available => "gpu_readable",
-                crate::models::metrics::MetricStatus::Unsupported => "status_unsupported",
-                crate::models::metrics::MetricStatus::PermissionError => "status_permission_denied",
-                _ => "status_unavailable",
-            };
-            diagnostics.push(raw_row(
-                label.into(),
-                loc.tr(status_key).into(),
-                reason.unwrap_or("").into(),
-            ));
-        }
-    }
-    #[cfg(target_os = "android")]
-    {
-        diagnostics.push(row(
-            "cc_network_permission",
-            loc.tr(if e.platform.network_permission {
-                "cc_granted"
-            } else {
-                "cc_denied"
-            })
-            .into(),
-            loc.tr("cc_permission_note").into(),
-            loc,
-        ));
-        diagnostics.push(row(
-            "cc_display",
-            e.platform.display.clone(),
-            String::new(),
-            loc,
-        ));
-        diagnostics.push(raw_row(
-            "Android / SELinux".into(),
-            loc.tr("cc_android_limits").into(),
-            String::new(),
-        ));
-    }
     if !e.platform.action_status.is_empty() {
         diagnostics.push(row(
             "cc_permissions",
@@ -638,6 +679,38 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
         String::new(),
         loc,
     ));
+    let mut gpu_diagnostics = gpu_diagnostic_rows(gpu, loc);
+    if window.get_android_platform() {
+        gpu_diagnostics.push(row(
+            "hotfix_gpu_policy",
+            loc.tr("hotfix_gpu_policy_value").into(),
+            loc.tr("hotfix_gpu_policy_detail").into(),
+            loc,
+        ));
+    }
+    let permissions = android_permission_rows(&e.platform, loc);
+    rows(window.get_cc_permission_rows(), permissions.clone());
+    rows(window.get_cc_gpu_diagnostic_rows(), gpu_diagnostics.clone());
+    if window.get_android_platform() {
+        diagnostics.push(row(
+            "cc_display",
+            if e.platform.display.is_empty() {
+                loc.tr("status_sampling").into()
+            } else {
+                e.platform.display.clone()
+            },
+            String::new(),
+            loc,
+        ));
+    }
+    rows(
+        window.get_cc_platform_diagnostic_rows(),
+        diagnostics.clone(),
+    );
+    diagnostics.extend(gpu_diagnostics);
+    if window.get_android_platform() {
+        diagnostics.extend(permissions);
+    }
     rows(window.get_cc_diagnostics(), diagnostics.clone());
     let system = vec![
         row(

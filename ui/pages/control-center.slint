@@ -4,6 +4,7 @@ import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { ControlSummary, ControlRow } from "../models.slint";
 import { Card, SectionTitle, SummaryCard } from "../components/common.slint";
+import { CompactMetricRows } from "../components/compact-metric-rows.slint";
 import { TelemetryRows } from "../components/telemetry-rows.slint";
 import { TelemetryChart } from "../components/chart.slint";
 import { HistoryPanel } from "../components/history-panel.slint";
@@ -33,7 +34,7 @@ export component ControlCenter inherits Rectangle {
     in-out property <int> history-source;
     in-out property <int> history-range;
     callback navigate(int);
-    private property <int> columns: root.width < 360px ? 1 : (Theme.interface-mode == 1 && root.width >= 1000px ? 3 : 2);
+    private property <int> columns: root.android-platform ? 2 : (root.width < 360px ? 1 : (Theme.interface-mode == 1 && root.width >= 1000px ? 3 : 2));
     private property <int> count: Theme.interface-mode == 1 ? 6 : 4;
     ScrollView {
         width: 100%; height: 100%;
@@ -74,7 +75,7 @@ export component ControlCenter inherits Rectangle {
             if Theme.interface-mode == 0 && root.summaries.length >= 6 : Card {
                 VerticalLayout {
                     padding: 12px;
-                    TelemetryGrid { max-columns: 2; rows: [{label: root.summaries[4].label,value: root.summaries[4].value,detail: root.summaries[4].detail},{label: root.summaries[5].label,value: root.summaries[5].value,detail: root.summaries[5].detail}]; }
+                    CompactMetricRows { rows: [{label: root.summaries[4].label,value: root.summaries[4].value,detail: root.summaries[4].detail},{label: root.summaries[5].label,value: root.summaries[5].value,detail: root.summaries[5].detail}]; }
                 }
             }
             if Theme.interface-mode == 2 : Card {
@@ -116,11 +117,11 @@ export component ControlCenter inherits Rectangle {
             if Theme.interface-mode == 1 : GridLayout {
                 spacing: 12px;
                 Row {
-                    Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-network; } if root.network.length == 0 : Text { text: I18n.cc-no-network; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.network; } } }
-                    if root.width >= 950px : Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.disks; } } }
+                    Card { VerticalLayout { padding: 10px; spacing: 5px; alignment: start; SectionTitle { text: I18n.cc-network; } if root.network.length == 0 : Text { text: I18n.cc-no-network; color: Theme.text-muted; wrap: word-wrap; } CompactMetricRows { rows: root.network; } } }
+                    if root.width >= 950px : Card { VerticalLayout { padding: 10px; spacing: 5px; alignment: start; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } CompactMetricRows { rows: root.disks; } } }
                 }
                 if root.width < 950px : Row {
-                    Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.disks; } } }
+                    Card { VerticalLayout { padding: 10px; spacing: 5px; alignment: start; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } CompactMetricRows { rows: root.disks; } } }
                 }
             }
             if Theme.interface-mode == 1 : Card {

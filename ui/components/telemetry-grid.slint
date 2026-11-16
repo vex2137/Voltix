@@ -4,19 +4,19 @@ export component TelemetryGrid inherits VerticalLayout {
     in property <[ControlRow]> rows;
     in property <int> max-columns: 3;
     private property <int> columns: min(root.max-columns, self.width < 340px ? 1 : (self.width < 950px ? 2 : 3));
-    spacing: 8px;
+    alignment: start; spacing: 8px;
     for row in ceil(root.rows.length / root.columns) : HorizontalLayout {
-        spacing: 8px;
+        vertical-stretch: 0; spacing: 8px;
         for column in root.columns : cell := Rectangle {
             private property <int> index: row * root.columns + column;
             visible: self.index < root.rows.length;
             horizontal-stretch: 1; min-width: 0px; min-height: 84px;
             background: Theme.bg-elevated; border-radius: 8px;
             VerticalLayout {
-                padding: 10px; spacing: 5px;
-                Text { text: root.rows[cell.index].label; color: Theme.text-secondary; wrap: word-wrap; font-size: 11px; }
-                Text { text: root.rows[cell.index].value; color: Theme.text-primary; wrap: word-wrap; font-size: 15px; font-weight: 600; }
-                if root.rows[cell.index].detail != "" : Text { text: root.rows[cell.index].detail; color: Theme.text-muted; wrap: word-wrap; font-size: 11px; }
+                padding: 10px; spacing: 5px; alignment: start;
+                Text { vertical-stretch: 0; text: root.rows[cell.index].label; color: Theme.text-secondary; wrap: word-wrap; font-size: 11px; }
+                Text { vertical-stretch: 0; text: root.rows[cell.index].value; color: Theme.text-primary; wrap: word-wrap; font-size: 15px; font-weight: 600; }
+                if root.rows[cell.index].detail != "" : Text { vertical-stretch: 0; text: root.rows[cell.index].detail; color: Theme.text-muted; wrap: word-wrap; font-size: 11px; }
             }
         }
     }

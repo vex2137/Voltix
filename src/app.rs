@@ -105,6 +105,7 @@ pub(crate) fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>
 /// Shared by the Android entry point and headless mobile interaction tests.
 pub fn configure_platform_window(window: &AppWindow, android: bool) {
     window.set_android_platform(android);
+    window.set_build_short(format!("R2.1 · {}", &crate::build_info::SOURCE_COMMIT[..7]).into());
     window.set_build_identifier(crate::build_info::BUILD_IDENTIFIER.into());
     window.set_source_commit(crate::build_info::SOURCE_COMMIT.into());
 }
@@ -125,6 +126,9 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_sensors(ModelRc::new(VecModel::default()));
     window.set_cc_system(ModelRc::new(VecModel::default()));
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
+    window.set_cc_permission_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_gpu_diagnostic_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::default()));
     window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
     window.set_proc_rows(ModelRc::new(VecModel::default()));
     window.set_proc_summaries(ModelRc::new(VecModel::default()));
