@@ -33,7 +33,7 @@ export component ControlCenter inherits Rectangle {
     in-out property <int> history-source;
     in-out property <int> history-range;
     callback navigate(int);
-    private property <int> columns: root.width < 620px ? 1 : (Theme.interface-mode == 1 && root.width >= 1000px ? 3 : 2);
+    private property <int> columns: root.width < 360px ? 1 : (Theme.interface-mode == 1 && root.width >= 1000px ? 3 : 2);
     private property <int> count: Theme.interface-mode == 1 ? 6 : 4;
     ScrollView {
         width: 100%; height: 100%;

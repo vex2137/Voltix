@@ -446,5 +446,8 @@
   "proc_idle": "Bezczynny",
   "proc_dead": "Zakończony",
   "proc_unknown": "Nieznany",
-  "proc_process_table": "Tabela procesów"
+  "proc_process_table": "Tabela procesów",
+  "mobile_hardware": "Sprzęt",
+  "mobile_application": "Aplikacja",
+  "gpu_readable": "Obsługiwane i dostępne"
 }

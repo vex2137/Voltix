@@ -14,6 +14,8 @@ pub fn localize(window: &AppWindow, loc: &Localizer) {
     crate::process_ui::localize(window, loc);
     let i18n = window.global::<I18n>();
     i18n.set_cc_category_diagnostics(loc.tr("cc_category_diagnostics").into());
+    i18n.set_mobile_hardware(loc.tr("mobile_hardware").into());
+    i18n.set_mobile_application(loc.tr("mobile_application").into());
     i18n.set_cc_battery_short(loc.tr("cc_battery_short").into());
     i18n.set_cc_android_fps_note(loc.tr("cc_android_fps_note").into());
 
@@ -250,19 +252,28 @@ pub fn battery_rows(b: &Battery, loc: &Localizer, unit: i32) -> Vec<ControlRow> 
         ),
         row(
             "cc_voltage",
-            value(b.voltage_v, " V", loc),
+            b.voltage_v
+                .filter(|v| v.is_finite())
+                .map(|v| format!("{v:.2} V"))
+                .unwrap_or_else(|| loc.tr("status_unavailable").into()),
             String::new(),
             loc,
         ),
         row(
             "cc_current",
-            value(b.current_a, " A", loc),
+            b.current_a
+                .filter(|v| v.is_finite())
+                .map(|v| format!("{v:.2} A"))
+                .unwrap_or_else(|| loc.tr("status_unavailable").into()),
             String::new(),
             loc,
         ),
         row(
             "cc_battery_power",
-            value(b.power_w, " W", loc),
+            b.power_w
+                .filter(|v| v.is_finite())
+                .map(|v| format!("{v:.2} W"))
+                .unwrap_or_else(|| loc.tr("status_unavailable").into()),
             String::new(),
             loc,
         ),
@@ -547,6 +558,47 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
             loc,
         ));
     }
+    if let Some(gpu) = gpu {
+        for (label, status, reason) in [
+            (
+                loc.tr("dash_gpu_card"),
+                gpu.utilization_percent.status(),
+                gpu.utilization_percent.reason(),
+            ),
+            (
+                loc.tr("cc_gpu_temp"),
+                gpu.temperature_celsius.status(),
+                gpu.temperature_celsius.reason(),
+            ),
+            (
+                loc.tr("cc_gpu_freq"),
+                gpu.core_clock_mhz.status(),
+                gpu.core_clock_mhz.reason(),
+            ),
+            (
+                "GPU · VRAM",
+                gpu.vram_total_bytes.status(),
+                gpu.vram_total_bytes.reason(),
+            ),
+            (
+                loc.tr("cc_gpu_power"),
+                gpu.power_draw_watts.status(),
+                gpu.power_draw_watts.reason(),
+            ),
+        ] {
+            let status_key = match status {
+                crate::models::metrics::MetricStatus::Available => "gpu_readable",
+                crate::models::metrics::MetricStatus::Unsupported => "status_unsupported",
+                crate::models::metrics::MetricStatus::PermissionError => "status_permission_denied",
+                _ => "status_unavailable",
+            };
+            diagnostics.push(raw_row(
+                label.into(),
+                loc.tr(status_key).into(),
+                reason.unwrap_or("").into(),
+            ));
+        }
+    }
     #[cfg(target_os = "android")]
     {
         diagnostics.push(row(
@@ -814,6 +866,21 @@ mod tests {
         assert_eq!(filter_processes(&p, "", 1)[0].pid, 2);
         assert_eq!(filter_processes(&p, "b", 0).len(), 1);
         assert!(filter_processes(&p, "missing", 0).is_empty());
+    }
+    #[test]
+    fn battery_presentation_preserves_discharge_sign_and_estimate() {
+        let loc = Localizer::new(crate::localization::LocaleCode::En);
+        let battery = Battery {
+            current_a: Some(-1.25),
+            power_w: Some(-4.75),
+            status: 3,
+            ..Default::default()
+        };
+        let rows = battery_rows(&battery, &loc, 0);
+        assert!(rows[1].value.contains("Discharging"));
+        assert!(rows[5].value.starts_with("-1.25"));
+        assert!(rows[6].value.starts_with("-4.75"));
+        assert!(rows[6].label.contains("estimate"));
     }
     #[test]
     fn absent_battery_readings_do_not_become_zero() {

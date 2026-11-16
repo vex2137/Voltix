@@ -446,5 +446,8 @@
   "proc_idle": "Idle",
   "proc_dead": "Dead",
   "proc_unknown": "Unknown",
-  "proc_process_table": "Process table"
+  "proc_process_table": "Process table",
+  "mobile_hardware": "Hardware",
+  "mobile_application": "Application",
+  "gpu_readable": "Supported and readable"
 }

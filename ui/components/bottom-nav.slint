@@ -1,17 +1,18 @@
-import { Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 component Destination inherits Rectangle {
     in property <bool> primary;
     callback clicked();
     in property <string> label;
-    in property <string> glyph;
-    Button { width: 100%; height: 100%; text: ""; accessible-label: root.label; primary: root.primary; clicked => { root.clicked(); } }
+    in property <image> icon;
+    background: touch.pressed || root.primary ? Theme.accent-soft : (touch.has-hover ? Theme.bg-hover : transparent);
+    border-radius: Theme.radius-sm;
+    touch := TouchArea { accessible-role: button; accessible-label: root.label; clicked => { root.clicked(); } }
     min-width: 0px; min-height: 60px;
     VerticalLayout {
         padding: 4px; spacing: 3px; alignment: center;
-        Text { text: root.glyph; font-size: 16px; horizontal-alignment: center; color: root.primary ? Theme.on-accent : Theme.text-secondary; }
-        Text { text: root.label; font-size: 11px; horizontal-alignment: center; color: root.primary ? Theme.on-accent : Theme.text-secondary; wrap: word-wrap; }
+        HorizontalLayout { alignment: center; Image { source: root.icon; width: 24px; height: 24px; colorize: root.primary ? Theme.accent : Theme.text-secondary; } }
+        Text { text: root.label; font-size: 11px; horizontal-alignment: center; color: root.primary ? Theme.accent : Theme.text-secondary; wrap: word-wrap; }
     }
 }
 export component BottomNav inherits Rectangle {
@@ -32,7 +33,7 @@ export component BottomNav inherits Rectangle {
             for destination[index] in [0,1,2,8,12] : Destination {
                 horizontal-stretch: 1; min-width: 0px; min-height: 56px;
                 label: [I18n.nav-short-dashboard,"CPU","GPU",I18n.cc-battery-short,I18n.cc-more][index];
-                glyph: ["⌂","▦","◈","⚡","•••"][index];
+                icon: [@image-url("../../assets/icons/mobile/dashboard.svg"),@image-url("../../assets/icons/mobile/cpu.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/battery.svg"),@image-url("../../assets/icons/mobile/more.svg")][index];
                 primary: root.current-page == destination || (destination == 12 && root.current-page != 0 && root.current-page != 1 && root.current-page != 2 && root.current-page != 8);
                 clicked => { root.current-page = destination; }
             }

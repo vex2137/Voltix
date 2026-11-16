@@ -104,7 +104,7 @@ impl Default for UserSettings {
 impl UserSettings {
     pub fn validate(&mut self) {
         self.last_page = self.last_page.clamp(0, 13);
-        self.settings_category = self.settings_category.clamp(0, 6);
+        self.settings_category = self.settings_category.clamp(-1, 6);
         self.history_source = self.history_source.clamp(0, 9);
         self.history_range = self.history_range.clamp(0, 2);
         self.process_sort = self.process_sort.clamp(0, 3);
@@ -273,6 +273,20 @@ mod tests {
         let loaded = UserSettings::load_or_default(Some(&tmp));
         assert_eq!(loaded, UserSettings::default());
         let _ = fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn mobile_settings_home_survives_persistence() {
+        let tmp =
+            std::env::temp_dir().join(format!("voltix-mobile-home-{}.json", std::process::id()));
+        let settings = UserSettings {
+            settings_category: -1,
+            last_page: 6,
+            ..Default::default()
+        };
+        settings.save_to(&tmp).unwrap();
+        assert_eq!(UserSettings::load_or_default(Some(&tmp)), settings);
+        let _ = std::fs::remove_file(tmp);
     }
 
     #[test]

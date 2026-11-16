@@ -17,3 +17,5 @@ pub fn detect_system_dark_mode() -> bool {
         true
     }
 }
+
+pub mod gpu_probe;

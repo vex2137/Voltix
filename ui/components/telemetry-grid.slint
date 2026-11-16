@@ -3,7 +3,7 @@ import { ControlRow } from "../models.slint";
 export component TelemetryGrid inherits VerticalLayout {
     in property <[ControlRow]> rows;
     in property <int> max-columns: 3;
-    private property <int> columns: min(root.max-columns, self.width < 600px ? 1 : (self.width < 950px ? 2 : 3));
+    private property <int> columns: min(root.max-columns, self.width < 340px ? 1 : (self.width < 950px ? 2 : 3));
     spacing: 8px;
     for row in ceil(root.rows.length / root.columns) : HorizontalLayout {
         spacing: 8px;

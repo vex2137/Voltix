@@ -134,6 +134,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_current_page(settings.last_page);
     window.set_cc_settings_category(if settings.last_page == 11 {
         3
+    } else if cfg!(target_os = "android") && settings.last_page != 6 {
+        -1
     } else {
         settings.settings_category
     });

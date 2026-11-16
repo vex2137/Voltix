@@ -1,0 +1,18 @@
+import { Theme } from "../themes/theme.slint";
+export component NavigationRow inherits Rectangle {
+    in property <string> title;
+    in property <image> icon;
+    callback clicked();
+    min-height: 56px;
+    vertical-stretch: 0;
+    border-radius: Theme.radius-sm;
+    background: touch.pressed ? Theme.accent-soft : (touch.has-hover ? Theme.bg-hover : Theme.bg-card);
+    border-width: 1px; border-color: Theme.border-subtle;
+    HorizontalLayout {
+        padding: 12px; spacing: 12px;
+        Image { source: root.icon; width: 24px; height: 24px; colorize: Theme.accent; }
+        Text { text: root.title; color: Theme.text-primary; font-size: 14px; vertical-alignment: center; horizontal-stretch: 1; wrap: word-wrap; }
+        Image { source: @image-url("../../assets/icons/mobile/chevron.svg"); width: 18px; height: 24px; colorize: Theme.text-muted; }
+    }
+    touch := TouchArea { accessible-role: button; accessible-label: root.title; clicked => { root.clicked(); } }
+}

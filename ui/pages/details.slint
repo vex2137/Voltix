@@ -3,6 +3,7 @@ import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { ControlRow } from "../models.slint";
 import { Card, SectionTitle } from "../components/common.slint";
+import { TelemetryGrid } from "../components/telemetry-grid.slint";
 import { TelemetryRows } from "../components/telemetry-rows.slint";
 import { HistoryPanel } from "../components/history-panel.slint";
 export component DetailsPage inherits Rectangle {
@@ -29,7 +30,7 @@ export component DetailsPage inherits Rectangle {
             SectionTitle { text: root.title; }
             Text { text: root.note; color: Theme.text-secondary; wrap: word-wrap; }
             if root.android-settings : Button { text: I18n.cc-app-settings; clicked => { root.open-app-settings(); } }
-            Card { VerticalLayout { padding: 14px; if root.rows.length == 0 : Text { text: I18n.cc-sample-wait; color: Theme.text-muted; wrap: word-wrap; } TelemetryRows { rows: root.rows; } } }
+            Card { VerticalLayout { padding: 14px; if root.rows.length == 0 : Text { text: I18n.cc-sample-wait; color: Theme.text-muted; wrap: word-wrap; } if root.show-history : TelemetryGrid { max-columns: 2; rows: root.rows; } if !root.show-history : TelemetryRows { rows: root.rows; } } }
             if root.show-history : HistoryPanel {
                 source <=> root.history-source; range <=> root.history-range;
                 line: root.history-line; area: root.history-area; has-data: root.history-data;
