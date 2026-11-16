@@ -19,9 +19,10 @@ jobs:
   # An opt-in [alpha4-apk] commit marker also launches it without API dispatch.
   alpha4-apk-download:
     if: >-
-      (github.ref_name == 'feat/alpha4-performance-ui' || github.ref_name == 'feat/android-vulkan-apk-optimization') &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
+      (github.event_name == 'pull_request' && github.head_ref == 'feat/android-vulkan-apk-optimization') ||
+      ((github.ref_name == 'feat/alpha4-performance-ui' || github.ref_name == 'feat/android-vulkan-apk-optimization') &&
+       (github.event_name == 'workflow_dispatch' ||
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]'))))
     permissions:
       contents: read
     uses: ./.github/workflows/android-alpha4-apk.yml
@@ -219,9 +220,10 @@ jobs:
 
   android-arm64-apk:
     if: >-
-      (github.ref_name != 'feat/alpha4-performance-ui' && github.ref_name != 'feat/android-vulkan-apk-optimization') ||
-      (github.event_name != 'workflow_dispatch' &&
-       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
+      !(github.event_name == 'pull_request' && github.head_ref == 'feat/android-vulkan-apk-optimization') &&
+      ((github.ref_name != 'feat/alpha4-performance-ui' && github.ref_name != 'feat/android-vulkan-apk-optimization') ||
+       (github.event_name != 'workflow_dispatch' &&
+        !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]'))))
     name: Android ARM64-v8a (API 26+ APK)
     runs-on: ubuntu-latest
 

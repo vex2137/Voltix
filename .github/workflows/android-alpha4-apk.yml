@@ -17,7 +17,7 @@ jobs:
       group: voltix-alpha4-debug-signing
       cancel-in-progress: false
     env:
-      SOURCE_COMMIT: ${{ github.sha }}
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       CARGO_TERM_COLOR: always
       APK_NAME: Voltix-0.1.0-alpha.4-vulkan-arm64-debug.apk
 
@@ -25,11 +25,27 @@ jobs:
       - name: Check out the exact Alpha 4 source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.SOURCE_COMMIT }}
           persist-credentials: false
 
       - name: Verify source commit
         run: test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+
+      - name: Restore stable test signing key
+        id: test-signing-key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: voltix-alpha4-debug-signing-v1
+
+      - name: Require existing test signing key for an in-place update
+        env:
+          KEY_CACHE_HIT: ${{ steps.test-signing-key.outputs.cache-hit }}
+        run: |
+          if [ "$KEY_CACHE_HIT" != true ] || [ ! -s "$HOME/.android/debug.keystore" ]; then
+            echo '::error::The existing R2 signing key was not restored. GitHub caches are branch scoped: open a PR against feat/alpha4-performance-ui to reuse its key. Refusing a replacement key that would prevent an in-place update.'
+            exit 1
+          fi
 
       - name: Install native build dependencies
         run: |
@@ -101,22 +117,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Restore stable test signing key
-        id: test-signing-key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: voltix-alpha4-debug-signing-v1
-
-      - name: Require existing test signing key for an in-place update
-        env:
-          KEY_CACHE_HIT: ${{ steps.test-signing-key.outputs.cache-hit }}
-        run: |
-          if [ "$KEY_CACHE_HIT" != true ] || [ ! -s "$HOME/.android/debug.keystore" ]; then
-            echo '::error::The existing R2 signing key was not restored. Refusing to create a different key that would prevent an in-place update.'
-            exit 1
-          fi
 
       - name: Build debug-signed installable APK
         run: |
