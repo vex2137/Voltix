@@ -38,6 +38,7 @@ export component DiagnosticsPage inherits Rectangle {
     in property <bool> android-platform;
     in property <[ControlRow]> permissions;
     in property <[ControlRow]> gpu;
+    in property <[ControlRow]> vulkan;
     in property <[ControlRow]> platform;
     in property <string> source-commit;
     in property <string> build-short;
@@ -48,6 +49,7 @@ export component DiagnosticsPage inherits Rectangle {
             padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset; spacing: 10px;
             if root.android-platform : DiagnosticSection { title: I18n.hotfix-permissions; rows: root.permissions; }
             DiagnosticSection { title: I18n.hotfix-gpu; rows: root.gpu; }
+            if root.vulkan.length > 0 : DiagnosticSection { title: I18n.vk-title; rows: root.vulkan; }
             DiagnosticSection { title: I18n.hotfix-platform; rows: root.platform; }
             DiagnosticSection { title: I18n.hotfix-build; rows: [{label: I18n.hotfix-source, value: root.build-short, detail: root.source-commit}]; }
             if root.android-platform : Button { text: I18n.cc-app-settings; min-height: 44px; clicked => { root.open-app-settings(); } }

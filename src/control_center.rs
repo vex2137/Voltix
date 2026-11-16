@@ -12,7 +12,9 @@ use slint::{ComponentHandle, ModelRc};
 use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
     crate::process_ui::localize(window, loc);
+    window.set_cc_vulkan_ready(false);
     let i18n = window.global::<I18n>();
+    i18n.set_vk_title(loc.tr("vk_title").into());
     i18n.set_hotfix_diagnostics(loc.tr("hotfix_diagnostics").into());
     i18n.set_hotfix_permissions(loc.tr("hotfix_permissions").into());
     i18n.set_hotfix_gpu(loc.tr("hotfix_gpu").into());
@@ -440,6 +442,15 @@ pub fn gpu_diagnostic_rows(
 pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu_index: usize) {
     let e = &snap.extended;
     let gpu = snap.gpus.get(gpu_index);
+    if !window.get_cc_vulkan_ready() {
+        if let Some(report) = gpu.and_then(|g| g.vulkan.as_deref()) {
+            rows(
+                window.get_cc_vulkan_rows(),
+                crate::platform::vulkan_present::rows(report, loc),
+            );
+            window.set_cc_vulkan_ready(true);
+        }
+    }
     let live = chart_samples(
         snap,
         match snap.cpu.utilization_scope {

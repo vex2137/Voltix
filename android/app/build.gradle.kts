@@ -10,7 +10,7 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
+        versionCode = 8
         versionName = rootProject.file("../Cargo.toml").readLines()
             .first { it.startsWith("version = ") }.substringAfter("=").trim().trim('"')
 

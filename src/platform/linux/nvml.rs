@@ -133,6 +133,7 @@ impl NvmlProvider {
             };
 
             gpus.push(GpuTelemetry {
+                vulkan: None,
                 id: format!("nvml:{index}"),
                 name,
                 vendor: GpuVendor::Nvidia,

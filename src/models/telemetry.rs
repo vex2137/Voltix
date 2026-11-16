@@ -53,6 +53,8 @@ pub enum GpuVendor {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct GpuTelemetry {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vulkan: Option<std::sync::Arc<crate::models::vulkan::VulkanReport>>,
     pub id: String,
     pub name: String,
     pub vendor: GpuVendor,

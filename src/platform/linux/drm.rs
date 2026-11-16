@@ -138,6 +138,7 @@ fn read_card_telemetry(card: &DiscoveredDrmCard) -> GpuTelemetry {
         GpuVendor::Amd => read_amd_telemetry(card, driver_version),
         GpuVendor::Intel => read_intel_telemetry(card, driver_version),
         _ => GpuTelemetry {
+            vulkan: None,
             id: format!("drm:{}", card.card_name),
             name: card.display_name.clone(),
             vendor: card.vendor,
@@ -218,6 +219,7 @@ fn read_amd_telemetry(
     let fan_speed_percent = read_amd_fan_percent(card.hwmon_dir.as_deref());
 
     GpuTelemetry {
+        vulkan: None,
         id: format!("drm:{}", card.card_name),
         name: card.display_name.clone(),
         vendor: GpuVendor::Amd,
@@ -255,6 +257,7 @@ fn read_intel_telemetry(
     let temperature_celsius = read_hwmon_temp(card.hwmon_dir.as_deref());
 
     GpuTelemetry {
+        vulkan: None,
         id: format!("drm:{}", card.card_name),
         name: card.display_name.clone(),
         vendor: GpuVendor::Intel,

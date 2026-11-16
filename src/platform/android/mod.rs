@@ -4,7 +4,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::ptr;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use crate::models::metrics::MetricValue;
 use crate::models::telemetry::{GpuTelemetry, GpuVendor, StorageDeviceTelemetry};
@@ -201,6 +201,7 @@ fn read_android_thermal_zone(keywords: &[&str]) -> (MetricValue<f64>, Option<Str
 
 #[derive(Debug, Clone)]
 struct AndroidGpuIdentity {
+    vulkan: Arc<crate::models::vulkan::VulkanReport>,
     name: String,
     vendor: GpuVendor,
     vendor_name: String,
@@ -217,17 +218,37 @@ fn detect_android_gpu_identity() -> AndroidGpuIdentity {
     let vk_prop = get_system_property("ro.hardware.vulkan");
     let board_prop = get_system_property("ro.board.platform");
 
-    if let Some(vk) = probe_vulkan_gpu() {
-        let driver = match (vk_prop.as_deref(), egl_prop.as_deref()) {
-            (Some(vp), _) => format!("Vulkan {} ({vp})", vk.api_version_str),
-            (None, Some(ep)) => format!("Vulkan {} ({ep})", vk.api_version_str),
-            (None, None) => format!("Vulkan {}", vk.api_version_str),
+    let vulkan = Arc::new(crate::platform::vulkan::probe());
+    if let Some(vk) = &vulkan.device {
+        let (vendor, vendor_name) = match vk.vendor_id {
+            0x5143 => (GpuVendor::Other, "Qualcomm".into()),
+            0x13b5 => (GpuVendor::Other, "ARM".into()),
+            0x1010 => (GpuVendor::Other, "Imagination".into()),
+            0x10de => (GpuVendor::Nvidia, "NVIDIA".into()),
+            0x1002 => (GpuVendor::Amd, "AMD".into()),
+            0x8086 => (GpuVendor::Intel, "Intel".into()),
+            _ => classify_gpu_vendor("", &vk.name),
         };
+        let driver = format!(
+            "{} · 0x{:08x} · Vulkan {}{}",
+            vk.driver_name
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("Driver"),
+            vk.driver_version_raw,
+            vk.api_version,
+            egl_prop
+                .as_ref()
+                .or(vk_prop.as_ref())
+                .map(|p| format!(" ({p})"))
+                .unwrap_or_default()
+        );
         return AndroidGpuIdentity {
-            name: vk.device_name,
-            vendor: vk.vendor,
-            vendor_name: vk.vendor_name,
+            name: vk.name.clone(),
+            vendor,
+            vendor_name,
             driver_version: MetricValue::Available(driver),
+            vulkan: Arc::clone(&vulkan),
         };
     }
 
@@ -241,6 +262,7 @@ fn detect_android_gpu_identity() -> AndroidGpuIdentity {
             MetricValue::Unavailable("GPU driver version unavailable".to_string())
         };
         return AndroidGpuIdentity {
+            vulkan: Arc::clone(&vulkan),
             name: egl.renderer,
             vendor,
             vendor_name,
@@ -269,6 +291,7 @@ fn detect_android_gpu_identity() -> AndroidGpuIdentity {
     };
 
     AndroidGpuIdentity {
+        vulkan,
         name: display_name,
         vendor,
         vendor_name,
@@ -301,69 +324,6 @@ fn classify_gpu_vendor(vendor_hint: &str, renderer_hint: &str) -> (GpuVendor, St
     }
 }
 
-struct VulkanProbeResult {
-    device_name: String,
-    vendor: GpuVendor,
-    vendor_name: String,
-    api_version_str: String,
-}
-
-#[repr(C)]
-struct VkApplicationInfo {
-    s_type: u32,
-    p_next: *const libc::c_void,
-    p_application_name: *const libc::c_char,
-    application_version: u32,
-    p_engine_name: *const libc::c_char,
-    engine_version: u32,
-    api_version: u32,
-}
-
-#[repr(C)]
-struct VkInstanceCreateInfo {
-    s_type: u32,
-    p_next: *const libc::c_void,
-    flags: u32,
-    p_application_info: *const VkApplicationInfo,
-    enabled_layer_count: u32,
-    pp_enabled_layer_names: *const *const libc::c_char,
-    enabled_extension_count: u32,
-    pp_enabled_extension_names: *const *const libc::c_char,
-}
-
-#[repr(C)]
-struct VkPhysicalDevicePropertiesRaw {
-    api_version: u32,
-    driver_version: u32,
-    vendor_id: u32,
-    device_id: u32,
-    device_type: u32,
-    device_name: [libc::c_char; 256],
-    pipeline_cache_uuid: [u8; 16],
-    // Over-allocated tail buffer covering VkPhysicalDeviceLimits + SparseProperties on 64-bit
-    _tail: [u64; 128],
-}
-
-fn c_char_buf_to_string(buf: &[libc::c_char]) -> String {
-    let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-    let bytes = unsafe { std::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), len) };
-    String::from_utf8_lossy(bytes).trim().to_string()
-}
-
-fn probe_vulkan_gpu() -> Option<VulkanProbeResult> {
-    let lib_name = CString::new("libvulkan.so").ok()?;
-    let handle = unsafe { libc::dlopen(lib_name.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL) };
-    if handle.is_null() {
-        return None;
-    }
-
-    let result = unsafe { query_vulkan_device(handle) };
-    unsafe {
-        libc::dlclose(handle);
-    }
-    result
-}
-
 unsafe fn resolve_sym<T>(handle: *mut libc::c_void, name: &str) -> Option<T>
 where
     T: Copy,
@@ -375,106 +335,6 @@ where
     } else {
         Some(std::mem::transmute_copy(&sym))
     }
-}
-
-unsafe fn query_vulkan_device(handle: *mut libc::c_void) -> Option<VulkanProbeResult> {
-    type VkCreateInstanceFn = unsafe extern "C" fn(
-        *const VkInstanceCreateInfo,
-        *const libc::c_void,
-        *mut *mut libc::c_void,
-    ) -> i32;
-    type VkDestroyInstanceFn = unsafe extern "C" fn(*mut libc::c_void, *const libc::c_void);
-    type VkEnumeratePhysicalDevicesFn =
-        unsafe extern "C" fn(*mut libc::c_void, *mut u32, *mut *mut libc::c_void) -> i32;
-    type VkGetPhysicalDevicePropertiesFn =
-        unsafe extern "C" fn(*mut libc::c_void, *mut VkPhysicalDevicePropertiesRaw);
-
-    let vk_create_instance: VkCreateInstanceFn = resolve_sym(handle, "vkCreateInstance")?;
-    let vk_destroy_instance: VkDestroyInstanceFn = resolve_sym(handle, "vkDestroyInstance")?;
-    let vk_enumerate_physical_devices: VkEnumeratePhysicalDevicesFn =
-        resolve_sym(handle, "vkEnumeratePhysicalDevices")?;
-    let vk_get_physical_device_properties: VkGetPhysicalDevicePropertiesFn =
-        resolve_sym(handle, "vkGetPhysicalDeviceProperties")?;
-
-    let app_name = CString::new("Voltix").ok()?;
-    let app_info = VkApplicationInfo {
-        s_type: 0, // VK_STRUCTURE_TYPE_APPLICATION_INFO
-        p_next: ptr::null(),
-        p_application_name: app_name.as_ptr(),
-        application_version: 1,
-        p_engine_name: app_name.as_ptr(),
-        engine_version: 1,
-        api_version: (1 << 22), // VK_API_VERSION_1_0 for universal instance compatibility
-    };
-
-    let create_info = VkInstanceCreateInfo {
-        s_type: 1, // VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
-        p_next: ptr::null(),
-        flags: 0,
-        p_application_info: &app_info,
-        enabled_layer_count: 0,
-        pp_enabled_layer_names: ptr::null(),
-        enabled_extension_count: 0,
-        pp_enabled_extension_names: ptr::null(),
-    };
-
-    let mut instance: *mut libc::c_void = ptr::null_mut();
-    if vk_create_instance(&create_info, ptr::null(), &mut instance) != 0 || instance.is_null() {
-        return None;
-    }
-
-    let mut count: u32 = 0;
-    let rc = vk_enumerate_physical_devices(instance, &mut count, ptr::null_mut());
-    if rc != 0 || count == 0 {
-        vk_destroy_instance(instance, ptr::null());
-        return None;
-    }
-
-    let mut devices = vec![ptr::null_mut(); count.min(8) as usize];
-    let mut fetch_count = devices.len() as u32;
-    let rc = vk_enumerate_physical_devices(instance, &mut fetch_count, devices.as_mut_ptr());
-    if rc != 0 && rc != 5 {
-        // 5 = VK_INCOMPLETE
-        vk_destroy_instance(instance, ptr::null());
-        return None;
-    }
-
-    let dev = devices.into_iter().find(|d| !d.is_null());
-    let Some(phys_dev) = dev else {
-        vk_destroy_instance(instance, ptr::null());
-        return None;
-    };
-
-    let mut props: VkPhysicalDevicePropertiesRaw = std::mem::zeroed();
-    vk_get_physical_device_properties(phys_dev, &mut props);
-    vk_destroy_instance(instance, ptr::null());
-
-    let device_name = c_char_buf_to_string(&props.device_name);
-    if device_name.is_empty() {
-        return None;
-    }
-
-    let major = (props.api_version >> 22) & 0x7f;
-    let minor = (props.api_version >> 12) & 0x3ff;
-    let patch = props.api_version & 0xfff;
-    let api_version_str = format!("{major}.{minor}.{patch}");
-
-    let (vendor, vendor_name) = match props.vendor_id {
-        0x5143 => (GpuVendor::Other, "Qualcomm".to_string()),
-        0x13b5 => (GpuVendor::Other, "ARM".to_string()),
-        0x1010 => (GpuVendor::Other, "Imagination".to_string()),
-        0x10de => (GpuVendor::Nvidia, "NVIDIA".to_string()),
-        0x1002 => (GpuVendor::Amd, "AMD".to_string()),
-        0x8086 => (GpuVendor::Intel, "Intel".to_string()),
-        _ => classify_gpu_vendor("", &device_name),
-    };
-
-    Some(VulkanProbeResult {
-        device_name,
-        vendor,
-        vendor_name,
-        api_version_str,
-    })
 }
 
 struct EglProbeResult {
@@ -663,15 +523,27 @@ fn read_android_gpu_clock_mhz() -> MetricValue<u32> {
     let mut failure = MetricValue::Unsupported(
         "No supported GPU clock interface exposed by device/driver".into(),
     );
-    for (path, divisor) in [
-        ("/sys/class/kgsl/kgsl-3d0/clock_mhz", 1),
-        ("/sys/class/kgsl/kgsl-3d0/gpuclk", 1_000_000),
+    static DEVFREQ: OnceLock<Result<Vec<std::path::PathBuf>, ErrorKind>> = OnceLock::new();
+    let discovered = DEVFREQ.get_or_init(|| {
+        crate::platform::gpu_probe::discover_mali_devfreq(Path::new("/sys/class/devfreq"))
+            .map_err(|e| e.kind())
+    });
+    let mut sources = vec![
+        ("/sys/class/kgsl/kgsl-3d0/clock_mhz".to_owned(), 1),
+        ("/sys/class/kgsl/kgsl-3d0/gpuclk".to_owned(), 1_000_000),
         (
-            "/sys/class/misc/mali0/device/devfreq/mali0/cur_freq",
+            "/sys/class/misc/mali0/device/devfreq/mali0/cur_freq".to_owned(),
             1_000_000,
         ),
-    ] {
-        let result = read_metric(path, |raw| {
+    ];
+    match discovered {
+        Ok(paths)=>sources.extend(paths.iter().map(|p|(p.to_string_lossy().into_owned(),1_000_000))),
+        Err(ErrorKind::PermissionDenied)=>failure=MetricValue::PermissionError("Permission denied reading GPU devfreq discovery; Android sandbox or SELinux may restrict access".into()),
+        Err(ErrorKind::NotFound)=>{},
+        Err(kind)=>failure=MetricValue::Unavailable(format!("Sensor read failure: /sys/class/devfreq: {kind:?}")),
+    }
+    for (path, divisor) in sources {
+        let result = read_metric(&path, |raw| {
             match raw
                 .trim()
                 .parse::<u64>()
@@ -737,6 +609,7 @@ pub fn collect_android_gpus() -> Vec<GpuTelemetry> {
 
     let uma_reason = "Shared unified system memory (UMA); no dedicated VRAM".to_string();
     vec![GpuTelemetry {
+        vulkan: Some(Arc::clone(&identity.vulkan)),
         id: "android:gpu0".to_string(),
         name: identity.name.clone(),
         vendor: identity.vendor,

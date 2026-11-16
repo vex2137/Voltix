@@ -25,9 +25,11 @@ slint = { version = "1.9", features = ["backend-winit", "renderer-software"] }
 env_logger = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { version = "1.9", features = ["backend-android-activity-06"] }
+slint = { version = "1.9", default-features = false, features = ["std", "compat-1-2", "backend-android-activity-06"] }
 android_logger = "0.14"
 jni = "0.21.1"
+# Typed Vulkan ABI; already present transitively in Cargo.lock. No link-time Vulkan requirement.
+ash = { version = "0.38", default-features = false, features = ["loaded", "std"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -37,3 +39,15 @@ nvml-wrapper = "0.10"
 
 [build-dependencies]
 slint-build = "1.9"
+
+[dev-dependencies]
+ash = { version = "0.38", default-features = false, features = ["loaded", "std"] }
+
+# Android-only size profile: desktop Linux keeps its existing release settings.
+[profile.android-apk]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
