@@ -124,6 +124,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_network(ModelRc::new(VecModel::default()));
     window.set_cc_disks(ModelRc::new(VecModel::default()));
     window.set_cc_sensors(ModelRc::new(VecModel::default()));
+    window.set_desktop_sensor_groups(ModelRc::new(VecModel::default()));
     window.set_cc_system(ModelRc::new(VecModel::default()));
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
     window.set_cc_permission_rows(ModelRc::new(VecModel::default()));

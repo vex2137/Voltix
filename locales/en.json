@@ -489,5 +489,10 @@
   "probe_not_exposed": "Not exposed on Android",
   "probe_not_exposed_sysfs": "Not exposed via unprivileged sysfs",
   "probe_not_applicable": "Not applicable",
-  "hotfix_diagnostics": "Diagnostics"
+  "hotfix_diagnostics": "Diagnostics",
+  "desktop_temperatures": "Temperatures",
+  "desktop_clocks": "Clocks",
+  "desktop_fans": "Fans",
+  "desktop_power": "Power",
+  "desktop_other_sensors": "Other sensors"
 }

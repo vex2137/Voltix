@@ -9,6 +9,7 @@ export component ProcessesPage inherits Rectangle {
     // The page fills the content area; table contents must not enlarge the window.
     min-width: 0px; preferred-width: 0px; max-width: 100000px; horizontal-stretch: 1;
     min-height: 0px; preferred-height: 0px; max-height: 100000px; vertical-stretch: 1;
+    in property <bool> android-platform;
     in property <length> left-inset;
     in property <length> right-inset;
     in property <[ProcessItem]> rows;
@@ -30,7 +31,7 @@ export component ProcessesPage inherits Rectangle {
     changed quick => { root.keyboard-navigation = false; }
     changed own => { root.keyboard-navigation = false; }
     private property <bool> short: root.height < 640px;
-    private property <int> columns: root.width >= 850px || (root.short && root.width >= 500px) ? 3 : 2;
+    private property <int> columns: root.width >= 850px || (!root.android-platform && root.width >= 500px) || (root.short && root.width >= 500px) ? 3 : 2;
     VerticalLayout {
         padding-top: 12px; padding-bottom: 12px;
         padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset;
@@ -40,7 +41,7 @@ export component ProcessesPage inherits Rectangle {
             for r in (root.columns == 3 ? 2 : 3) : HorizontalLayout {
                 spacing: 6px;
                 for c in root.columns : Card {
-                    height: root.short ? 44px : 64px;
+                    height: root.short ? (root.android-platform ? 44px : 48px) : 64px;
                     horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; max-width: 100000px;
                     accessible-role: text;
                     accessible-label: root.summaries[r * root.columns + c].label + " " + root.summaries[r * root.columns + c].value + " " + root.summaries[r * root.columns + c].detail;
@@ -61,7 +62,7 @@ export component ProcessesPage inherits Rectangle {
         }
         HorizontalLayout {
             spacing: 6px;
-            for quick in [1,2] : Button { text: quick == 1 ? I18n.proc-high-cpu : I18n.proc-high-ram; primary: root.quick == quick; clicked => { root.quick = root.quick == quick ? 0 : quick; } }
+            for quick in (root.android-platform ? [1,2] : [0,1,2]) : Button { min-height: root.android-platform ? 0px : 28px; text: quick == 0 ? I18n.proc-all : (quick == 1 ? I18n.proc-high-cpu : I18n.proc-high-ram); primary: root.quick == quick; clicked => { root.quick = root.quick == quick ? 0 : quick; } }
             CheckBox { text: I18n.proc-own; checked <=> root.own; }
             Rectangle { horizontal-stretch: 1; }
         }
@@ -72,12 +73,12 @@ export component ProcessesPage inherits Rectangle {
                 horizontal-stretch: 1; min-width: 0px;
                 VerticalLayout {
                     padding: 4px; spacing: 2px;
-                    Rectangle { height: 30px; min-width: 0px; preferred-width: 0px; max-width: 100000px; horizontal-stretch: 1; ProcessRow { header: true; width: max(0px, parent.width - 14px); } }
+                    Rectangle { height: 30px; min-width: 0px; preferred-width: 0px; max-width: 100000px; horizontal-stretch: 1; ProcessRow { header: true; desktop: !root.android-platform; width: list.visible-width; } }
                     if root.rows.length == 0 : Text { text: root.available ? I18n.proc-no-match : I18n.cc-sample-wait; color: Theme.text-muted; wrap: word-wrap; }
                     list := ListView {
                         vertical-stretch: 1; min-height: 64px;
                         for row[index] in root.rows : ProcessRow {
-                            item: row; width: list.visible-width; selected: root.selected == row.key; keyboard-select: root.keyboard-navigation;
+                            item: row; row-index: index; desktop: !root.android-platform; width: list.visible-width; selected: root.selected == row.key; keyboard-select: root.keyboard-navigation;
                             activate(key) => { root.keyboard-navigation = false; root.selected = key; }
                             step(direction) => {
                                 if root.selected-index + direction >= 0 && root.selected-index + direction < root.rows.length {

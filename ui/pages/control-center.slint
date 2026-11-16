@@ -1,8 +1,9 @@
+import { DesktopSensors } from "../components/desktop-sensors.slint";
 import { TelemetryGrid } from "../components/telemetry-grid.slint";
 import { ScrollView, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
-import { ControlSummary, ControlRow } from "../models.slint";
+import { ControlSummary, ControlRow, DesktopSensorGroup } from "../models.slint";
 import { Card, SectionTitle, SummaryCard } from "../components/common.slint";
 import { CompactMetricRows } from "../components/compact-metric-rows.slint";
 import { TelemetryRows } from "../components/telemetry-rows.slint";
@@ -10,6 +11,7 @@ import { TelemetryChart } from "../components/chart.slint";
 import { HistoryPanel } from "../components/history-panel.slint";
 export component ControlCenter inherits Rectangle {
     in property <bool> android-platform;
+    in property <[DesktopSensorGroup]> desktop-sensor-groups;
     private property <bool> history-expanded: false;
     in property <length> left-inset;
     in property <length> right-inset;
@@ -84,7 +86,8 @@ export component ControlCenter inherits Rectangle {
                     SectionTitle { text: I18n.messages[151] + " · MangoHud"; }
                     Text { text: root.android-platform ? I18n.cc-android-fps-note : I18n.cc-fps-note; color: Theme.text-secondary; wrap: word-wrap; }
                     if !root.android-platform : Button { text: I18n.cc-open-studio; primary: true; clicked => { root.navigate(11); } }
-                    TelemetryGrid { rows: root.performance; }
+                    if root.android-platform : TelemetryGrid { rows: root.performance; }
+                    if !root.android-platform : DesktopSensors { groups: root.desktop-sensor-groups; overview: true; }
                 }
             }
             if root.width >= 950px : HorizontalLayout {
@@ -105,9 +108,11 @@ export component ControlCenter inherits Rectangle {
                     line-color: index == 0 ? Theme.cpu-color : Theme.gpu-color;
                 }
             }
-            if Theme.interface-mode == 1 : Card {
+            if Theme.interface-mode == 1 && root.android-platform : Card {
                 VerticalLayout { padding: 14px; spacing: 10px; SectionTitle { text: I18n.cc-sensors; } TelemetryGrid { rows: root.performance; } }
             }
+            if !root.android-platform && Theme.interface-mode != 2 : DesktopSensors { groups: root.desktop-sensor-groups; overview: true; }
+            if !root.android-platform : Button { text: I18n.cc-sensors; clicked => { root.navigate(9); } }
             Button { text: I18n.cc-history; primary: root.history-expanded; clicked => { root.history-expanded = !root.history-expanded; } }
             if root.history-expanded : HistoryPanel {
                 source <=> root.history-source; range <=> root.history-range;
@@ -124,7 +129,7 @@ export component ControlCenter inherits Rectangle {
                     Card { VerticalLayout { padding: 10px; spacing: 5px; alignment: start; SectionTitle { text: I18n.cc-activity; } if root.disks.length == 0 : Text { text: I18n.cc-no-disk; color: Theme.text-muted; wrap: word-wrap; } CompactMetricRows { rows: root.disks; } } }
                 }
             }
-            if Theme.interface-mode == 1 : Card {
+            if Theme.interface-mode == 1 && root.android-platform : Card {
                 VerticalLayout { padding: 14px; spacing: 10px; SectionTitle { text: I18n.cc-sensors; } if root.sensors.length == 0 : Text { text: I18n.cc-no-sensors; color: Theme.text-muted; wrap: word-wrap; } TelemetryGrid { rows: root.sensors; } }
             }
             Card { VerticalLayout { padding: 14px; spacing: 8px; SectionTitle { text: I18n.cc-system-info; } TelemetryGrid { rows: root.system; } } }

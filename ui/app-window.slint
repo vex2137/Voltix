@@ -3,9 +3,10 @@ import { DetailsPage } from "pages/details.slint";
 import { ProcessesPage } from "pages/processes.slint";
 import { DiagnosticsPage } from "pages/diagnostics.slint";
 import { MorePage } from "pages/more.slint";
-import { ControlRow, ControlSummary, ProcessItem } from "models.slint";
-export { ControlRow, ControlSummary, ProcessItem }
-import { Palette } from "std-widgets.slint";
+import { DesktopSensors } from "components/desktop-sensors.slint";
+import { ControlRow, ControlSummary, ProcessItem, DesktopSensorGroup } from "models.slint";
+export { ControlRow, ControlSummary, ProcessItem, DesktopSensorGroup }
+import { Palette, ScrollView } from "std-widgets.slint";
 import { Theme } from "themes/theme.slint";
 import { I18n } from "i18n/strings.slint";
 import { CoreRowItem, GpuItem, StorageItem, SystemGpuItem } from "models.slint";
@@ -70,6 +71,7 @@ export component AppWindow inherits Window {
     in property <[ControlRow]> cc-network;
     in property <[ControlRow]> cc-disks;
     in property <[ControlRow]> cc-sensors;
+    in property <[DesktopSensorGroup]> desktop-sensor-groups;
     in property <[ControlRow]> cc-system;
     in property <[ControlRow]> cc-diagnostics;
     in property <[ControlRow]> cc-detail-rows;
@@ -443,6 +445,7 @@ export component AppWindow inherits Window {
                     width: 100%; height: 100%;
                     summaries: root.cc-summaries; performance: root.cc-performance; network: root.cc-network;
                     disks: root.cc-disks; sensors: root.cc-sensors; system: root.cc-system;
+                    desktop-sensor-groups: root.desktop-sensor-groups;
                     cpu-line: root.cpu-line-commands; cpu-area: root.cpu-area-commands; cpu-data: root.cpu-has-history;
                     gpu-line: root.gpu-line-commands; gpu-area: root.gpu-area-commands; gpu-data: root.gpu-has-history;
                     history-source <=> root.cc-chart-source; history-range <=> root.cc-chart-range;
@@ -450,7 +453,7 @@ export component AppWindow inherits Window {
                     history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
                     navigate(page) => { root.navigate-to(page); }
                 }
-                if root.current-page == 7 || root.current-page == 8 || root.current-page == 9 || (root.current-page == 13 && !root.android-platform) : DetailsPage {
+                if root.current-page == 7 || root.current-page == 8 || (root.current-page == 9 && root.android-platform) || (root.current-page == 13 && !root.android-platform) : DetailsPage {
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
                     width: 100%; height: 100%;
                     title: root.cc-detail-title; note: root.cc-detail-note; rows: root.cc-detail-rows;
@@ -462,6 +465,16 @@ export component AppWindow inherits Window {
                     history-line: root.cc-history-line; history-area: root.cc-history-area; history-data: root.cc-history-data;
                     history-current: root.cc-history-current; history-max: root.cc-history-max; history-min: root.cc-history-min;
                 }
+                if root.current-page == 9 && !root.android-platform : Rectangle {
+                    width: 100%; height: 100%;
+                    ScrollView { width: 100%; height: 100%;
+                        VerticalLayout { width: max(0px, parent.width - 14px); padding: 16px; spacing: 12px; alignment: start;
+                            Text { text: I18n.cc-sensors; color: Theme.text-primary; font-size: 18px; font-weight: 600; }
+                            if root.cc-detail-note != "" : Text { text: root.cc-detail-note; color: Theme.text-muted; font-size: 12px; wrap: word-wrap; }
+                            DesktopSensors { groups: root.desktop-sensor-groups; }
+                        }
+                    }
+                }
                 if root.current-page == 13 && root.android-platform : DiagnosticsPage {
                     width: 100%; height: 100%; android-platform: root.android-platform;
                     left-inset: root.safe-area-insets.left; right-inset: root.safe-area-insets.right;
@@ -470,6 +483,7 @@ export component AppWindow inherits Window {
                     open-app-settings => { root.cc-app-settings(); }
                 }
                 if root.current-page == 10 : ProcessesPage {
+                    android-platform: root.android-platform;
                     left-inset: root.android-platform ? root.safe-area-insets.left : 0px; right-inset: root.android-platform ? root.safe-area-insets.right : 0px;
                     width: 100%; height: 100%; rows: root.proc-rows; available: root.cc-processes-available;
                     summaries: root.proc-summaries; details: root.proc-detail-rows; detail-note: root.proc-detail-note; count-note: root.proc-count-note;

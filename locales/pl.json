@@ -489,5 +489,10 @@
   "probe_not_exposed": "Nieudostępniane przez Androida",
   "probe_not_exposed_sysfs": "Nieudostępniane przez sysfs nieuprzywilejowanym aplikacjom",
   "probe_not_applicable": "Nie dotyczy",
-  "hotfix_diagnostics": "Diagnostyka"
+  "hotfix_diagnostics": "Diagnostyka",
+  "desktop_temperatures": "Temperatury",
+  "desktop_clocks": "Zegary",
+  "desktop_fans": "Wentylatory",
+  "desktop_power": "Moc",
+  "desktop_other_sensors": "Pozostałe czujniki"
 }

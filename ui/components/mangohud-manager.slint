@@ -1,7 +1,8 @@
 import { I18n } from "../i18n/strings.slint";
 import { LineEdit, TextEdit, CheckBox, ComboBox, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
-import { SegmentedOption, SectionTitle } from "common.slint";
+import { DesktopAction } from "desktop-controls.slint";
+import { Card, SegmentedOption, SectionTitle } from "common.slint";
 
 export component MangoHudManager inherits Rectangle {
     in-out property <string> config;
@@ -27,41 +28,52 @@ export component MangoHudManager inherits Rectangle {
     private property <[string]> appearance-keys: ["position", "font_size", "font_scale", "font_file", "alpha", "background_alpha", "text_color", "background_color", "cpu_color", "gpu_color", "ram_color", "vram_color", "frametime_color", "width", "height", "table_columns", "legacy_layout", "reload_cfg"];
     private property <[string]> metric-labels: ["FPS", I18n.messages[150], I18n.messages[73], I18n.messages[74], I18n.messages[75], I18n.messages[3], I18n.messages[5], "RAM", "VRAM", I18n.messages[76], I18n.messages[77], I18n.messages[4], I18n.messages[78], I18n.messages[6], I18n.messages[79], I18n.messages[80], I18n.messages[81], I18n.messages[82], I18n.messages[83], I18n.messages[84], I18n.messages[85], I18n.messages[86], I18n.messages[87], I18n.messages[88], I18n.messages[89], I18n.messages[90], "Wine / Proton", I18n.messages[91], I18n.messages[92], I18n.messages[93], I18n.messages[94], I18n.messages[95]];
     private property <int> section: 0;
-    min-height: 500px;
+    min-height: 0px;
     min-width: 0px;
     VerticalLayout {
-        padding: 16px;
-        spacing: 10px;
+        padding: 14px;
+        spacing: 12px;
+        alignment: start;
         SectionTitle { text: I18n.messages[52]; }
-        Text { text: "MangoHud 0.8.4 · Linux · Vulkan / OpenGL / Proton"; color: Theme.text-secondary; }
-        Text { text: root.status; color: Theme.text-primary; wrap: word-wrap; }
+        Text { text: "MangoHud 0.8.4 · Linux · Vulkan / OpenGL / Proton"; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+        if root.status != "" : Text { text: root.status; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
         if root.width >= 650px : HorizontalLayout {
             spacing: 6px;
-            for name[index] in [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply] : Button { text: name; primary: root.section == index; clicked => { root.section = index; } }
+            for name[index] in [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply] : DesktopAction { label: name; kind: root.section == index ? 1 : 0; clicked => { root.section = index; } }
         }
         if root.width < 650px : ComboBox { model: [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply]; current-index <=> root.section; }
         if root.section == 0 : VerticalLayout {
             spacing: 10px;
-        Text { text: I18n.messages[53]; color: Theme.text-secondary; wrap: word-wrap; }
-        ComboBox { model: root.profiles; selected(value) => { root.profile-name = value; } }
-        LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; }
-        VerticalLayout {
-            spacing: 6px;
-            for action in ["load", "save", "duplicate"] : SegmentedOption {
-                height: 40px; label: action == "load" ? I18n.messages[96] : (action == "save" ? I18n.messages[97] : I18n.messages[98]);
-                clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+        Card { VerticalLayout { padding: 12px; spacing: 8px; alignment: start;
+            SectionTitle { text: I18n.cc-profiles; font-size: 12px; }
+            Text { text: I18n.messages[53]; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+            if root.width >= 500px : HorizontalLayout { spacing: 8px;
+                ComboBox { model: root.profiles; horizontal-stretch: 1; min-width: 0px; selected(value) => { root.profile-name = value; } }
+                LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; horizontal-stretch: 1; min-width: 0px; }
             }
-        }
-        VerticalLayout {
-            spacing: 6px;
-            for action in ["review-save", "delete"] : SegmentedOption {
-                height: 40px; label: action == "review-save" ? I18n.messages[55] : I18n.messages[56];
-                clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+            if root.width < 500px : VerticalLayout { spacing: 6px;
+                ComboBox { model: root.profiles; selected(value) => { root.profile-name = value; } }
+                LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; }
             }
-        }
-        Text { text: I18n.messages[68]; color: Theme.text-secondary; wrap: word-wrap; }
-        CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
-        Button { text: I18n.messages[69]; clicked => { root.manage("confirm", "", root.file-path, root.config, root.confirmed); root.confirmed = false; } }
+            HorizontalLayout { spacing: 6px;
+                for action in ["load", "save", "duplicate"] : DesktopAction {
+                    label: action == "load" ? I18n.messages[96] : (action == "save" ? I18n.messages[97] : I18n.messages[98]);
+                    kind: action == "save" ? 1 : 0;
+                    clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+                }
+            }
+        } }
+        Card { VerticalLayout { padding: 12px; spacing: 8px; alignment: start;
+            HorizontalLayout { spacing: 6px;
+                for action in ["review-save", "delete"] : DesktopAction {
+                    label: action == "review-save" ? I18n.messages[55] : I18n.messages[56]; kind: action == "delete" ? 2 : 0;
+                    clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+                }
+            }
+            Text { text: I18n.messages[68]; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+            CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
+            DesktopAction { label: I18n.messages[69]; kind: 2; enabled: root.confirmed; clicked => { root.manage("confirm", "", root.file-path, root.config, root.confirmed); root.confirmed = false; } }
+        } }
 
         }
         if root.section == 1 : VerticalLayout {
@@ -79,9 +91,11 @@ export component MangoHudManager inherits Rectangle {
             spacing: 10px;
         Text { text: I18n.messages[58]; color: Theme.text-secondary; wrap: word-wrap; }
         for row in (root.width < 700px ? 18 : 9) : HorizontalLayout {
+            spacing: 12px;
             for column in (root.width < 700px ? 1 : 2) : HorizontalLayout {
+                min-width: 0px; spacing: 6px;
                 visible: row * (root.width < 700px ? 1 : 2) + column < 18;
-                Text { text: root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column]; color: Theme.text-secondary; width: 130px; vertical-alignment: center; }
+                Text { text: root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column]; color: Theme.text-secondary; width: root.width < 700px ? 120px : 140px; font-size: 11px; vertical-alignment: center; overflow: elide; }
                 LineEdit {
                     text: root.values[row * (root.width < 700px ? 1 : 2) + column];
                     accepted => { root.manage("option", root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column], "", self.text, false); }
@@ -112,21 +126,22 @@ export component MangoHudManager inherits Rectangle {
         SegmentedOption { height: 38px; label: I18n.messages[61]; clicked => { root.manage("edit", "", "", editor.text, false); } }
         Text { text: I18n.messages[62]; color: Theme.text-secondary; wrap: word-wrap; }
         game-input := LineEdit { text: root.game; accepted => { root.manage("game", "", "", self.text, false); } }
-        VerticalLayout {
+        HorizontalLayout {
             spacing: 6px;
-            SegmentedOption { height: 38px; label: I18n.messages[63]; clicked => { root.manage("game", "", "", game-input.text, false); } }
-            SegmentedOption { height: 38px; label: I18n.messages[64]; clicked => { root.manage("copy", "", "", "", false); } }
+            DesktopAction { label: I18n.messages[63]; clicked => { root.manage("game", "", "", game-input.text, false); } }
+            DesktopAction { label: I18n.messages[64]; clicked => { root.manage("copy", "", "", "", false); } }
         }
         Text { text: I18n.messages[65]; color: Theme.text-secondary; wrap: word-wrap; }
         LineEdit { text <=> root.file-path; }
-        VerticalLayout {
-            spacing: 6px;
-            for action in ["import", "export", "review", "target"] : SegmentedOption {
-                height: 38px; label: action == "review" ? I18n.messages[66] : (action == "target" ? I18n.messages[67] : (action == "import" ? I18n.messages[99] : I18n.messages[100]));
-                clicked => { root.manage(action, "", root.file-path, editor.text, false); root.confirmed = false; }
+        for pair in 2 : HorizontalLayout { spacing: 6px;
+            for c in 2 : DesktopAction {
+                private property <string> action: ["import", "export", "review", "target"][pair * 2 + c];
+                label: self.action == "review" ? I18n.messages[66] : (self.action == "target" ? I18n.messages[67] : (self.action == "import" ? I18n.messages[99] : I18n.messages[100]));
+                kind: self.action == "review" ? 1 : 0;
+                clicked => { root.manage(self.action, "", root.file-path, editor.text, false); root.confirmed = false; }
             }
         }
-        Text { text: root.status; color: Theme.text-primary; wrap: word-wrap; }
+        if root.status != "" : Text { text: root.status; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
         if root.review-after != "" : VerticalLayout {
             Text { text: I18n.messages[70]; color: Theme.text-secondary; }
             TextEdit { height: 100px; text: root.review-before; read-only: true; }
@@ -135,7 +150,7 @@ export component MangoHudManager inherits Rectangle {
         }
         Text { text: I18n.messages[68]; color: Theme.text-secondary; wrap: word-wrap; }
         CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
-        SegmentedOption { height: 42px; label: I18n.messages[69]; clicked => { root.manage("confirm", "", root.file-path, editor.text, root.confirmed); root.confirmed = false; } }
+        DesktopAction { label: I18n.messages[69]; kind: 2; enabled: root.confirmed; clicked => { root.manage("confirm", "", root.file-path, editor.text, root.confirmed); root.confirmed = false; } }
         Text { text: I18n.messages[72]; color: Theme.text-secondary; wrap: word-wrap; }
         }
 

@@ -1,6 +1,7 @@
 import { ScrollView, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
+import { DesktopNavItem } from "desktop-controls.slint";
 export component Sidebar inherits Rectangle {
     in-out property <int> current-page: 0;
     in property <string> os-label: "Linux";
@@ -26,13 +27,13 @@ export component Sidebar inherits Rectangle {
                 for destination[index] in [0,1,2,3,4,7,8,9,10,11,5,6] : Rectangle {
                     height: destination == 8 && !root.has-battery ? 0px : 38px;
                     vertical-stretch: 0;
-                    Button {
-                    width: 100%; height: 100%;
-                    visible: destination != 8 || root.has-battery;
-                    text: ["◉  " + I18n.nav-dashboard, "▦  " + I18n.nav-cpu, "◈  " + I18n.nav-gpu, "▤  " + I18n.cc-memory, "▣  " + I18n.cc-storage, "⇄  " + I18n.cc-network, "⚡  " + I18n.cc-battery, "◌  " + I18n.cc-sensors, "≡  " + I18n.cc-processes, "⌁  " + I18n.cc-studio, "ⓘ  " + I18n.cc-system, "⚙  " + I18n.cc-settings][index];
-                    primary: root.current-page == destination;
-
-                    clicked => { root.current-page = destination; }
+                    DesktopNavItem {
+                        width: 100%; height: 100%; has-icon: true;
+                        visible: destination != 8 || root.has-battery;
+                        label: [I18n.nav-dashboard,I18n.nav-cpu,I18n.nav-gpu,I18n.cc-memory,I18n.cc-storage,I18n.cc-network,I18n.cc-battery,I18n.cc-sensors,I18n.cc-processes,I18n.cc-studio,I18n.cc-system,I18n.cc-settings][index];
+                        icon: [@image-url("../../assets/icons/mobile/dashboard.svg"),@image-url("../../assets/icons/mobile/cpu.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/memory.svg"),@image-url("../../assets/icons/mobile/disk.svg"),@image-url("../../assets/icons/mobile/network.svg"),@image-url("../../assets/icons/mobile/battery.svg"),@image-url("../../assets/icons/mobile/sensor.svg"),@image-url("../../assets/icons/mobile/system.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/system.svg"),@image-url("../../assets/icons/mobile/settings.svg")][index];
+                        active: root.current-page == destination;
+                        clicked => { root.current-page = destination; }
                     }
                 }
             }

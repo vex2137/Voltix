@@ -31,3 +31,5 @@ pub fn android_main(app: slint::android::AndroidApp) {
         log::error!("Voltix Android exited with UI error: {err}");
     }
 }
+
+pub mod desktop_sensors;

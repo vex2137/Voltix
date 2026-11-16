@@ -207,6 +207,7 @@ jobs:
         env:
           ARTIFACT_URL: ${{ steps.appimage.outputs.artifact-url }}
         run: |
+          echo "::notice title=Download Linux AppImage::$ARTIFACT_URL"
           {
             echo "### Voltix Alpha 4 pre-release test build"
             echo "[Download AppImage, checksum and source information]($ARTIFACT_URL)"
@@ -218,9 +219,10 @@ jobs:
 
   android-arm64-apk:
     if: >-
-      github.ref_name != 'feat/alpha4-performance-ui' ||
-      (github.event_name != 'workflow_dispatch' &&
-       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, '[linux-ui]')) &&
+      (github.ref_name != 'feat/alpha4-performance-ui' ||
+       (github.event_name != 'workflow_dispatch' &&
+        !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]'))))
     name: Android ARM64-v8a (API 26+ APK)
     runs-on: ubuntu-latest
 

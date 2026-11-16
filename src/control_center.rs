@@ -570,6 +570,9 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
             loc,
         ),
     ];
+    if !window.get_android_platform() {
+        crate::desktop_sensors::render(window, &performance, &e.sensors, loc);
+    }
     rows(window.get_cc_performance(), performance);
     let network: Vec<_> = e
         .network
