@@ -1,6 +1,10 @@
 use std::process::Command;
 
 fn main() {
+    // Keep native loading compatible with Android devices using 16 KiB pages.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        println!("cargo:rustc-link-arg-cdylib=-Wl,-z,max-page-size=16384");
+    }
     println!("cargo:rerun-if-env-changed=VOLTIX_SOURCE_COMMIT");
     println!("cargo:rerun-if-changed=.git/HEAD");
     if let Ok(output) = Command::new("git")

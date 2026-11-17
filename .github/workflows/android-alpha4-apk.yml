@@ -1,5 +1,5 @@
 name: Alpha 4 Android APK download
-run-name: Alpha 4 standard Android monitoring
+run-name: Alpha 4 optimized Android APK
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ github.sha }}
       CARGO_TERM_COLOR: always
-      APK_NAME: Voltix-0.1.0-alpha.4-standard-arm64-debug.apk
+      APK_NAME: Voltix-0.1.0-alpha.4-optimized-arm64-debug.apk
 
     steps:
       - name: Check out the exact Alpha 4 source
@@ -94,8 +94,25 @@ jobs:
 
       - name: Build ARM64 native library
         run: |
-          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --release
+          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
           test -s android/app/src/main/jniLibs/arm64-v8a/libvoltix.so
+
+      - name: Verify Android dependency graph and retained native entry points
+        run: |
+          mkdir -p artifacts
+          cargo tree --locked --target aarch64-linux-android -e normal --prefix none > artifacts/ANDROID-CARGO-TREE.txt
+          python3 - <<'PYGRAPH'
+          from pathlib import Path
+          graph = Path('artifacts/ANDROID-CARGO-TREE.txt').read_text()
+          assert 'i-slint-backend-android-activity ' in graph
+          assert 'i-slint-renderer-skia ' in graph
+          for unused in ['i-slint-backend-winit ', 'i-slint-renderer-femtovg ', 'i-slint-renderer-software ']:
+              assert unused not in graph, f'Unexpected Android rendering dependency: {unused}'
+          PYGRAPH
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D --defined-only android/app/src/main/jniLibs/arm64-v8a/libvoltix.so > artifacts/ANDROID-EXPORTS.txt
+          for symbol in android_main Java_com_voltix_monitor_VoltixActivity_nativeSnapshot Java_com_voltix_monitor_VoltixActivity_nativeCommand Java_com_voltix_monitor_VoltixActivity_nativePollingInterval Java_com_voltix_monitor_VoltixActivity_nativeExportJson; do
+            grep -w "$symbol" artifacts/ANDROID-EXPORTS.txt
+          done
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
@@ -136,7 +153,7 @@ jobs:
           apk = pathlib.Path('artifacts') / os.environ['APK_NAME']
           metadata = pathlib.Path('artifacts/APK-METADATA.txt').read_text()
           expected = [
-              "package: name='com.voltix.monitor.alpha4test' versionCode='10' versionName='0.1.0-alpha.4'",
+              "package: name='com.voltix.monitor.alpha4test' versionCode='11' versionName='0.1.0-alpha.4'",
               "sdkVersion:'26'", "targetSdkVersion:'35'", "native-code: 'arm64-v8a'",
               'application-debuggable',
           ]
@@ -169,6 +186,27 @@ jobs:
           gradle -p android :app:dependencies --configuration debugRuntimeClasspath -PvoltixPreview=true --no-daemon --max-workers=2 > artifacts/ANDROID-DEPENDENCIES.txt
           python3 scripts/verify_android_apk.py "artifacts/$APK_NAME" --manifest-dump artifacts/APK-MANIFEST.txt --dependencies artifacts/ANDROID-DEPENDENCIES.txt | tee artifacts/ANDROID-AUDIT.json
 
+      - name: Measure APK components and verify native loading compatibility
+        run: |
+          python3 scripts/apk_size_report.py "artifacts/$APK_NAME" --output artifacts/APK-SIZE.json
+          python3 - <<'PYSIZE'
+          import json
+          size = json.load(open('artifacts/APK-SIZE.json'))['before']
+          assert size['abis'] == ['arm64-v8a']
+          assert size['apk_bytes'] <= 17 * 1024 * 1024, 'APK exceeds the 17 MiB regression budget'
+          assert size['ordinary_symbol_bytes'] == 0
+          assert size['debug_section_bytes'] == 0
+          assert min(size['elf_load_alignments']) >= 16384
+          baseline = json.load(open('docs/ANDROID-APK-BASELINE.json'))
+          before = baseline['apk']
+          comparison = {'baseline_commit': baseline['source_commit'], 'before': before, 'after': size,
+                        'saved_bytes': before['apk_bytes'] - size['apk_bytes'],
+                        'saved_percent': round(100 * (1 - size['apk_bytes'] / before['apk_bytes']), 2)}
+          with open('artifacts/APK-COMPARISON.json', 'w') as report:
+              json.dump(comparison, report, indent=2)
+          PYSIZE
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "artifacts/$APK_NAME" > artifacts/APK-ALIGNMENT.txt
+
       - name: Record and verify APK SHA-256 and source provenance
         working-directory: artifacts
         env:
@@ -181,7 +219,7 @@ jobs:
             echo "Source commit: $SOURCE_COMMIT"
             echo "Workflow commit: $WORKFLOW_COMMIT"
             echo "Run: $RUN_URL"
-            echo 'Rust profile: release; APK variant: isolated debug preview; package: com.voltix.monitor.alpha4test; signing: cached Android debug key'
+            echo 'Rust profile: android-apk; APK variant: isolated debug preview; package: com.voltix.monitor.alpha4test; signing: cached Android debug key'
             echo 'Minimum Android API: 26; target API: 35; ABI: arm64-v8a'
             echo 'Android device appearance and Mali telemetry access are not verified by this workflow.'
             rustc --version
@@ -192,7 +230,7 @@ jobs:
         id: apk
         uses: actions/upload-artifact@v4
         with:
-          name: Voltix-Alpha4-Standard-ARM64-APK
+          name: Voltix-Alpha4-Optimized-ARM64-APK
           path: artifacts/
           if-no-files-found: error
           compression-level: 0
@@ -204,8 +242,9 @@ jobs:
         run: |
           echo "::notice title=Download Android APK::$ARTIFACT_URL"
           echo "::notice title=APK SHA-256::$(cat artifacts/SHA256SUMS)"
+          echo "::notice title=APK size report::$(python3 -c 'import json; print(json.dumps(json.load(open("artifacts/APK-SIZE.json"))))')"
           {
-            echo '## Voltix Alpha 4 — standard Android monitoring'
+            echo '## Voltix Alpha 4 — optimized Android APK'
             echo "[Download APK and verification files (ZIP)]($ARTIFACT_URL)"
             echo ''
             echo "Source commit: \`$SOURCE_COMMIT\`"

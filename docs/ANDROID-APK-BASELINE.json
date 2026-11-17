@@ -1,0 +1,81 @@
+{
+  "source_commit": "e3737cb0eefc6ebfb82c2e93627848fb5a140115",
+  "rust_profile": "release",
+  "apk_variant": "debug preview, local signing key; measurement only",
+  "apk": {
+    "file": "app-debug.apk",
+    "apk_bytes": 36915166,
+    "sha256": "22bf05a5533e61dc05f23ce85018c6ec8f80fe542a41b6518bc7fbc2c1bf4790",
+    "abis": [
+      "arm64-v8a"
+    ],
+    "native_bytes": 36894000,
+    "largest_entries": [
+      {
+        "path": "lib/arm64-v8a/libvoltix.so",
+        "bytes": 36894000,
+        "compressed_bytes": 36894000,
+        "zip_method": 0
+      },
+      {
+        "path": "classes2.dex",
+        "bytes": 12156,
+        "compressed_bytes": 6649,
+        "zip_method": 8
+      },
+      {
+        "path": "AndroidManifest.xml",
+        "bytes": 3004,
+        "compressed_bytes": 1093,
+        "zip_method": 8
+      },
+      {
+        "path": "classes.dex",
+        "bytes": 1616,
+        "compressed_bytes": 813,
+        "zip_method": 8
+      },
+      {
+        "path": "resources.arsc",
+        "bytes": 1068,
+        "compressed_bytes": 1068,
+        "zip_method": 0
+      },
+      {
+        "path": "res/drawable/ic_launcher_fg.xml",
+        "bytes": 972,
+        "compressed_bytes": 449,
+        "zip_method": 8
+      },
+      {
+        "path": "res/mipmap-anydpi-v26/ic_launcher.xml",
+        "bytes": 448,
+        "compressed_bytes": 220,
+        "zip_method": 8
+      },
+      {
+        "path": "res/mipmap-anydpi-v26/ic_launcher_round.xml",
+        "bytes": 448,
+        "compressed_bytes": 220,
+        "zip_method": 8
+      }
+    ],
+    "elf_load_alignments": [
+      4096,
+      4096,
+      4096,
+      4096
+    ],
+    "elf_sections": {
+      ".dynsym": 9264,
+      ".dynstr": 5631,
+      ".rodata": 4283460,
+      ".eh_frame": 2071316,
+      ".text": 15173052,
+      ".symtab": 3822096,
+      ".strtab": 8641699
+    },
+    "ordinary_symbol_bytes": 12463795,
+    "debug_section_bytes": 0
+  }
+}

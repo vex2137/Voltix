@@ -94,16 +94,19 @@ Build the Android native library and debug APK locally (requires Android SDK 35,
 
 ```bash
 rustup target add aarch64-linux-android
-cargo ndk -t arm64-v8a -p 26 -o android/app/src/main/jniLibs build --lib --release
+cargo ndk -t arm64-v8a -p 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
 gradle -p android assembleDebug --no-daemon
 ```
+
+Android uses a dedicated size profile; Linux release defaults remain unchanged.
+See [APK size investigation and verification](docs/ANDROID-APK-SIZE.md).
 
 ## Continuous Integration
 
 GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 
 1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-Alpha4-test-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-alpha4-test-linux-x86_64`).
-2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.4-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
+2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --profile android-apk` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.4-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
 
 ## Known Limitations (Alpha 1)
 
