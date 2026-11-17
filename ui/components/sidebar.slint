@@ -10,6 +10,7 @@ export component Sidebar inherits Rectangle {
     in property <bool> has-battery;
     width: 192px;
     background: Theme.bg-sidebar;
+    Rectangle { x: parent.width - 1px; width: 1px; height: 100%; background: Theme.border-subtle.with-alpha(0.45); }
     VerticalLayout {
         padding: 12px; spacing: 12px;
         HorizontalLayout {
@@ -23,7 +24,7 @@ export component Sidebar inherits Rectangle {
         ScrollView {
             vertical-stretch: 1;
             VerticalLayout {
-                padding-right: 4px; spacing: 5px;
+                padding-right: 4px; spacing: 4px;
                 for destination[index] in [0,1,2,3,4,7,8,9,10,11,5,6] : Rectangle {
                     height: destination == 8 && !root.has-battery ? 0px : 38px;
                     vertical-stretch: 0;
@@ -31,7 +32,7 @@ export component Sidebar inherits Rectangle {
                         width: 100%; height: 100%; has-icon: true;
                         visible: destination != 8 || root.has-battery;
                         label: [I18n.nav-dashboard,I18n.nav-cpu,I18n.nav-gpu,I18n.cc-memory,I18n.cc-storage,I18n.cc-network,I18n.cc-battery,I18n.cc-sensors,I18n.cc-processes,I18n.cc-studio,I18n.cc-system,I18n.cc-settings][index];
-                        icon: [@image-url("../../assets/icons/mobile/dashboard.svg"),@image-url("../../assets/icons/mobile/cpu.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/memory.svg"),@image-url("../../assets/icons/mobile/disk.svg"),@image-url("../../assets/icons/mobile/network.svg"),@image-url("../../assets/icons/mobile/battery.svg"),@image-url("../../assets/icons/mobile/sensor.svg"),@image-url("../../assets/icons/mobile/system.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/system.svg"),@image-url("../../assets/icons/mobile/settings.svg")][index];
+                        icon: [@image-url("../../assets/icons/desktop/dashboard.svg"),@image-url("../../assets/icons/desktop/cpu.svg"),@image-url("../../assets/icons/desktop/gpu.svg"),@image-url("../../assets/icons/desktop/memory.svg"),@image-url("../../assets/icons/desktop/disk.svg"),@image-url("../../assets/icons/desktop/network.svg"),@image-url("../../assets/icons/desktop/battery.svg"),@image-url("../../assets/icons/desktop/sensor.svg"),@image-url("../../assets/icons/desktop/processes.svg"),@image-url("../../assets/icons/desktop/studio.svg"),@image-url("../../assets/icons/desktop/system.svg"),@image-url("../../assets/icons/desktop/settings.svg")][index];
                         active: root.current-page == destination;
                         clicked => { root.current-page = destination; }
                     }

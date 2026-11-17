@@ -46,9 +46,9 @@ export component ProcessesPage inherits Rectangle {
                     accessible-role: text;
                     accessible-label: root.summaries[r * root.columns + c].label + " " + root.summaries[r * root.columns + c].value + " " + root.summaries[r * root.columns + c].detail;
                     VerticalLayout {
-                        padding: 6px; spacing: 2px;
-                        Text { text: root.summaries[r * root.columns + c].label; font-size: 10px; color: Theme.text-muted; overflow: elide; }
-                        Text { text: root.summaries[r * root.columns + c].value + (root.short && r * root.columns + c >= 4 ? " · " + root.summaries[r * root.columns + c].detail : ""); font-size: root.short ? 14px : 17px; font-weight: 600; color: Theme.text-primary; overflow: elide; }
+                        padding: 6px; spacing: root.android-platform ? 2px : 1px;
+                        Text { text: root.summaries[r * root.columns + c].label; font-size: root.android-platform ? 10px : 11px; color: root.android-platform ? Theme.text-muted : Theme.text-secondary; overflow: elide; }
+                        Text { text: root.summaries[r * root.columns + c].value + (root.short && r * root.columns + c >= 4 ? " · " + root.summaries[r * root.columns + c].detail : ""); font-size: root.android-platform ? (root.short ? 14px : 17px) : (root.short ? 15px : 18px); font-weight: 600; color: Theme.text-primary; overflow: elide; }
                         if !root.short : Text { text: root.summaries[r * root.columns + c].detail; font-size: 11px; color: Theme.text-secondary; overflow: elide; }
                     }
                 }

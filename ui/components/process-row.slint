@@ -21,10 +21,10 @@ export component ProcessRow inherits Rectangle {
     horizontal-stretch: 1;
     max-width: 100000px;
     height: root.header ? 30px : 40px;
-    background: root.header ? Theme.bg-elevated : (root.selected ? Theme.accent-soft : (pointer.has-hover ? Theme.bg-hover : (root.desktop && Math.mod(root.row-index, 2) == 1 ? Theme.bg-app.with-alpha(0.55) : transparent)));
+    background: root.header ? Theme.bg-elevated : (root.selected ? Theme.accent-soft : (pointer.has-hover ? Theme.bg-hover : (root.desktop && Math.mod(root.row-index, 2) == 1 ? Theme.bg-app.with-alpha(0.4) : transparent)));
     border-radius: 4px;
-    border-width: focus.has-focus && root.selected && !root.header ? 1px : 0px;
-    border-color: Theme.accent;
+    border-width: root.selected && !root.header && (root.desktop || focus.has-focus) ? 1px : 0px;
+    border-color: focus.has-focus ? Theme.accent : Theme.accent.with-alpha(0.5);
     accessible-role: list-item;
     accessible-label: root.header ? I18n.proc-process-table : root.item.name + ", PID " + root.item.pid + ", CPU " + root.item.cpu-text + ", RAM " + root.item.memory-text + " MiB, " + root.item.state;
     forward-focus: focus;
@@ -42,26 +42,27 @@ export component ProcessRow inherits Rectangle {
         enabled: !root.header;
         clicked => { root.focused-key = root.item.key; focus.focus(); root.activate(root.item.key); }
     }
+    if root.desktop && root.header : Rectangle { y: parent.height - 1px; width: 100%; height: 1px; background: Theme.border-subtle.with-alpha(0.6); }
     HorizontalLayout {
-        padding-left: 10px; padding-right: 10px; spacing: root.desktop ? 8px : 10px;
-        Text { text: root.header ? I18n.proc-name : root.item.name; horizontal-stretch: 1; min-width: 60px; color: Theme.text-primary; font-size: 12px; font-weight: root.header ? 600 : 500; overflow: elide; vertical-alignment: center; }
-        if root.width >= (root.desktop ? 320px : 400px) : Text { text: root.header ? "PID" : root.item.pid; width: 54px; color: Theme.text-secondary; font-size: 11px; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
+        padding-left: root.desktop ? 12px : 10px; padding-right: root.desktop ? 12px : 10px; spacing: root.desktop ? 8px : 10px;
+        Text { text: root.header ? I18n.proc-name : root.item.name; horizontal-stretch: 1; min-width: 60px; color: root.desktop && root.header ? Theme.text-secondary : Theme.text-primary; font-size: root.desktop ? 13px : 12px; font-weight: root.header ? 600 : 500; overflow: elide; vertical-alignment: center; }
+        if root.width >= (root.desktop ? 320px : 400px) : Text { text: root.header ? "PID" : root.item.pid; width: 54px; color: Theme.text-secondary; font-size: root.desktop ? 12px : 11px; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
         Rectangle {
             width: 76px;
-            if !root.header : Rectangle { y: parent.height - 7px; height: root.desktop ? 4px : 3px; width: 100%; border-radius: 2px; background: root.desktop ? Theme.track-bg : transparent;
+            if !root.header : Rectangle { y: parent.height - (root.desktop ? 6px : 7px); height: root.desktop ? 4px : 3px; width: 100%; border-radius: 2px; background: root.desktop ? Theme.track-bg : transparent;
                 Rectangle { x: root.desktop ? 0px : parent.width * (1 - root.item.cpu / 100); height: 100%; width: parent.width * clamp(root.item.cpu / 100, 0, 1); border-radius: 2px; background: root.item.hot ? Theme.accent-amber : Theme.cpu-color.with-alpha(root.desktop ? 1 : 0.55); }
             }
-            Text { width: 100%; height: 100%; text: root.header ? "CPU" : root.item.cpu-text; color: root.item.hot && !root.header ? Theme.accent-amber : Theme.text-primary; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
+            Text { width: 100%; height: root.desktop && !root.header ? parent.height - 6px : parent.height; text: root.header ? "CPU" : root.item.cpu-text; color: root.item.hot && !root.header ? Theme.accent-amber : Theme.text-primary; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
         }
         Rectangle {
             width: 86px;
-            if !root.header : Rectangle { y: parent.height - 7px; height: root.desktop ? 4px : 3px; width: 100%; border-radius: 2px; background: root.desktop ? Theme.track-bg : transparent;
+            if !root.header : Rectangle { y: parent.height - (root.desktop ? 6px : 7px); height: root.desktop ? 4px : 3px; width: 100%; border-radius: 2px; background: root.desktop ? Theme.track-bg : transparent;
                 Rectangle { x: root.desktop ? 0px : parent.width * (1 - root.item.ram / 100); height: 100%; width: parent.width * clamp(root.item.ram / 100, 0, 1); border-radius: 2px; background: Theme.accent-emerald.with-alpha(root.desktop ? 1 : 0.55); }
             }
-            Text { width: 100%; height: 100%; text: root.header ? "RAM (MiB)" : root.item.memory-text; color: Theme.text-primary; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
+            Text { width: 100%; height: root.desktop && !root.header ? parent.height - 6px : parent.height; text: root.header ? "RAM (MiB)" : root.item.memory-text; color: Theme.text-primary; font-size: 12px; horizontal-alignment: right; vertical-alignment: center; }
         }
-        if root.show-user : Text { text: root.header ? I18n.proc-user : root.item.user; width: 84px; color: Theme.text-secondary; font-size: 11px; vertical-alignment: center; overflow: elide; }
-        if root.show-state : Text { text: root.header ? I18n.proc-state : root.item.state; width: 82px; color: root.item.running && !root.header ? Theme.accent-emerald : Theme.text-secondary; font-size: 11px; vertical-alignment: center; overflow: elide; }
-        if root.show-threads : Text { text: root.header ? I18n.proc-threads : root.item.threads; width: 46px; color: Theme.text-secondary; font-size: 11px; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
+        if root.show-user : Text { text: root.header ? I18n.proc-user : root.item.user; width: 84px; color: Theme.text-secondary; font-size: root.desktop ? 12px : 11px; vertical-alignment: center; overflow: elide; }
+        if root.show-state : Text { text: root.header ? I18n.proc-state : root.item.state; width: 82px; color: root.item.running && !root.header ? Theme.accent-emerald : Theme.text-secondary; font-size: root.desktop ? 12px : 11px; vertical-alignment: center; overflow: elide; }
+        if root.show-threads : Text { text: root.header ? I18n.proc-threads : root.item.threads; width: 46px; color: Theme.text-secondary; font-size: root.desktop ? 12px : 11px; horizontal-alignment: right; vertical-alignment: center; overflow: elide; }
     }
 }

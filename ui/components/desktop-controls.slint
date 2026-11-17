@@ -4,10 +4,10 @@ export component DesktopAction inherits Rectangle {
     in property <int> kind; // secondary, primary, destructive
     in property <bool> enabled: true;
     callback clicked();
-    min-width: 0px; height: 34px; vertical-stretch: 0;
+    min-width: 0px; height: 32px; preferred-width: 0px; horizontal-stretch: 1; vertical-stretch: 0;
     border-radius: Theme.radius-sm; border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : (root.kind == 2 ? Theme.accent-red.with-alpha(0.5) : Theme.border-subtle);
-    background: root.kind == 1 ? Theme.accent : (pointer.has-hover ? Theme.bg-hover : Theme.bg-app);
+    border-color: focus.has-focus ? Theme.accent : (root.kind == 1 ? Theme.accent : (root.kind == 2 ? Theme.accent-red.with-alpha(0.5) : Theme.border-subtle.with-alpha(0.65)));
+    background: root.kind == 1 ? (pointer.pressed ? Theme.accent.with-alpha(0.75) : Theme.accent) : (pointer.pressed ? Theme.accent-soft : (pointer.has-hover ? Theme.bg-hover : Theme.bg-app));
     opacity: root.enabled ? 1 : 0.5;
     accessible-role: button; accessible-label: root.label;
     forward-focus: focus;
@@ -25,13 +25,16 @@ export component DesktopNavItem inherits Rectangle {
     callback clicked();
     min-width: 0px; height: 36px; vertical-stretch: 0;
     border-radius: Theme.radius-sm;
-    background: root.active ? Theme.accent-soft : (pointer.has-hover ? Theme.bg-hover : transparent);
+    background: root.active || pointer.pressed ? Theme.accent-soft : (pointer.has-hover ? Theme.bg-hover : transparent);
     border-width: focus.has-focus ? 1px : 0px; border-color: Theme.accent;
     accessible-role: button; accessible-label: root.label; forward-focus: focus;
     if root.active : Rectangle { x: 0px; y: 8px; width: 3px; height: parent.height - 16px; border-radius: 2px; background: Theme.accent; }
-    HorizontalLayout { padding-left: 12px; padding-right: 8px; spacing: 10px;
-        if root.has-icon : Image { source: root.icon; width: 18px; height: 18px; colorize: root.active ? Theme.accent : Theme.text-muted; }
-        Text { text: root.label; color: root.active ? Theme.accent : Theme.text-secondary; font-size: 12px; font-weight: root.active ? 600 : 400; vertical-alignment: center; overflow: elide; min-width: 0px; }
+    HorizontalLayout { padding-left: 10px; padding-right: 6px; spacing: 8px;
+        if root.has-icon : Rectangle {
+            width: 20px;
+            Image { y: (parent.height - self.height) / 2; source: root.icon; width: 20px; height: 20px; image-fit: contain; colorize: root.active ? Theme.accent : Theme.text-secondary; }
+        }
+        Text { text: root.label; color: root.active ? Theme.accent : Theme.text-secondary; font-size: 12.5px; font-weight: root.active ? 600 : 500; vertical-alignment: center; overflow: elide; min-width: 0px; }
     }
     focus := FocusScope { key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.clicked(); return accept; } return reject; } }
     pointer := TouchArea { clicked => { focus.focus(); root.clicked(); } }
