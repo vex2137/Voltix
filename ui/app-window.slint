@@ -41,6 +41,13 @@ export component AppWindow inherits Window {
     }
     changed width => { root.update-breakpoints(); }
     changed safe-area-insets => { root.update-breakpoints(); }
+    in-out property <bool> shizuku-enabled;
+    in property <bool> shizuku-running;
+    in property <bool> shizuku-authorized;
+    in property <bool> shizuku-installed;
+    in property <[ControlRow]> shizuku-rows;
+    in property <[ControlRow]> shizuku-sources;
+    callback shizuku-action(int);
     in property <string> build-short;
     in property <[ControlRow]> cc-permission-rows;
     in property <[ControlRow]> cc-gpu-diagnostic-rows;
@@ -528,6 +535,11 @@ export component AppWindow inherits Window {
                 }
 
                 if root.current-page == 2 : GpuPage {
+                    android-platform: root.android-platform;
+                    shizuku-enabled <=> root.shizuku-enabled; shizuku-running: root.shizuku-running;
+                    shizuku-authorized: root.shizuku-authorized; shizuku-installed: root.shizuku-installed;
+                    shizuku-rows: root.shizuku-rows; shizuku-sources: root.shizuku-sources;
+                    shizuku-action(command) => { root.shizuku-action(command); }
                     width: 100%;
                     height: 100%;
                     compact: self.width < 1050px;

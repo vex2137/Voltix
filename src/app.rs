@@ -129,6 +129,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
     window.set_cc_permission_rows(ModelRc::new(VecModel::default()));
     window.set_cc_gpu_diagnostic_rows(ModelRc::new(VecModel::default()));
+    window.set_shizuku_rows(ModelRc::new(VecModel::default()));
+    window.set_shizuku_sources(ModelRc::new(VecModel::default()));
     window.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::default()));
     window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
     window.set_proc_rows(ModelRc::new(VecModel::default()));
@@ -364,6 +366,12 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
             }
         });
     }
+    window.on_shizuku_action(|action| {
+        #[cfg(target_os = "android")]
+        crate::platform::android_bridge::gpu_action(action);
+        #[cfg(not(target_os = "android"))]
+        let _ = action;
+    });
     window.on_cc_app_settings(|| {
         #[cfg(target_os = "android")]
         crate::platform::android_bridge::request_settings();
@@ -682,6 +690,8 @@ fn spawn_monitor_thread(
                 }
             }
 
+            #[cfg(target_os = "android")]
+            let mut paused = false;
             loop {
                 let (should_stop, interval) = match shared.lock() {
                     Ok(guard) => (
@@ -707,6 +717,23 @@ fn spawn_monitor_thread(
                     break;
                 }
 
+                #[cfg(target_os = "android")]
+                {
+                    if !crate::platform::android_bridge::snapshot().foreground {
+                        paused = true;
+                        if let Ok(guard) = shared.lock() {
+                            if guard.shutdown {
+                                break;
+                            }
+                            let _ = condvar.wait_timeout(guard, Duration::from_secs(1));
+                        }
+                        continue;
+                    }
+                    if paused {
+                        engine.resume_after_pause();
+                        paused = false;
+                    }
+                }
                 if let Ok(state) = shared.lock() {
                     engine.want_processes = state.settings.last_page == 10;
                     engine.selected_process = state.selected_process;

@@ -152,6 +152,11 @@ fn read_android_thermal_zone(keywords: &[&str]) -> (MetricValue<f64>, Option<Str
         if !keywords.iter().any(|kw| lower.contains(kw)) {
             continue;
         }
+        if keywords.iter().any(|k| *k == "gpu" || *k == "gpuss")
+            && !crate::platform::gpu_probe::gpu_thermal_type(&lower)
+        {
+            continue;
+        }
 
         match fs::read_to_string(dir.join("temp")) {
             Ok(raw) => {
@@ -735,6 +740,39 @@ fn read_android_gpu_temperature() -> MetricValue<f64> {
 pub fn collect_android_gpus() -> Vec<GpuTelemetry> {
     let identity = cached_android_gpu_identity();
 
+    let platform = crate::platform::android_bridge::snapshot();
+    let advanced = platform.shizuku.as_ref().map(|snapshot| {
+        crate::platform::shizuku::measurements(snapshot, platform.foreground, platform.elapsed_ms)
+    });
+    let prefer = |normal: MetricValue<f64>, selected: Option<f64>| {
+        if normal.is_available() {
+            normal
+        } else {
+            selected.map(MetricValue::Available).unwrap_or(normal)
+        }
+    };
+    let utilization = prefer(
+        read_android_gpu_utilization(),
+        advanced
+            .as_ref()
+            .and_then(|v| v.utilization.metric.copied()),
+    );
+    let temperature = prefer(
+        read_android_gpu_temperature(),
+        advanced
+            .as_ref()
+            .and_then(|v| v.temperature.metric.copied()),
+    );
+    let normal_clock = read_android_gpu_clock_mhz();
+    let clock = if normal_clock.is_available() {
+        normal_clock
+    } else {
+        advanced
+            .as_ref()
+            .and_then(|v| v.frequency.metric.copied())
+            .map(|v| MetricValue::Available(v as u32))
+            .unwrap_or(normal_clock)
+    };
     let uma_reason = "Shared unified system memory (UMA); no dedicated VRAM".to_string();
     vec![GpuTelemetry {
         id: "android:gpu0".to_string(),
@@ -743,13 +781,13 @@ pub fn collect_android_gpus() -> Vec<GpuTelemetry> {
         vendor_name: identity.vendor_name.clone(),
         pci_slot: None,
         driver_version: identity.driver_version.clone(),
-        utilization_percent: read_android_gpu_utilization(),
+        utilization_percent: utilization,
         vram_total_bytes: MetricValue::Unsupported(uma_reason.clone()),
         vram_used_bytes: MetricValue::Unsupported(uma_reason.clone()),
         vram_free_bytes: MetricValue::Unsupported(uma_reason.clone()),
         vram_utilization_percent: MetricValue::Unsupported(uma_reason),
-        temperature_celsius: read_android_gpu_temperature(),
-        core_clock_mhz: read_android_gpu_clock_mhz(),
+        temperature_celsius: temperature,
+        core_clock_mhz: clock,
         memory_clock_mhz: MetricValue::Unsupported("Not exposed on Android".to_string()),
         power_draw_watts: MetricValue::Unsupported(
             "Not exposed via unprivileged sysfs".to_string(),

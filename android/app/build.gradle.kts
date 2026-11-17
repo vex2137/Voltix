@@ -10,7 +10,7 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
+        versionCode = 9
         versionName = rootProject.file("../Cargo.toml").readLines()
             .first { it.startsWith("version = ") }.substringAfter("=").trim().trim('"')
 
@@ -65,6 +65,8 @@ android {
         }
     }
 
+    buildFeatures { aidl = true; buildConfig = true }
+
     sourceSets {
         getByName("main") {
             jniLibs.srcDirs("src/main/jniLibs")
@@ -75,4 +77,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+// Official Shizuku API/provider; no shell-execution or hidden-API dependency.
+dependencies {
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
+    testImplementation("junit:junit:4.13.2")
 }

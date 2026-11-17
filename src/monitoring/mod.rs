@@ -46,6 +46,12 @@ impl MonitoringEngine {
         }
     }
 
+    #[cfg(target_os = "android")]
+    pub fn resume_after_pause(&mut self) {
+        self.cpu.resume_after_pause();
+        self.extended = extended::ExtendedMonitor::default();
+    }
+
     pub fn collect_snapshot(&mut self) -> TelemetrySnapshot {
         let sampled_at = Instant::now();
         TelemetrySnapshot {

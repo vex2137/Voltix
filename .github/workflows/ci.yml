@@ -326,7 +326,7 @@ jobs:
           fi
           echo "path=$apk_name" >> "$GITHUB_OUTPUT"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='7'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='9'"
           unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
           unzip -l "$apk_name" | grep 'classes.dex'
           sha256sum "$apk_name" > SHA256SUMS-android

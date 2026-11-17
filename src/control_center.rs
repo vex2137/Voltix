@@ -13,6 +13,14 @@ use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
     crate::process_ui::localize(window, loc);
     let i18n = window.global::<I18n>();
+    i18n.set_shz_title(loc.tr("shz_title").into());
+    i18n.set_shz_enable(loc.tr("shz_enable").into());
+    i18n.set_shz_reconnect(loc.tr("shz_reconnect").into());
+    i18n.set_shz_authorize(loc.tr("shz_authorize").into());
+    i18n.set_shz_manager(loc.tr("shz_manager").into());
+    i18n.set_shz_install(loc.tr("shz_install").into());
+    i18n.set_shz_technical(loc.tr("shz_technical").into());
+    i18n.set_shz_note(loc.tr("shz_note").into());
     i18n.set_hotfix_diagnostics(loc.tr("hotfix_diagnostics").into());
     i18n.set_hotfix_permissions(loc.tr("hotfix_permissions").into());
     i18n.set_hotfix_gpu(loc.tr("hotfix_gpu").into());
@@ -440,6 +448,22 @@ pub fn gpu_diagnostic_rows(
 pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu_index: usize) {
     let e = &snap.extended;
     let gpu = snap.gpus.get(gpu_index);
+    if window.get_android_platform() {
+        let empty = crate::platform::shizuku::Snapshot::default();
+        let state = e.platform.shizuku.as_deref().unwrap_or(&empty);
+        let (validated, values) = crate::platform::shizuku::rows(
+            state,
+            e.platform.foreground,
+            e.platform.elapsed_ms,
+            loc,
+        );
+        window.set_shizuku_enabled(state.enabled);
+        window.set_shizuku_running(state.service_running);
+        window.set_shizuku_authorized(state.authorization == "granted");
+        window.set_shizuku_installed(state.installed);
+        rows(window.get_shizuku_rows(), values);
+        rows(window.get_shizuku_sources(), validated.source_rows);
+    }
     let live = chart_samples(
         snap,
         match snap.cpu.utilization_scope {

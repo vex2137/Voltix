@@ -33,6 +33,13 @@ pub fn read_metric<T>(path: &str, parse: impl FnOnce(&str) -> MetricValue<T>) ->
     }
 }
 
+/// A GPU temperature must not come from a combined CPU/SoC/battery zone.
+pub fn gpu_thermal_type(label: &str) -> bool {
+    let lower = label.to_ascii_lowercase();
+    ["gpu", "gpuss", "mali"].iter().any(|s| lower.contains(s))
+        && !["cpu", "soc", "battery"].iter().any(|s| lower.contains(s))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

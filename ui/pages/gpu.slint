@@ -1,3 +1,5 @@
+import { AdvancedGpu } from "../components/advanced-gpu.slint";
+import { ControlRow } from "../models.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
@@ -6,6 +8,14 @@ import { Card, DiagnosticNotice, KeyValueRow, SectionTitle, SegmentedOption, Sum
 import { TelemetryChart } from "../components/chart.slint";
 
 export component GpuPage inherits Rectangle {
+    in property <bool> android-platform;
+    in-out property <bool> shizuku-enabled;
+    in property <bool> shizuku-running;
+    in property <bool> shizuku-authorized;
+    in property <bool> shizuku-installed;
+    in property <[ControlRow]> shizuku-rows;
+    in property <[ControlRow]> shizuku-sources;
+    callback shizuku-action(int);
     in property <bool> compact: false;
     in property <bool> narrow: false;
     in property <length> left-inset: 0px;
@@ -37,6 +47,12 @@ export component GpuPage inherits Rectangle {
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
+            if root.android-platform : AdvancedGpu {
+                enabled <=> root.shizuku-enabled; running: root.shizuku-running;
+                authorized: root.shizuku-authorized; installed: root.shizuku-installed;
+                rows: root.shizuku-rows; sources: root.shizuku-sources;
+                action(command) => { root.shizuku-action(command); }
+            }
             if !root.has-gpus : Card {
                 min-height: 160px;
 
