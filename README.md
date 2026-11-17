@@ -88,9 +88,7 @@ cargo run
 - **Minimum SDK:** API 26 (Android 8.0)
 - **Slint Backend:** `backend-android-activity-06` via `android.app.NativeActivity` (`src/lib.rs`)
 - **Responsive UI:** Automatically switches from the desktop sidebar to a touch-friendly bottom navigation bar and stacked card grids on narrow screens.
-- **Unprivileged Telemetry:** Uses Bionic system properties (`__system_property_get`), `libc::uname`, `libc::sysinfo`, `statvfs`, and readable thermal zones without requiring root access. On Android 8+, SELinux restricts `/proc/stat`, `/proc/meminfo` (on some devices), and vendor GPU counters; restricted values are explicitly shown as `Permission Denied` or `Unsupported` rather than fabricated.
-
-**Optional Shizuku:** Alpha 4 can use the official Shizuku API for read-only Mali probes as shell UID 2000. It is disabled by default and does not bypass SELinux. See [setup, sources and verification limits](docs/ANDROID-SHIZUKU-GPU.md).
+- **Unprivileged Telemetry:** Uses Bionic system properties (`__system_property_get`), `libc::uname`, `libc::sysinfo`, `statvfs`, and readable thermal zones without requiring root access. On Android 8+, SELinux restricts `/proc/stat`, `/proc/meminfo` (on some devices), and vendor GPU counters; unavailable GPU measurements are shown as `N/A`, with permission and driver restrictions explained in Diagnostics.
 
 Build the Android native library and debug APK locally (requires Android SDK 35, NDK r27, `cargo-ndk`, and Gradle 8.9):
 

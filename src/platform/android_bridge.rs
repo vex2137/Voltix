@@ -13,8 +13,6 @@ use std::time::{Duration, Instant};
 static SAMPLE: OnceLock<Mutex<Option<(Instant, Platform)>>> = OnceLock::new();
 static EXPORT: OnceLock<Mutex<String>> = OnceLock::new();
 static COMMAND: AtomicI32 = AtomicI32::new(0);
-static GPU_COMMAND: crate::platform::shizuku::ActionQueue =
-    crate::platform::shizuku::ActionQueue::new();
 static POLLING: AtomicI32 = AtomicI32::new(1000);
 pub fn snapshot() -> Platform {
     SAMPLE
@@ -28,9 +26,6 @@ pub fn snapshot() -> Platform {
                 .map(|(_, p)| p.clone())
         })
         .unwrap_or_default()
-}
-pub fn gpu_action(action: i32) {
-    GPU_COMMAND.request(action);
 }
 pub fn request_settings() {
     COMMAND.store(1, Ordering::Release);
@@ -90,12 +85,4 @@ pub extern "system" fn Java_com_voltix_monitor_VoltixActivity_nativeExportJson(
     env.new_string(data)
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
-}
-
-#[no_mangle]
-pub extern "system" fn Java_com_voltix_monitor_VoltixActivity_nativeGpuCommand(
-    _env: JNIEnv,
-    _class: JClass,
-) -> jint {
-    GPU_COMMAND.take()
 }

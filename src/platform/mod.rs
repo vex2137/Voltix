@@ -19,5 +19,3 @@ pub fn detect_system_dark_mode() -> bool {
 }
 
 pub mod gpu_probe;
-
-pub mod shizuku;

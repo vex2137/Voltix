@@ -40,8 +40,6 @@ pub struct Platform {
     pub memory_low: bool,
     pub export_status: String,
     pub action_status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub shizuku: Option<Arc<crate::platform::shizuku::Snapshot>>,
 }
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Network {

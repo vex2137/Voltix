@@ -13,14 +13,6 @@ use std::time::Duration;
 pub fn localize(window: &AppWindow, loc: &Localizer) {
     crate::process_ui::localize(window, loc);
     let i18n = window.global::<I18n>();
-    i18n.set_shz_title(loc.tr("shz_title").into());
-    i18n.set_shz_enable(loc.tr("shz_enable").into());
-    i18n.set_shz_reconnect(loc.tr("shz_reconnect").into());
-    i18n.set_shz_authorize(loc.tr("shz_authorize").into());
-    i18n.set_shz_manager(loc.tr("shz_manager").into());
-    i18n.set_shz_install(loc.tr("shz_install").into());
-    i18n.set_shz_technical(loc.tr("shz_technical").into());
-    i18n.set_shz_note(loc.tr("shz_note").into());
     i18n.set_hotfix_diagnostics(loc.tr("hotfix_diagnostics").into());
     i18n.set_hotfix_permissions(loc.tr("hotfix_permissions").into());
     i18n.set_hotfix_gpu(loc.tr("hotfix_gpu").into());
@@ -448,22 +440,6 @@ pub fn gpu_diagnostic_rows(
 pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu_index: usize) {
     let e = &snap.extended;
     let gpu = snap.gpus.get(gpu_index);
-    if window.get_android_platform() {
-        let empty = crate::platform::shizuku::Snapshot::default();
-        let state = e.platform.shizuku.as_deref().unwrap_or(&empty);
-        let (validated, values) = crate::platform::shizuku::rows(
-            state,
-            e.platform.foreground,
-            e.platform.elapsed_ms,
-            loc,
-        );
-        window.set_shizuku_enabled(state.enabled);
-        window.set_shizuku_running(state.service_running);
-        window.set_shizuku_authorized(state.authorization == "granted");
-        window.set_shizuku_installed(state.installed);
-        rows(window.get_shizuku_rows(), values);
-        rows(window.get_shizuku_sources(), validated.source_rows);
-    }
     let live = chart_samples(
         snap,
         match snap.cpu.utilization_scope {
@@ -531,11 +507,21 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
             live[3],
         ),
     ];
+    if window.get_android_platform() {
+        for index in [1, 3] {
+            if summaries[index].status != 0 {
+                summaries[index].value = "N/A".into();
+            }
+        }
+        if summaries[3].detail == loc.tr("status_unavailable") {
+            summaries[3].detail = "N/A".into();
+        }
+    }
     // Network has no meaningful percent; its bar is disabled by the Slint card.
     summaries[5].percent = 0.0;
     crate::app::update_vec_model(window.get_cc_summaries(), summaries);
     window.set_cc_has_battery(e.battery.is_some());
-    let performance = vec![
+    let mut performance = vec![
         row(
             "cc_cpu_temp",
             temperature(
@@ -594,6 +580,16 @@ pub fn render(window: &AppWindow, snap: &TelemetrySnapshot, loc: &Localizer, gpu
             loc,
         ),
     ];
+    if window.get_android_platform() {
+        for item in performance.iter_mut().skip(2) {
+            let text = item.value.replace(loc.tr("status_unavailable"), "N/A");
+            item.value = if text == "N/A / N/A" {
+                "N/A".into()
+            } else {
+                text.into()
+            };
+        }
+    }
     if !window.get_android_platform() {
         crate::desktop_sensors::render(window, &performance, &e.sensors, loc);
     }

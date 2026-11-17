@@ -129,8 +129,6 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
     window.set_cc_permission_rows(ModelRc::new(VecModel::default()));
     window.set_cc_gpu_diagnostic_rows(ModelRc::new(VecModel::default()));
-    window.set_shizuku_rows(ModelRc::new(VecModel::default()));
-    window.set_shizuku_sources(ModelRc::new(VecModel::default()));
     window.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::default()));
     window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
     window.set_proc_rows(ModelRc::new(VecModel::default()));
@@ -366,12 +364,6 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
             }
         });
     }
-    window.on_shizuku_action(|action| {
-        #[cfg(target_os = "android")]
-        crate::platform::android_bridge::gpu_action(action);
-        #[cfg(not(target_os = "android"))]
-        let _ = action;
-    });
     window.on_cc_app_settings(|| {
         #[cfg(target_os = "android")]
         crate::platform::android_bridge::request_settings();
@@ -1566,6 +1558,14 @@ fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
     }
 }
 
+fn gpu_metric_text(text: SharedString, status: i32, android: bool) -> SharedString {
+    if android && status != MetricStatus::Available.as_code() {
+        "N/A".into()
+    } else {
+        text
+    }
+}
+
 fn gpu_to_ui_item(gpu: &GpuTelemetry, loc: &Localizer, temp_unit: TemperatureUnit) -> GpuItem {
     let (driver_text, driver_status) = format_metric_str(&gpu.driver_version, loc, |s| s.clone());
     let (util_text, util_status) =
@@ -1601,24 +1601,40 @@ fn gpu_to_ui_item(gpu: &GpuTelemetry, loc: &Localizer, temp_unit: TemperatureUni
         pci_slot: SharedString::from(gpu.pci_slot.clone().unwrap_or_default()),
         driver_text,
         driver_status,
-        util_text,
+        util_text: gpu_metric_text(util_text, util_status, cfg!(target_os = "android")),
         util_percent: gpu.utilization_percent.copied().unwrap_or(0.0) as f32,
         util_status,
-        vram_text,
+        vram_text: gpu_metric_text(vram_text, vram_status, cfg!(target_os = "android")),
         vram_subtext: SharedString::from(vram_subtext),
         vram_percent: gpu.vram_utilization_percent.copied().unwrap_or(0.0) as f32,
         vram_status,
-        temp_text,
+        temp_text: gpu_metric_text(temp_text, temp_status, cfg!(target_os = "android")),
         temp_status,
-        core_clock_text,
+        core_clock_text: gpu_metric_text(
+            core_clock_text,
+            core_clock_status,
+            cfg!(target_os = "android"),
+        ),
         core_clock_status,
-        mem_clock_text,
+        mem_clock_text: gpu_metric_text(
+            mem_clock_text,
+            mem_clock_status,
+            cfg!(target_os = "android"),
+        ),
         mem_clock_status,
-        power_draw_text,
+        power_draw_text: gpu_metric_text(
+            power_draw_text,
+            power_draw_status,
+            cfg!(target_os = "android"),
+        ),
         power_draw_status,
-        power_limit_text,
+        power_limit_text: gpu_metric_text(
+            power_limit_text,
+            power_limit_status,
+            cfg!(target_os = "android"),
+        ),
         power_limit_status,
-        fan_text,
+        fan_text: gpu_metric_text(fan_text, fan_status, cfg!(target_os = "android")),
         fan_status,
     }
 }
@@ -1632,24 +1648,24 @@ fn empty_gpu_item(loc: &Localizer) -> GpuItem {
         pci_slot: SharedString::default(),
         driver_text: unavail.clone(),
         driver_status: 1,
-        util_text: unavail.clone(),
+        util_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         util_percent: 0.0,
         util_status: 1,
-        vram_text: unavail.clone(),
+        vram_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         vram_subtext: SharedString::default(),
         vram_percent: 0.0,
         vram_status: 1,
-        temp_text: unavail.clone(),
+        temp_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         temp_status: 1,
-        core_clock_text: unavail.clone(),
+        core_clock_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         core_clock_status: 1,
-        mem_clock_text: unavail.clone(),
+        mem_clock_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         mem_clock_status: 1,
-        power_draw_text: unavail.clone(),
+        power_draw_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         power_draw_status: 1,
-        power_limit_text: unavail.clone(),
+        power_limit_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         power_limit_status: 1,
-        fan_text: unavail,
+        fan_text: gpu_metric_text(unavail, 1, cfg!(target_os = "android")),
         fan_status: 1,
     }
 }
@@ -1702,6 +1718,9 @@ fn build_gpu_notice(gpu: Option<&GpuTelemetry>, loc: &Localizer) -> String {
     let Some(gpu) = gpu else {
         return String::new();
     };
+    if cfg!(target_os = "android") {
+        return loc.tr("android_gpu_na_note").into();
+    }
     let mut notes = Vec::new();
     if gpu.utilization_percent.status() == MetricStatus::PermissionError
         || gpu.core_clock_mhz.status() == MetricStatus::PermissionError
@@ -1832,6 +1851,31 @@ fn update_mangohud_manager(window: &AppWindow, state: &crate::mangohud::Manager)
 #[cfg(test)]
 mod model_update_tests {
     use super::*;
+    #[test]
+    fn android_gpu_na_keeps_values_statuses_and_desktop_labels() {
+        for status in [
+            MetricStatus::Unavailable,
+            MetricStatus::Unsupported,
+            MetricStatus::PermissionError,
+        ] {
+            assert_eq!(
+                gpu_metric_text("Restricted".into(), status.as_code(), true).as_str(),
+                "N/A"
+            );
+            assert_eq!(
+                gpu_metric_text("Restricted".into(), status.as_code(), false).as_str(),
+                "Restricted"
+            );
+        }
+        assert_eq!(
+            gpu_metric_text("0%".into(), MetricStatus::Available.as_code(), true).as_str(),
+            "0%"
+        );
+        assert_eq!(
+            gpu_metric_text("847 MHz".into(), MetricStatus::Available.as_code(), true).as_str(),
+            "847 MHz"
+        );
+    }
 
     #[test]
     fn stale_gpu_histories_are_pruned_without_losing_recent_samples() {

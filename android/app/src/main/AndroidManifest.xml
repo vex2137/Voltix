@@ -3,8 +3,6 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <queries><package android:name="moe.shizuku.privileged.api" /></queries>
-
     <uses-feature
         android:glEsVersion="0x00020000"
         android:required="true" />
@@ -16,14 +14,6 @@
         android:label="Voltix"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true">
-
-        <provider
-            android:name="com.voltix.monitor.VoltixShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <activity
             android:name="com.voltix.monitor.VoltixActivity"

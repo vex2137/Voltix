@@ -14,13 +14,12 @@ import org.json.*;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-/** Foreground-only platform bridge. Optional Shizuku is isolated from ordinary monitoring. */
+/** Foreground-only platform bridge. No service, root access or dangerous permission. */
 public final class VoltixActivity extends NativeActivity {
     // Register the JNI library with ART as well as NativeActivity's native loader.
     static { System.loadLibrary("voltix"); }
     private static native void nativeSnapshot(String json);
     private static native int nativeCommand();
-    private static native int nativeGpuCommand();
     private static native int nativePollingInterval();
     private static native String nativeExportJson();
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -31,7 +30,6 @@ public final class VoltixActivity extends NativeActivity {
     private volatile String exportStatus = "";
     private volatile String actionStatus = "";
     private JSONArray sensors = new JSONArray();
-    private ShizukuGpuBridge advancedGpu;
     private final BroadcastReceiver batteryReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) { batteryIntent = intent; publish(resumed); }
     };
@@ -47,10 +45,6 @@ public final class VoltixActivity extends NativeActivity {
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             if (!resumed) return;
-            if (advancedGpu != null) {
-                for (int i=0;i<4;i++) { int action=nativeGpuCommand();if(action==0)break;advancedGpu.command(action); }
-                advancedGpu.poll();
-            }
             publish(true);
             int command = nativeCommand();
             try {
@@ -66,10 +60,6 @@ public final class VoltixActivity extends NativeActivity {
     };
     @Override protected void onResume() {
         super.onResume(); resumed = true;
-        try {
-            if (advancedGpu == null) advancedGpu = new ShizukuGpuBridge(this);
-            advancedGpu.foreground(true);
-        } catch (RuntimeException | LinkageError ignored) { advancedGpu = null; }
         try { enumerateSensors(); } catch (RuntimeException ignored) { sensors = new JSONArray(); }
         IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         try { batteryIntent = Build.VERSION.SDK_INT >= 33 ? registerReceiver(batteryReceiver, filter, Context.RECEIVER_NOT_EXPORTED) : registerReceiver(batteryReceiver, filter);
@@ -78,14 +68,9 @@ public final class VoltixActivity extends NativeActivity {
     }
     @Override protected void onPause() {
         resumed = false; handler.removeCallbacks(tick);
-        if (advancedGpu != null) advancedGpu.foreground(false);
         if (registered) { unregisterReceiver(batteryReceiver); registered = false; }
         publish(false);
         super.onPause();
-    }
-    @Override protected void onDestroy() {
-        if (advancedGpu != null) advancedGpu.close();
-        super.onDestroy();
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -103,7 +88,6 @@ public final class VoltixActivity extends NativeActivity {
     private void publish(boolean foreground) {
         try {
             JSONObject root = new JSONObject(); root.put("foreground",foreground); root.put("elapsed_ms",SystemClock.elapsedRealtime()); root.put("network","TrafficStats"); root.put("sensors",sensors); root.put("export_status",exportStatus);root.put("action_status",actionStatus);
-            if (advancedGpu != null) root.put("shizuku",advancedGpu.snapshot());
             final boolean granted=checkSelfPermission("android.permission.ACCESS_NETWORK_STATE")==PackageManager.PERMISSION_GRANTED;root.put("network_permission",granted);
             if (batteryIntent != null) {
                 JSONObject b = new JSONObject(); int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL,-1), scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE,-1);

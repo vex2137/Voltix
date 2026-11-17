@@ -1,5 +1,5 @@
 name: Alpha 4 Android APK download
-run-name: Alpha 4 optional Shizuku GPU monitoring
+run-name: Alpha 4 standard Android monitoring
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ github.sha }}
       CARGO_TERM_COLOR: always
-      APK_NAME: Voltix-0.1.0-alpha.4-shizuku-arm64-debug.apk
+      APK_NAME: Voltix-0.1.0-alpha.4-standard-arm64-debug.apk
 
     steps:
       - name: Check out the exact Alpha 4 source
@@ -83,7 +83,7 @@ jobs:
         env:
           VOLTIX_UI_SNAPSHOTS: artifacts/mobile-root-snapshots
         run: |
-          cargo test --locked --test android_navigation --test android_diagnostics --test shizuku_gpu --test shizuku_ui -- --nocapture
+          cargo test --locked --test android_navigation --test android_diagnostics --test android_unprivileged -- --nocapture
           /usr/bin/python3 - <<'PY'
           from pathlib import Path
           from PIL import Image
@@ -120,7 +120,7 @@ jobs:
 
       - name: Build debug-signed installable APK
         run: |
-          gradle -p android clean testDebugUnitTest assembleDebug -PvoltixPreview=true --no-daemon --max-workers=2
+          gradle -p android clean assembleDebug -PvoltixPreview=true --no-daemon --max-workers=2
           mkdir -p artifacts
           cp android/app/build/outputs/apk/debug/app-debug.apk "artifacts/$APK_NAME"
           test -s "artifacts/$APK_NAME"
@@ -136,7 +136,7 @@ jobs:
           apk = pathlib.Path('artifacts') / os.environ['APK_NAME']
           metadata = pathlib.Path('artifacts/APK-METADATA.txt').read_text()
           expected = [
-              "package: name='com.voltix.monitor.alpha4test' versionCode='9' versionName='0.1.0-alpha.4'",
+              "package: name='com.voltix.monitor.alpha4test' versionCode='10' versionName='0.1.0-alpha.4'",
               "sdkVersion:'26'", "targetSdkVersion:'35'", "native-code: 'arm64-v8a'",
               'application-debuggable',
           ]
@@ -151,7 +151,6 @@ jobs:
               assert header[:4] == b'\x7fELF' and header[4:6] == b'\x02\x01'
               assert struct.unpack_from('<H', header, 18)[0] == 183, 'Expected AArch64 ELF'
               native_bytes = archive.read(libraries[0])
-              (pathlib.Path(os.environ['RUNNER_TEMP']) / 'shizuku-native.so').write_bytes(native_bytes)
               marker = ('Mobile UI R2.1 / ' + os.environ['SOURCE_COMMIT']).encode()
               assert marker in native_bytes, 'APK does not contain the requested UI/source build identifier'
               for icon in ['dashboard', 'cpu', 'gpu', 'battery', 'more']:
@@ -164,12 +163,11 @@ jobs:
           print('Verified package, version, SDK levels, debug variant, and ARM64 native library')
           PY
 
-      - name: Verify official Shizuku integration in the actual APK
+      - name: Audit non-privileged Android build
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "artifacts/$APK_NAME" AndroidManifest.xml > artifacts/APK-MANIFEST.txt
-          python3 scripts/verify_shizuku_apk.py "artifacts/$APK_NAME" --manifest-dump artifacts/APK-MANIFEST.txt | tee artifacts/SHIZUKU-VERIFICATION.json
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D --defined-only "$RUNNER_TEMP/shizuku-native.so" > artifacts/NATIVE-EXPORTS.txt
-          grep -w Java_com_voltix_monitor_VoltixActivity_nativeGpuCommand artifacts/NATIVE-EXPORTS.txt
+          gradle -p android :app:dependencies --configuration debugRuntimeClasspath -PvoltixPreview=true --no-daemon --max-workers=2 > artifacts/ANDROID-DEPENDENCIES.txt
+          python3 scripts/verify_android_apk.py "artifacts/$APK_NAME" --manifest-dump artifacts/APK-MANIFEST.txt --dependencies artifacts/ANDROID-DEPENDENCIES.txt | tee artifacts/ANDROID-AUDIT.json
 
       - name: Record and verify APK SHA-256 and source provenance
         working-directory: artifacts
@@ -194,7 +192,7 @@ jobs:
         id: apk
         uses: actions/upload-artifact@v4
         with:
-          name: Voltix-Alpha4-Shizuku-ARM64-APK
+          name: Voltix-Alpha4-Standard-ARM64-APK
           path: artifacts/
           if-no-files-found: error
           compression-level: 0
@@ -207,7 +205,7 @@ jobs:
           echo "::notice title=Download Android APK::$ARTIFACT_URL"
           echo "::notice title=APK SHA-256::$(cat artifacts/SHA256SUMS)"
           {
-            echo '## Voltix Alpha 4 — optional Shizuku GPU monitoring'
+            echo '## Voltix Alpha 4 — standard Android monitoring'
             echo "[Download APK and verification files (ZIP)]($ARTIFACT_URL)"
             echo ''
             echo "Source commit: \`$SOURCE_COMMIT\`"
