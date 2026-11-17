@@ -1,9 +1,27 @@
-import { ScrollView } from "std-widgets.slint";
+import { ControlRow } from "../models.slint";
+import { TelemetryRows } from "../components/telemetry-rows.slint";
+import { ScrollView, TextEdit, LineEdit, ComboBox, Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 import { I18n } from "../i18n/strings.slint";
 import { Card, KeyValueRow, SectionTitle, SegmentedOption } from "../components/common.slint";
 
+import { MangoHudManager } from "../components/mangohud-manager.slint";
+
+import { NavigationRow } from "../components/navigation-row.slint";
+
+import { DesktopNavItem } from "../components/desktop-controls.slint";
 export component SettingsPage inherits Rectangle {
+    in property <string> build-identifier;
+    in property <string> source-commit;
+    in-out property <int> category: 0;
+    in property <bool> android-platform;
+    in property <bool> studio-only;
+    private property <bool> quick-launch-expanded: false;
+    in property <[ControlRow]> diagnostic-rows;
+    in property <string> export-status;
+    in-out property <string> export-directory;
+    callback export-snapshot(string);
+    callback app-settings();
     in property <bool> compact: false;
     in property <length> left-inset: 0px;
     in property <length> right-inset: 0px;
@@ -13,31 +31,203 @@ export component SettingsPage inherits Rectangle {
     in property <int> polling-ms: 1000;
     in property <string> config-path;
 
+    in property <bool> overlay-linux;
+    in property <bool> overlay-detected;
+    in property <bool> overlay-enabled;
+    in property <int> overlay-position;
+    in property <int> overlay-font;
+    in property <int> overlay-opacity;
+    in property <bool> overlay-fps;
+    in property <bool> overlay-frametime;
+    in property <bool> overlay-cpu;
+    in property <bool> overlay-gpu;
+    in property <bool> overlay-temperatures;
+    in property <bool> overlay-memory;
+    in property <bool> overlay-gpu-power;
+    in property <bool> overlay-opengl-dlsym;
+    in property <string> overlay-command;
+    callback change-overlay(int, int);
+    callback refresh-overlay();
+    callback manage-mangohud(string, string, string, string, bool);
+    in-out property <string> manager-config;
+    in property <string> manager-review-before;
+    in property <string> manager-review-after;
+    in property <string> manager-status;
+    in property <string> manager-preview;
+    in property <float> manager-preview-size;
+    in property <string> manager-target;
+    in property <string> manager-game;
+    in property <[string]> manager-profiles;
+    in property <[bool]> manager-flags;
+    in property <[string]> manager-values;
+    in property <color> manager-color;
+    in property <color> manager-background;
+    callback copy-overlay(string);
+    in property <string> overlay-copy-status;
+    private property <string> overlay-target: "%command%";
+    in-out property <string> custom-theme-json;
+    in property <string> custom-theme-status;
+    in property <[string]> saved-theme-names;
+    callback apply-custom-theme(string, int);
+    callback load-custom-theme(string);
+    callback change-palette(int);
+    callback change-interface(int);
+    callback change-accent(int);
     callback change-theme(int);
     callback change-language(int);
     callback change-temp-unit(int);
     callback change-polling-ms(int);
 
-    ScrollView {
-        width: 100%;
-        height: 100%;
+    HorizontalLayout {
+        spacing: 0px;
+        if !root.android-platform && root.width >= 850px && !root.studio-only : Rectangle {
+            width: 172px; background: Theme.bg-sidebar;
+            ScrollView {
+                width: 100%; height: 100%;
+                VerticalLayout {
+                    padding: 10px; spacing: 6px; alignment: start;
+                    for category in [0,1,2,3,4,5,6] : DesktopNavItem {
+                        label: [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export,I18n.cc-category-diagnostics][category];
+                        active: root.category == category; min-width: 0px;
+                        clicked => { root.category = category; }
+                    }
+                }
+            }
+        }
+        if root.android-platform && root.category < 0 : ScrollView {
+            width: 100%; height: 100%;
+            VerticalLayout {
+                width: max(0px, root.width - 14px);
+                padding: 12px; padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset; spacing: 8px; alignment: start;
+                SectionTitle { text: I18n.nav-settings; font-size: 24px; }
+                Text { text: I18n.app-version + " · R2.1"; font-size: 11px; color: Theme.text-muted; overflow: elide; }
+                Card { VerticalLayout { padding: 4px; spacing: 0px;
+                for title[index] in [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export] : NavigationRow {
+                    title: title;
+                    description: [I18n.settings-localization,I18n.settings-theme,I18n.settings-polling-interval,"MangoHud",I18n.app-version,""][index];
+                    icon: [@image-url("../../assets/icons/mobile/settings.svg"),@image-url("../../assets/icons/mobile/dashboard.svg"),@image-url("../../assets/icons/mobile/sensor.svg"),@image-url("../../assets/icons/mobile/gpu.svg"),@image-url("../../assets/icons/mobile/about.svg"),@image-url("../../assets/icons/mobile/export.svg")][index];
+                    clicked => { root.category = index; }
+                }
+                } }
+
+            }
+        }
+        if !root.android-platform || root.category >= 0 : VerticalLayout {
+        horizontal-stretch: 1; min-width: 0px;
+        if root.android-platform : Button {
+            text: [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export,I18n.cc-permissions][root.category];
+            icon: @image-url("../../assets/icons/mobile/back.svg");
+            min-height: 48px;
+            clicked => { root.category = -1; }
+        }
+        settings-scroll := ScrollView {
+
+        horizontal-stretch: 1;
+        vertical-stretch: 1; min-height: 0px;
 
         VerticalLayout {
-            width: root.compact ? root.width : max(280px, root.width - 14px);
+            width: max(0px, min(1200px, settings-scroll.width - 14px));
             alignment: start;
-            padding-top: root.compact ? 12px : 20px;
+            padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
             padding-left: (root.compact ? 12px : 20px) + root.left-inset;
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
 
-            Card {
+            if !root.android-platform && root.width < 850px && !root.studio-only : ComboBox {
+                model: [I18n.cc-general,I18n.cc-appearance,I18n.cc-monitoring,I18n.cc-studio,I18n.cc-about,I18n.cc-data-export,I18n.cc-permissions];
+                current-index <=> root.category;
+            }
+            if root.category == 5 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: I18n.cc-data-export; }
+                    Text { text: I18n.cc-export-note; color: Theme.text-secondary; wrap: word-wrap; }
+                    if !root.android-platform : Text { text: I18n.cc-export-path; color: Theme.text-secondary; wrap: word-wrap; }
+                    if !root.android-platform : LineEdit { text <=> root.export-directory; }
+                    Button { text: I18n.cc-export; clicked => { root.export-snapshot(root.export-directory); } }
+                    Text { text: root.export-status; color: Theme.text-primary; wrap: word-wrap; }
+                }
+            }
+            if root.category == 6 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: I18n.cc-permissions; }
+                    Text { text: root.android-platform ? I18n.cc-permission-note : I18n.cc-linux-diagnostics; color: Theme.text-secondary; wrap: word-wrap; }
+                    if root.android-platform : Button { text: I18n.cc-app-settings; clicked => { root.app-settings(); } }
+                    TelemetryRows { rows: root.diagnostic-rows; }
+                }
+            }
+            if root.category == 4 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 12px;
+                    SectionTitle { text: "Voltix " + I18n.app-version; }
+                    Text { text: root.build-identifier; color: Theme.accent; font-size: 15px; font-weight: 700; wrap: word-wrap; }
+                    Text { text: root.source-commit; color: Theme.text-secondary; font-size: 12px; wrap: char-wrap; }
+                    Text { text: I18n.messages[45]; color: Theme.text-secondary; wrap: word-wrap; }
+                    Text { text: "MIT · vex2137/Voltix · Rust + Slint"; color: Theme.text-secondary; wrap: word-wrap; }
+                }
+            }
+            if root.category == 1 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 12px;
 
                     SectionTitle {
                         text: I18n.settings-appearance;
+                    }
+
+                    Text { text: I18n.messages[12]; color: Theme.text-secondary; }
+                    ComboBox {
+                        model: [I18n.messages[46], "Cyberpunk", I18n.messages[47], I18n.messages[48], I18n.messages[13]];
+                        current-index: Theme.palette;
+                        selected(_) => { root.change-palette(self.current-index); }
+                    }
+                    if Theme.palette == 4 : VerticalLayout {
+                        spacing: 8px;
+                        Text {
+                            text: I18n.messages[14];
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        TextEdit { height: 220px; text <=> root.custom-theme-json; wrap: word-wrap; }
+                        SegmentedOption { height: 44px; label: I18n.messages[15]; clicked => { root.apply-custom-theme(root.custom-theme-json, 0); } }
+                        SegmentedOption { height: 44px; label: I18n.messages[16]; clicked => { root.apply-custom-theme(root.custom-theme-json, 1); } }
+                        if root.custom-theme-status != "" : Text { text: root.custom-theme-status; color: Theme.text-primary; wrap: word-wrap; }
+                        if root.saved-theme-names.length > 0 : Text { text: I18n.messages[17]; color: Theme.text-secondary; }
+                        for name in root.saved-theme-names : SegmentedOption { height: 44px; label: name; clicked => { root.load-custom-theme(name); } }
+                    }
+                    if Theme.palette != 0 && Theme.palette != 4 : Text {
+                        text: I18n.messages[18];
+                        color: Theme.text-secondary; wrap: word-wrap;
+                    }
+                    Text { text: I18n.messages[19]; color: Theme.text-secondary; }
+                    if settings-scroll.width >= 520px : HorizontalLayout {
+                        spacing: 6px;
+                        for label[index] in [I18n.messages[49], I18n.messages[50], I18n.messages[51]] : SegmentedOption {
+                            compact: true;
+                            label: label;
+                            active: Theme.interface-mode == index;
+                            clicked => { root.change-interface(index); }
+                        }
+                    }
+                    if settings-scroll.width < 520px : VerticalLayout {
+                        spacing: 6px;
+                        for label[index] in [I18n.messages[49], I18n.messages[50], I18n.messages[51]] : SegmentedOption {
+                            compact: true;
+                            label: label;
+                            active: Theme.interface-mode == index;
+                            clicked => { root.change-interface(index); }
+                        }
+                    }
+                    if Theme.palette == 0 : Text { text: I18n.messages[20]; color: Theme.text-secondary; }
+                    if Theme.palette == 0 : HorizontalLayout {
+                        spacing: 8px;
+                        for color[index] in [#38bdf8, #a78bfa, #10b981, #f97316] : TouchArea {
+                            height: 44px;
+                            horizontal-stretch: 1;
+                            Rectangle { background: color; border-radius: 6px; border-width: Theme.accent-index == index ? 3px : 0px; border-color: Theme.text-primary; }
+                            clicked => { root.change-accent(index); }
+                        }
                     }
 
                     if !root.compact : HorizontalLayout {
@@ -110,7 +300,87 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            Card {
+            if root.category == 3 && root.overlay-linux : Card {
+                MangoHudManager {
+                    config <=> root.manager-config; review-before: root.manager-review-before; review-after: root.manager-review-after; status: root.manager-status; preview: root.manager-preview; preview-size: root.manager-preview-size;
+                    target: root.manager-target; game: root.manager-game;
+                    profiles: root.manager-profiles; flags: root.manager-flags; values: root.manager-values;
+                    preview-color: root.manager-color; preview-background: root.manager-background;
+                    manage(action, name, path, content, confirm) => { root.manage-mangohud(action, name, path, content, confirm); }
+                }
+            }
+
+            if root.category == 3 && root.overlay-linux : Button { text: I18n.messages[21]; clicked => { root.quick-launch-expanded = !root.quick-launch-expanded; } }
+            if root.category == 3 && (!root.overlay-linux || root.quick-launch-expanded) : Card {
+                VerticalLayout {
+                    padding: root.compact ? 14px : 16px; spacing: 10px;
+                    SectionTitle { text: I18n.messages[21]; }
+                    if !root.overlay-linux : Text {
+                        text: I18n.messages[22];
+                        color: Theme.text-secondary; wrap: word-wrap;
+                    }
+                    if root.overlay-linux : VerticalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: root.overlay-detected ? (I18n.messages[23]) : (I18n.messages[24]);
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        Text {
+                            text: I18n.messages[25];
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        SegmentedOption { height: 44px; label: I18n.messages[26]; clicked => { root.refresh-overlay(); } }
+                        Text {
+                            text: I18n.messages[27];
+                            color: Theme.text-secondary; wrap: word-wrap;
+                        }
+                        SegmentedOption {
+                            height: 44px;
+                            label: I18n.messages[28];
+                            active: root.overlay-enabled;
+                            clicked => { root.change-overlay(10, 1); root.copy-overlay(root.overlay-target); }
+                        }
+                        Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
+                        SegmentedOption {
+                            height: 44px; label: I18n.messages[29];
+                            active: root.overlay-opengl-dlsym;
+                            clicked => { root.change-overlay(11, root.overlay-opengl-dlsym ? 0 : 1); }
+                        }
+                        Text { text: I18n.messages[30]; color: Theme.text-secondary; }
+                        for label[index] in ["FPS", I18n.messages[150], "CPU", "GPU", I18n.messages[31], "RAM / VRAM", I18n.messages[7]] : SegmentedOption {
+                            height: 44px; label: label;
+                            active: index == 0 ? root.overlay-fps : (index == 1 ? root.overlay-frametime : (index == 2 ? root.overlay-cpu : (index == 3 ? root.overlay-gpu : (index == 4 ? root.overlay-temperatures : (index == 5 ? root.overlay-memory : root.overlay-gpu-power)))));
+                            clicked => { root.change-overlay(index, self.active ? 0 : 1); }
+                        }
+                        Text { text: I18n.messages[32]; color: Theme.text-secondary; }
+                        for label[index] in [I18n.messages[33], I18n.messages[34], I18n.messages[35], I18n.messages[36]] : SegmentedOption {
+                            height: 44px; label: label; active: root.overlay-position == index;
+                            clicked => { root.change-overlay(7, index); }
+                        }
+                        Text { text: I18n.messages[37]; color: Theme.text-secondary; }
+                        for size in [18, 24, 32] : SegmentedOption {
+                            height: 44px; label: size + " px"; active: root.overlay-font == size;
+                            clicked => { root.change-overlay(8, size); }
+                        }
+                        Text { text: I18n.messages[38]; color: Theme.text-secondary; }
+                        for value in [25, 50, 75, 100] : SegmentedOption {
+                            height: 44px; label: value + "%"; active: root.overlay-opacity == value;
+                            clicked => { root.change-overlay(9, value); }
+                        }
+                        Text { text: I18n.messages[39]; color: Theme.text-secondary; }
+                        LineEdit { text <=> root.overlay-target; }
+                        SegmentedOption {
+                            height: 44px; label: I18n.messages[40];
+                            clicked => { root.copy-overlay(root.overlay-target); }
+                        }
+                        Text { text: root.overlay-copy-status; color: Theme.text-secondary; wrap: word-wrap; }
+                        Text { text: I18n.messages[41]; color: Theme.text-secondary; }
+                        TextEdit { height: 100px; text: root.overlay-command; read-only: true; wrap: word-wrap; }
+                    }
+                }
+            }
+
+            if root.category == 0 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 14px;
@@ -247,7 +517,7 @@ export component SettingsPage inherits Rectangle {
                 }
             }
 
-            Card {
+            if root.category == 2 : Card {
                 VerticalLayout {
                     padding: root.compact ? 14px : 16px;
                     spacing: 14px;
@@ -370,6 +640,8 @@ export component SettingsPage inherits Rectangle {
                     }
                 }
             }
+        }
+    }
         }
     }
 }

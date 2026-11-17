@@ -2,6 +2,9 @@ use std::collections::HashMap;
 
 use crate::settings::LanguagePreference;
 
+mod ui_keys;
+pub use ui_keys::UI_KEYS;
+
 const EN_JSON: &str = include_str!("../../locales/en.json");
 const PL_JSON: &str = include_str!("../../locales/pl.json");
 
@@ -93,6 +96,39 @@ impl Localizer {
         };
     }
 
+    /// Localize catalogued diagnostic templates while preserving paths, keys and OS details.
+    pub fn diagnostic(&self, text: &str) -> String {
+        self.diagnostic_at(text, 0)
+    }
+    fn diagnostic_at(&self, text: &str, depth: usize) -> String {
+        if self.locale == LocaleCode::En || depth > 4 {
+            return text.to_string();
+        }
+        if let Some((key, _)) = self.en.iter().find(|(_, value)| value.as_str() == text) {
+            return self.tr(key).to_string();
+        }
+        for (key, template) in &self.en {
+            if !template.contains("{0}") {
+                continue;
+            }
+            if let Some(args) = diagnostic_arguments(template, text) {
+                let mut translated = self.tr(key).to_string();
+                for (i, value) in args.iter().enumerate() {
+                    translated = translated
+                        .replace(&format!("{{{i}}}"), &self.diagnostic_at(value, depth + 1));
+                }
+                return translated;
+            }
+        }
+        if text.contains('\n') {
+            return text
+                .lines()
+                .map(|line| self.diagnostic_at(line, depth + 1))
+                .collect::<Vec<_>>()
+                .join("\n");
+        }
+        text.to_string()
+    }
     pub fn tr<'a>(&'a self, key: &'a str) -> &'a str {
         if let Some(val) = self.active.get(key) {
             if !val.is_empty() {
@@ -108,6 +144,33 @@ impl Localizer {
 
 fn parse_locale_map(raw: &str) -> HashMap<String, String> {
     serde_json::from_str::<HashMap<String, String>>(raw).unwrap_or_default()
+}
+
+fn diagnostic_arguments(template: &str, text: &str) -> Option<Vec<String>> {
+    let mut rest = text;
+    let mut tail = template;
+    let mut args = Vec::new();
+    while let Some(start) = tail.find('{') {
+        rest = rest.strip_prefix(&tail[..start])?;
+        let end = tail[start..].find('}')? + start;
+        if tail[start + 1..end].parse::<usize>().ok()? != args.len() {
+            return None;
+        }
+        tail = &tail[end + 1..];
+        let delimiter = tail.split('{').next().unwrap_or("");
+        let stop = if delimiter.is_empty() {
+            rest.len()
+        } else {
+            rest.find(delimiter)?
+        };
+        args.push(rest[..stop].to_string());
+        rest = &rest[stop..];
+    }
+    if rest == tail && !args.is_empty() {
+        Some(args)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -144,5 +207,45 @@ mod tests {
                 "Missing Polish translation for key '{key}'"
             );
         }
+    }
+    #[test]
+    fn catalogs_are_complete_and_templates_preserve_parameters() {
+        let en = parse_locale_map(EN_JSON);
+        let pl = parse_locale_map(PL_JSON);
+        assert_eq!(en.len(), pl.len());
+        for (key, value) in &en {
+            let translated = pl
+                .get(key)
+                .unwrap_or_else(|| panic!("Missing Polish: {key}"));
+            assert!(!translated.trim().is_empty());
+            for n in 0..8 {
+                let token = format!("{{{n}}}");
+                assert_eq!(
+                    value.matches(&token).count(),
+                    translated.matches(&token).count(),
+                    "{key}"
+                );
+            }
+        }
+        for key in UI_KEYS {
+            assert!(en.contains_key(*key), "{key}");
+        }
+        let mut loc = Localizer::new(LocaleCode::Pl);
+        let key = UI_KEYS[66];
+        loc.active.remove(key);
+        assert_eq!(loc.tr(key), en[key]);
+        assert_eq!(loc.tr("missing_key"), "missing_key");
+        loc.set_locale(LocaleCode::En);
+        assert_eq!(loc.tr(key), en[key]);
+        let loc = Localizer::new(LocaleCode::Pl);
+        let message = loc.diagnostic("Review write to /tmp/MangoHud.conf. Existing bytes will be backed up. Confirm only after reviewing the editor and destination. Nothing written yet.");
+        assert!(
+            message.starts_with("Sprawdź zapis do /tmp/MangoHud.conf."),
+            "{message}"
+        );
+        assert_eq!(
+            loc.diagnostic("Error: Explicit confirmation is required"),
+            "Błąd: Wymagane jest jawne potwierdzenie"
+        );
     }
 }

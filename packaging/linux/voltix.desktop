@@ -9,3 +9,4 @@ Categories=System;Monitor;Utility;
 Keywords=cpu;gpu;ram;memory;disk;sensors;monitor;telemetry;
 Terminal=false
 StartupWMClass=voltix
+X-AppImage-Version=0.1.0-alpha.4

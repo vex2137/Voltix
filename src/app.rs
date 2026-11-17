@@ -55,21 +55,166 @@ struct SharedState {
     ram_history: BoundedHistory,
     gpu_histories: HashMap<String, BoundedHistory>,
     render_cache: RenderCache,
+    process_cache: crate::process_ui::ProcessUiCache,
+    selected_process: Option<crate::monitoring::processes::ProcessKey>,
+    control_gpu_id: Option<String>,
+    control_histories: Vec<BoundedHistory>,
+    control_chart_stamp: Option<(
+        std::time::Instant,
+        i32,
+        i32,
+        crate::localization::LocaleCode,
+        i32,
+    )>,
 }
 
-fn update_vec_model<T: 'static>(model: ModelRc<T>, items: Vec<T>) {
+// Histories for disconnected devices are useless once they leave the chart
+// window. Keeping them forever would grow the map across GPU hotplug events.
+fn prune_stale_gpu_histories(
+    histories: &mut HashMap<String, BoundedHistory>,
+    now: std::time::Instant,
+) {
+    let retention = CHART_WINDOW + Duration::from_secs(5);
+    histories.retain(|_, history| {
+        history
+            .samples()
+            .back()
+            .is_some_and(|last| now.saturating_duration_since(last.timestamp) <= retention)
+    });
+}
+
+pub(crate) fn update_vec_model<T: Clone + PartialEq + 'static>(model: ModelRc<T>, items: Vec<T>) {
     if let Some(vec_model) = model.as_any().downcast_ref::<VecModel<T>>() {
-        vec_model.set_vec(items);
+        // Keep the existing model and its unchanged rows alive. A full reset causes
+        // Slint to rebuild every repeated component, even when one value changed.
+        let old_count = vec_model.row_count();
+        let new_count = items.len();
+        for (index, item) in items.into_iter().enumerate() {
+            if index >= old_count {
+                vec_model.push(item);
+            } else if vec_model.row_data(index).as_ref() != Some(&item) {
+                vec_model.set_row_data(index, item);
+            }
+        }
+        for index in (new_count..old_count).rev() {
+            vec_model.remove(index);
+        }
     }
 }
 
+/// Shared by the Android entry point and headless mobile interaction tests.
+pub fn configure_platform_window(window: &AppWindow, android: bool) {
+    window.set_android_platform(android);
+    window.set_build_short(format!("R2.1 · {}", &crate::build_info::SOURCE_COMMIT[..7]).into());
+    window.set_build_identifier(crate::build_info::BUILD_IDENTIFIER.into());
+    window.set_source_commit(crate::build_info::SOURCE_COMMIT.into());
+}
+
 pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError> {
+    crate::diagnostics::mark("application initialization begins");
     let config_path = config_override.or_else(UserSettings::config_file_path);
     let settings = UserSettings::load_or_default(config_path.as_deref());
     let locale = resolve_locale(settings.language);
     let localizer = Localizer::new(locale);
 
     let window = AppWindow::new()?;
+    configure_platform_window(&window, cfg!(target_os = "android"));
+    window.set_cc_summaries(ModelRc::new(VecModel::default()));
+    window.set_cc_performance(ModelRc::new(VecModel::default()));
+    window.set_cc_network(ModelRc::new(VecModel::default()));
+    window.set_cc_disks(ModelRc::new(VecModel::default()));
+    window.set_cc_sensors(ModelRc::new(VecModel::default()));
+    window.set_desktop_sensor_groups(ModelRc::new(VecModel::default()));
+    window.set_cc_system(ModelRc::new(VecModel::default()));
+    window.set_cc_diagnostics(ModelRc::new(VecModel::default()));
+    window.set_cc_permission_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_gpu_diagnostic_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_platform_diagnostic_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_detail_rows(ModelRc::new(VecModel::default()));
+    window.set_proc_rows(ModelRc::new(VecModel::default()));
+    window.set_proc_summaries(ModelRc::new(VecModel::default()));
+    window.set_proc_detail_rows(ModelRc::new(VecModel::default()));
+    window.set_cc_export_directory(
+        config_path
+            .as_ref()
+            .and_then(|p| p.parent())
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "/tmp".into())
+            .into(),
+    );
+    window.set_cc_updating(true);
+    window.set_current_page(settings.last_page);
+    window.set_cc_settings_category(if settings.last_page == 11 {
+        3
+    } else if cfg!(target_os = "android") && settings.last_page != 6 {
+        -1
+    } else {
+        settings.settings_category
+    });
+    window.set_cc_chart_source(settings.history_source);
+    window.set_cc_chart_range(settings.history_range);
+    window.set_cc_sort(settings.process_sort);
+    window.set_proc_descending(settings.process_descending);
+    window.set_proc_quick(settings.process_quick_filter);
+    window.set_proc_own(settings.process_own_user);
+    window.set_cc_updating(false);
+    #[cfg(target_os = "linux")]
+    slint::set_xdg_app_id("voltix")?;
+    #[cfg(target_os = "linux")]
+    {
+        let root = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".config")));
+        if let Some(root) = root {
+            let mut manager = crate::mangohud::Manager::new(root);
+            update_mangohud_manager(&window, &manager);
+            let weak = window.as_weak();
+            type Action = (String, String, String, String, bool);
+            let (sender, receiver) = std::sync::mpsc::channel::<Action>();
+            // One worker preserves user action order without blocking the GUI on I/O.
+            std::thread::spawn(move || {
+                for (action, name, path, content, confirmed) in receiver {
+                    manager.status = manager
+                        .action(&action, &name, &path, &content, confirmed)
+                        .unwrap_or_else(|e| format!("Error: {e}"));
+                    let snapshot = manager.clone();
+                    let weak = weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(win) = weak.upgrade() {
+                            update_mangohud_manager(&win, &snapshot);
+                        }
+                    });
+                }
+            });
+            window.on_manage_mangohud(move |action, name, path, content, confirmed| {
+                let _ = sender.send((
+                    action.to_string(),
+                    name.to_string(),
+                    path.to_string(),
+                    content.to_string(),
+                    confirmed,
+                ));
+            });
+        }
+    }
+    window.set_overlay_linux(cfg!(target_os = "linux"));
+    window.set_overlay_detected(crate::overlay::mangohud_available());
+    crate::diagnostics::mark("Slint component initialized (not presented)");
+    if crate::diagnostics::enabled() {
+        let mut recorded = false;
+        if window
+            .window()
+            .set_rendering_notifier(move |state, _| {
+                if !recorded && matches!(state, slint::RenderingState::AfterRendering) {
+                    recorded = true;
+                    crate::diagnostics::mark("first frame rendered (before presentation)");
+                }
+            })
+            .is_err()
+        {
+            crate::diagnostics::mark("rendering notifier unavailable for this backend");
+        }
+    }
 
     window.set_cpu_core_rows(ModelRc::from(Rc::new(VecModel::default())));
     window.set_gpus(ModelRc::from(Rc::new(VecModel::default())));
@@ -88,6 +233,11 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         ram_history: BoundedHistory::new(HISTORY_CAPACITY),
         gpu_histories: HashMap::new(),
         render_cache: RenderCache::default(),
+        process_cache: Default::default(),
+        selected_process: None,
+        control_gpu_id: None,
+        control_histories: (0..10).map(|_| BoundedHistory::new(901)).collect(),
+        control_chart_stamp: None,
     }));
     let condvar = Arc::new(Condvar::new());
 
@@ -106,6 +256,313 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         state.render_cache.gpu_empty = sampling_msg;
     }
 
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_interface(move |mode| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.interface_mode = match mode {
+                    1 => crate::settings::InterfaceMode::Professional,
+                    2 => crate::settings::InterfaceMode::Gaming,
+                    _ => crate::settings::InterfaceMode::Modern,
+                };
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+                render_snapshot_to_window(&win, &mut state);
+            }
+        });
+    }
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_accent(move |index| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.accent = index.clamp(0, 3) as u8;
+                state.settings.palette = crate::settings::PalettePreset::VoltixDefault;
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_palette(move |index| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.palette = match index {
+                    1 => crate::settings::PalettePreset::Cyberpunk,
+                    2 => crate::settings::PalettePreset::Emerald,
+                    3 => crate::settings::PalettePreset::Minimal,
+                    4 => crate::settings::PalettePreset::Custom,
+                    _ => crate::settings::PalettePreset::VoltixDefault,
+                };
+                // Built-in palettes describe dark surfaces. Default restores the
+                // existing theme preference rather than silently changing it.
+                win.set_custom_theme_status(SharedString::default());
+                win.set_custom_theme_source(SharedString::default());
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_page_changed(move || {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let previous = state.settings.clone();
+                win.set_cc_updating(true);
+                if win.get_current_page() == 14 {
+                    win.set_current_page(6);
+                    win.set_cc_settings_category(4);
+                }
+                if win.get_current_page() == 11 {
+                    win.set_cc_settings_category(3);
+                }
+                if state.settings.last_page != win.get_current_page() {
+                    if win.get_current_page() == 8 {
+                        win.set_cc_chart_source(7);
+                    }
+                    if win.get_current_page() == 7 {
+                        win.set_cc_chart_source(3);
+                    }
+                }
+                state.settings.last_page = win.get_current_page();
+                state.settings.settings_category = win.get_cc_settings_category();
+                win.set_cc_updating(false);
+                if previous != state.settings {
+                    persist_settings(&state);
+                }
+                state.control_chart_stamp = None;
+                render_snapshot_to_window(&win, &mut state);
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_cc_options_changed(move || {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let previous = state.settings.clone();
+                state.settings.history_source = win.get_cc_chart_source().clamp(0, 9);
+                state.settings.history_range = win.get_cc_chart_range().clamp(0, 2);
+                state.settings.process_sort = win.get_cc_sort().clamp(0, 3);
+                state.settings.process_descending = win.get_proc_descending();
+                state.settings.process_quick_filter = win.get_proc_quick().clamp(0, 2);
+                state.settings.process_own_user = win.get_proc_own();
+                state.selected_process = crate::monitoring::processes::ProcessKey::decode(
+                    win.get_proc_selected().as_str(),
+                );
+                if previous != state.settings {
+                    persist_settings(&state);
+                }
+                state.control_chart_stamp = None;
+                render_snapshot_to_window(&win, &mut state);
+            }
+        });
+    }
+    window.on_cc_app_settings(|| {
+        #[cfg(target_os = "android")]
+        crate::platform::android_bridge::request_settings();
+    });
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_cc_export(move |directory| {
+            let snapshot = shared_c.lock().ok().and_then(|s| s.latest_snapshot.clone());
+            let Some(snapshot) = snapshot else {
+                if let Some(win) = weak.upgrade() {
+                    win.set_cc_export_code("cc_no_snapshot".into());
+                    let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                        win.global::<I18n>().get_locale().as_str(),
+                    ));
+                    win.set_cc_export_status(loc.tr("cc_no_snapshot").into());
+                }
+                return;
+            };
+            if let Some(win) = weak.upgrade() {
+                win.set_cc_export_code("cc_export_running".into());
+                let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                    win.global::<I18n>().get_locale().as_str(),
+                ));
+                win.set_cc_export_status(loc.tr("cc_export_running").into());
+            }
+            let weak = weak.clone();
+            std::thread::spawn(move || {
+                let result = crate::control_center::export_json(&snapshot);
+                #[cfg(target_os = "android")]
+                let result = result.map(|json| {
+                    let _ = &directory;
+                    crate::platform::android_bridge::export(json);
+                    String::new()
+                });
+                #[cfg(not(target_os = "android"))]
+                let result = result.and_then(|json| {
+                    crate::control_center::save_export(
+                        std::path::Path::new(directory.as_str()),
+                        &json,
+                    )
+                    .map(|p| p.display().to_string())
+                });
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(win) = weak.upgrade() {
+                        let (key, detail) = match result {
+                            Ok(detail) => (
+                                if cfg!(target_os = "android") {
+                                    "cc_export_choose"
+                                } else {
+                                    "cc_export_saved"
+                                },
+                                detail,
+                            ),
+                            Err(detail) => ("cc_export_failed", detail),
+                        };
+                        win.set_cc_export_code(key.into());
+                        win.set_cc_export_detail(detail.clone().into());
+                        let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+                            win.global::<I18n>().get_locale().as_str(),
+                        ));
+                        win.set_cc_export_status(format!("{}\n{detail}", loc.tr(key)).into());
+                    }
+                });
+            });
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_change_overlay(move |field, value| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let overlay = &mut state.settings.overlay;
+                match field {
+                    0 => overlay.fps = value != 0,
+                    1 => overlay.frametime = value != 0,
+                    2 => overlay.cpu = value != 0,
+                    3 => overlay.gpu = value != 0,
+                    4 => overlay.temperatures = value != 0,
+                    5 => overlay.memory = value != 0,
+                    6 => overlay.gpu_power = value != 0,
+                    7 => overlay.position = crate::overlay::OverlayPosition::from_index(value),
+                    8 => overlay.font_size = value.clamp(16, 48) as u8,
+                    9 => overlay.opacity = value.clamp(0, 100) as u8,
+                    10 => overlay.enabled = value != 0,
+                    11 => overlay.opengl_dlsym = value != 0,
+                    _ => return,
+                }
+                win.set_overlay_copy_status("".into());
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_copy_overlay(move |target| {
+            if let (Ok(state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let result = state
+                    .settings
+                    .overlay
+                    .launch_options(target.as_str())
+                    .and_then(|command| {
+                        win.set_overlay_command(command.clone().into());
+                        crate::overlay::copy_launch_command(&command)
+                    });
+                let message = match result {
+                    Ok(()) => "Copied to clipboard".to_string(),
+                    Err(err) => format!("Could not copy to clipboard: {err}"),
+                };
+                win.set_overlay_copy_source(message.clone().into());
+                let message = state.localizer.diagnostic(&message);
+                win.set_overlay_copy_status(message.into());
+            }
+        });
+    }
+
+    {
+        let weak = window.as_weak();
+        window.on_refresh_overlay(move || {
+            if let Some(win) = weak.upgrade() {
+                win.set_overlay_detected(crate::overlay::mangohud_available());
+            }
+        });
+    }
+
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_apply_custom_theme(move |json, save| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                let theme = match crate::custom_theme::CustomTheme::from_json(json.as_str()) {
+                    Ok(theme) => theme,
+                    Err(_) => {
+                        win.set_custom_theme_source(
+                            "Invalid theme. Check the name, #RRGGBB format and 4.5:1 contrast."
+                                .into(),
+                        );
+                        win.set_custom_theme_status(
+                            state
+                                .localizer
+                                .diagnostic(win.get_custom_theme_source().as_str())
+                                .into(),
+                        );
+                        return;
+                    }
+                };
+                if save != 0 {
+                    if !state.settings.saved_themes.contains_key(&theme.name)
+                        && state.settings.saved_themes.len() >= 32
+                    {
+                        win.set_custom_theme_source("Limit of 32 saved themes reached.".into());
+                        win.set_custom_theme_status(
+                            state
+                                .localizer
+                                .diagnostic(win.get_custom_theme_source().as_str())
+                                .into(),
+                        );
+                        return;
+                    }
+                    state
+                        .settings
+                        .saved_themes
+                        .insert(theme.name.clone(), theme.clone());
+                }
+                state.settings.custom_theme = theme;
+                state.settings.palette = crate::settings::PalettePreset::Custom;
+                persist_settings(&state);
+                apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+                win.set_custom_theme_source("Theme applied.".into());
+                win.set_custom_theme_status(
+                    state
+                        .localizer
+                        .diagnostic(win.get_custom_theme_source().as_str())
+                        .into(),
+                );
+            }
+        });
+    }
+    {
+        let shared_c = shared.clone();
+        let weak = window.as_weak();
+        window.on_load_custom_theme(move |name| {
+            if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                if let Some(theme) = state.settings.saved_themes.get(name.as_str()).cloned() {
+                    state.settings.custom_theme = theme;
+                    state.settings.palette = crate::settings::PalettePreset::Custom;
+                    win.set_custom_theme_status(SharedString::default());
+                    win.set_custom_theme_source(SharedString::default());
+                    persist_settings(&state);
+                    apply_settings_to_window(&win, &state.settings, state.config_path.as_deref());
+                }
+            }
+        });
+    }
+
     // Wire UI callbacks
     {
         let shared_c = shared.clone();
@@ -113,6 +570,8 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         window.on_select_gpu(move |idx| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
                 state.selected_gpu_index = idx.max(0) as usize;
+                state.control_histories[1] = BoundedHistory::new(901);
+                state.control_chart_stamp = None;
                 render_snapshot_to_window(&win, &mut state);
             }
         });
@@ -123,6 +582,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
         let weak = window.as_weak();
         window.on_change_theme(move |mode| {
             if let (Ok(mut state), Some(win)) = (shared_c.lock(), weak.upgrade()) {
+                state.settings.palette = crate::settings::PalettePreset::VoltixDefault;
                 state.settings.theme = match mode {
                     0 => ThemePreference::System,
                     2 => ThemePreference::Light,
@@ -189,6 +649,7 @@ pub fn run(config_override: Option<PathBuf>) -> Result<(), slint::PlatformError>
     // Spawn background monitoring thread
     let monitor_handle = spawn_monitor_thread(shared.clone(), condvar.clone(), window.as_weak());
 
+    crate::diagnostics::mark("entering UI event loop (not first frame)");
     let run_result = window.run();
 
     // Signal shutdown and join background monitoring thread cleanly
@@ -212,6 +673,7 @@ fn spawn_monitor_thread(
         .name("voltix-monitor".to_string())
         .spawn(move || {
             let mut engine = MonitoringEngine::new();
+            crate::diagnostics::mark("monitoring engine initialized");
 
             // Brief non-busy warmup so the initial /proc/stat delta has elapsed ticks
             if let Ok(guard) = shared.lock() {
@@ -220,11 +682,26 @@ fn spawn_monitor_thread(
                 }
             }
 
+            #[cfg(target_os = "android")]
+            let mut paused = false;
             loop {
                 let (should_stop, interval) = match shared.lock() {
                     Ok(guard) => (
                         guard.shutdown,
-                        Duration::from_millis(guard.settings.polling_interval_ms),
+                        Duration::from_millis({
+                            #[cfg(target_os = "android")]
+                            {
+                                if !crate::platform::android_bridge::snapshot().foreground {
+                                    guard.settings.polling_interval_ms.max(5000)
+                                } else {
+                                    guard.settings.polling_interval_ms
+                                }
+                            }
+                            #[cfg(not(target_os = "android"))]
+                            {
+                                guard.settings.polling_interval_ms
+                            }
+                        }),
                     ),
                     Err(_) => break,
                 };
@@ -232,6 +709,27 @@ fn spawn_monitor_thread(
                     break;
                 }
 
+                #[cfg(target_os = "android")]
+                {
+                    if !crate::platform::android_bridge::snapshot().foreground {
+                        paused = true;
+                        if let Ok(guard) = shared.lock() {
+                            if guard.shutdown {
+                                break;
+                            }
+                            let _ = condvar.wait_timeout(guard, Duration::from_secs(1));
+                        }
+                        continue;
+                    }
+                    if paused {
+                        engine.resume_after_pause();
+                        paused = false;
+                    }
+                }
+                if let Ok(state) = shared.lock() {
+                    engine.want_processes = state.settings.last_page == 10;
+                    engine.selected_process = state.selected_process;
+                }
                 let snapshot = engine.collect_snapshot();
 
                 {
@@ -244,6 +742,8 @@ fn spawn_monitor_thread(
                     let ts = snapshot.sampled_at;
                     if state.last_cpu_scope != snapshot.cpu.utilization_scope {
                         state.cpu_history = BoundedHistory::new(HISTORY_CAPACITY);
+                        state.control_histories[0] = BoundedHistory::new(901);
+                        state.control_chart_stamp = None;
                         state.last_cpu_scope = snapshot.cpu.utilization_scope;
                     }
                     let cpu_sample = match snapshot.cpu.utilization_scope {
@@ -255,11 +755,37 @@ fn spawn_monitor_thread(
                         }
                         CpuUtilizationScope::Unavailable => None,
                     };
+                    let gpu_id = snapshot
+                        .gpus
+                        .get(state.selected_gpu_index)
+                        .map(|g| g.id.clone());
+                    if state.control_gpu_id != gpu_id {
+                        state.control_gpu_id = gpu_id;
+                        state.control_histories[1] = BoundedHistory::new(901);
+                        state.control_chart_stamp = None;
+                    }
                     state.cpu_history.push(ts, cpu_sample);
+                    if state.control_histories[0]
+                        .samples()
+                        .back()
+                        .is_none_or(|last| {
+                            ts.duration_since(last.timestamp) >= Duration::from_secs(1)
+                        })
+                    {
+                        let samples = crate::control_center::chart_samples(
+                            &snapshot,
+                            cpu_sample,
+                            state.selected_gpu_index,
+                        );
+                        for (history, value) in state.control_histories.iter_mut().zip(samples) {
+                            history.push(ts, value);
+                        }
+                    }
                     state
                         .ram_history
                         .push(ts, snapshot.memory.utilization_percent.copied());
 
+                    prune_stale_gpu_histories(&mut state.gpu_histories, ts);
                     for gpu in &snapshot.gpus {
                         let entry = state
                             .gpu_histories
@@ -276,6 +802,7 @@ fn spawn_monitor_thread(
                 let _ = slint::invoke_from_event_loop(move || {
                     if let (Ok(mut state), Some(win)) = (shared_ui.lock(), weak_ui.upgrade()) {
                         render_snapshot_to_window(&win, &mut state);
+                        crate::diagnostics::first_sample();
                     }
                 });
 
@@ -312,6 +839,65 @@ fn apply_settings_to_window(
     settings: &UserSettings,
     config_path: Option<&std::path::Path>,
 ) {
+    #[cfg(target_os = "android")]
+    crate::platform::android_bridge::polling(settings.polling_interval_ms);
+    window
+        .global::<Theme>()
+        .set_interface_mode(match settings.interface_mode {
+            crate::settings::InterfaceMode::Modern => 0,
+            crate::settings::InterfaceMode::Professional => 1,
+            crate::settings::InterfaceMode::Gaming => 2,
+        });
+    window
+        .global::<Theme>()
+        .set_palette(match settings.palette {
+            crate::settings::PalettePreset::VoltixDefault => 0,
+            crate::settings::PalettePreset::Cyberpunk => 1,
+            crate::settings::PalettePreset::Emerald => 2,
+            crate::settings::PalettePreset::Minimal => 3,
+            crate::settings::PalettePreset::Custom => 4,
+        });
+    let custom = &settings.custom_theme;
+    let theme = window.global::<Theme>();
+    theme.set_custom_background(crate::custom_theme::CustomTheme::color(&custom.background));
+    theme.set_custom_surface(crate::custom_theme::CustomTheme::color(&custom.surface));
+    theme.set_custom_text(crate::custom_theme::CustomTheme::color(&custom.text));
+    theme.set_custom_accent(crate::custom_theme::CustomTheme::color(&custom.accent));
+    theme.set_custom_on_accent(custom.accent_foreground());
+    theme.set_custom_cpu(crate::custom_theme::CustomTheme::color(&custom.cpu));
+    theme.set_custom_gpu(crate::custom_theme::CustomTheme::color(&custom.gpu));
+    theme.set_custom_ram(crate::custom_theme::CustomTheme::color(&custom.ram));
+    theme.set_custom_vram(crate::custom_theme::CustomTheme::color(&custom.vram));
+    theme.set_custom_dark(custom.dark_background());
+    window.set_custom_theme_json(SharedString::from(
+        serde_json::to_string_pretty(custom).unwrap_or_default(),
+    ));
+    let names: Vec<SharedString> = settings
+        .saved_themes
+        .keys()
+        .map(|name| SharedString::from(name.as_str()))
+        .collect();
+    window.set_saved_theme_names(ModelRc::from(Rc::new(VecModel::from(names))));
+    window
+        .global::<Theme>()
+        .set_accent_index(settings.accent as i32);
+    window
+        .global::<Theme>()
+        .set_polish(resolve_locale(settings.language) == crate::localization::LocaleCode::Pl);
+    let overlay = &settings.overlay;
+    window.set_overlay_enabled(overlay.enabled);
+    window.set_overlay_position(overlay.position.index());
+    window.set_overlay_font(i32::from(overlay.font_size));
+    window.set_overlay_opacity(i32::from(overlay.opacity));
+    window.set_overlay_fps(overlay.fps);
+    window.set_overlay_frametime(overlay.frametime);
+    window.set_overlay_cpu(overlay.cpu);
+    window.set_overlay_gpu(overlay.gpu);
+    window.set_overlay_temperatures(overlay.temperatures);
+    window.set_overlay_memory(overlay.memory);
+    window.set_overlay_gpu_power(overlay.gpu_power);
+    window.set_overlay_opengl_dlsym(overlay.opengl_dlsym);
+    window.set_overlay_command(SharedString::from(overlay.steam_launch_options()));
     window.set_theme_mode(match settings.theme {
         ThemePreference::System => 0,
         ThemePreference::Dark => 1,
@@ -338,10 +924,32 @@ fn apply_settings_to_window(
     ));
 }
 
-fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
+pub fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
+    let was_updating = window.get_cc_updating();
+    window.set_cc_updating(true);
+    crate::control_center::localize(window, loc);
     let i18n = window.global::<I18n>();
+    window.set_custom_theme_status(
+        loc.diagnostic(window.get_custom_theme_source().as_str())
+            .into(),
+    );
+    i18n.set_locale(loc.locale().as_str().into());
+    i18n.set_messages(ModelRc::new(VecModel::from(
+        crate::localization::UI_KEYS
+            .iter()
+            .map(|key| SharedString::from(loc.tr(key)))
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_status(
+        loc.diagnostic(window.get_manager_status_source().as_str())
+            .into(),
+    );
+    window.set_manager_preview(
+        loc.diagnostic(window.get_manager_preview_source().as_str())
+            .into(),
+    );
     i18n.set_app_name(SharedString::from(loc.tr("app_name")));
-    i18n.set_app_version(SharedString::from(loc.tr("app_version")));
+    i18n.set_app_version(SharedString::from(env!("CARGO_PKG_VERSION")));
     i18n.set_nav_dashboard(SharedString::from(loc.tr("nav_dashboard")));
     i18n.set_nav_cpu(SharedString::from(loc.tr("nav_cpu")));
     i18n.set_nav_gpu(SharedString::from(loc.tr("nav_gpu")));
@@ -462,6 +1070,16 @@ fn apply_i18n_to_window(window: &AppWindow, loc: &Localizer) {
     i18n.set_chart_60s(SharedString::from(loc.tr("chart_60s")));
     i18n.set_chart_30s(SharedString::from(loc.tr("chart_30s")));
     i18n.set_diag_notice_title(SharedString::from(loc.tr("diag_notice_title")));
+    window.set_cc_updating(was_updating);
+}
+
+fn visible_charts(page: i32, mode: crate::settings::InterfaceMode) -> (bool, bool, bool) {
+    use crate::settings::InterfaceMode;
+    (
+        page == 0 || page == 1,
+        page == 3 || (page == 0 && mode == InterfaceMode::Modern),
+        page == 0 || page == 2,
+    )
 }
 
 fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
@@ -799,111 +1417,152 @@ fn render_snapshot_to_window(window: &AppWindow, state: &mut SharedState) {
     )));
     window.set_storage_notice_text(SharedString::from(build_storage_notice(&snap.storage, loc)));
 
+    crate::control_center::render(window, snap, loc, selected_idx);
+    crate::process_ui::render(window, snap, loc, &mut state.process_cache);
+    if [0, 7, 8].contains(&window.get_current_page()) {
+        let source = window.get_cc_chart_source().clamp(0, 9) as usize;
+        if let Some(last) = state.control_histories[source].samples().back() {
+            let stamp = (
+                last.timestamp,
+                source as i32,
+                window.get_cc_chart_range(),
+                loc.locale(),
+                window.get_temp_unit(),
+            );
+            if state.control_chart_stamp != Some(stamp) {
+                crate::control_center::render_history(
+                    window,
+                    &state.control_histories[source],
+                    snap.sampled_at,
+                    state.settings.polling_interval_ms,
+                    loc,
+                );
+                state.control_chart_stamp = Some(stamp);
+            }
+        }
+    }
     // Real-time bounded 60s charts (update Slint paths only when changed)
     let now = snap.sampled_at;
 
-    let cpu_paths = state.cpu_history.build_chart_paths(
-        now,
-        CHART_WINDOW,
-        CHART_VIEWBOX_W,
-        CHART_VIEWBOX_H,
-        0.0,
-        100.0,
-        max_gap,
-    );
-    if state.render_cache.cpu_line != cpu_paths.line_commands {
-        window.set_cpu_line_commands(SharedString::from(cpu_paths.line_commands.as_str()));
-        state.render_cache.cpu_line = cpu_paths.line_commands;
-    }
-    if state.render_cache.cpu_area != cpu_paths.area_commands {
-        window.set_cpu_area_commands(SharedString::from(cpu_paths.area_commands.as_str()));
-        state.render_cache.cpu_area = cpu_paths.area_commands;
-    }
-    if state.render_cache.cpu_has != Some(cpu_paths.has_data) {
-        window.set_cpu_has_history(cpu_paths.has_data);
-        state.render_cache.cpu_has = Some(cpu_paths.has_data);
-    }
-
-    let ram_paths = state.ram_history.build_chart_paths(
-        now,
-        CHART_WINDOW,
-        CHART_VIEWBOX_W,
-        CHART_VIEWBOX_H,
-        0.0,
-        100.0,
-        max_gap,
-    );
-    if state.render_cache.ram_line != ram_paths.line_commands {
-        window.set_ram_line_commands(SharedString::from(ram_paths.line_commands.as_str()));
-        state.render_cache.ram_line = ram_paths.line_commands;
-    }
-    if state.render_cache.ram_area != ram_paths.area_commands {
-        window.set_ram_area_commands(SharedString::from(ram_paths.area_commands.as_str()));
-        state.render_cache.ram_area = ram_paths.area_commands;
-    }
-    if state.render_cache.ram_has != Some(ram_paths.has_data) {
-        window.set_ram_has_history(ram_paths.has_data);
-        state.render_cache.ram_has = Some(ram_paths.has_data);
-    }
-
-    let (gpu_line, gpu_area, gpu_has, gpu_empty) = if let Some(gpu) = snap.gpus.get(selected_idx) {
-        if let Some(hist) = state.gpu_histories.get(&gpu.id) {
-            let gpu_paths = hist.build_chart_paths(
-                now,
-                CHART_WINDOW,
-                CHART_VIEWBOX_W,
-                CHART_VIEWBOX_H,
-                0.0,
-                100.0,
-                max_gap,
-            );
-            let empty_msg = if gpu_paths.has_data {
-                String::new()
-            } else {
-                match gpu.utilization_percent.status() {
-                    MetricStatus::Unsupported => loc.tr("status_unsupported").to_string(),
-                    MetricStatus::PermissionError => loc.tr("status_permission_denied").to_string(),
-                    _ => loc.tr("status_unavailable").to_string(),
-                }
-            };
-            (
-                gpu_paths.line_commands,
-                gpu_paths.area_commands,
-                gpu_paths.has_data,
-                empty_msg,
-            )
-        } else {
-            (
-                String::new(),
-                String::new(),
-                false,
-                loc.tr("status_sampling").to_string(),
-            )
+    let (show_cpu, show_ram, show_gpu) =
+        visible_charts(window.get_current_page(), state.settings.interface_mode);
+    if show_cpu {
+        let cpu_paths = state.cpu_history.build_chart_paths(
+            now,
+            CHART_WINDOW,
+            CHART_VIEWBOX_W,
+            CHART_VIEWBOX_H,
+            0.0,
+            100.0,
+            max_gap,
+        );
+        if state.render_cache.cpu_line != cpu_paths.line_commands {
+            window.set_cpu_line_commands(SharedString::from(cpu_paths.line_commands.as_str()));
+            state.render_cache.cpu_line = cpu_paths.line_commands;
         }
-    } else {
-        (
-            String::new(),
-            String::new(),
-            false,
-            loc.tr("gpu_none_detected").to_string(),
-        )
-    };
+        if state.render_cache.cpu_area != cpu_paths.area_commands {
+            window.set_cpu_area_commands(SharedString::from(cpu_paths.area_commands.as_str()));
+            state.render_cache.cpu_area = cpu_paths.area_commands;
+        }
+        if state.render_cache.cpu_has != Some(cpu_paths.has_data) {
+            window.set_cpu_has_history(cpu_paths.has_data);
+            state.render_cache.cpu_has = Some(cpu_paths.has_data);
+        }
+    }
+    if show_ram {
+        let ram_paths = state.ram_history.build_chart_paths(
+            now,
+            CHART_WINDOW,
+            CHART_VIEWBOX_W,
+            CHART_VIEWBOX_H,
+            0.0,
+            100.0,
+            max_gap,
+        );
+        if state.render_cache.ram_line != ram_paths.line_commands {
+            window.set_ram_line_commands(SharedString::from(ram_paths.line_commands.as_str()));
+            state.render_cache.ram_line = ram_paths.line_commands;
+        }
+        if state.render_cache.ram_area != ram_paths.area_commands {
+            window.set_ram_area_commands(SharedString::from(ram_paths.area_commands.as_str()));
+            state.render_cache.ram_area = ram_paths.area_commands;
+        }
+        if state.render_cache.ram_has != Some(ram_paths.has_data) {
+            window.set_ram_has_history(ram_paths.has_data);
+            state.render_cache.ram_has = Some(ram_paths.has_data);
+        }
+    }
+    if show_gpu {
+        let (gpu_line, gpu_area, gpu_has, gpu_empty) =
+            if let Some(gpu) = snap.gpus.get(selected_idx) {
+                if let Some(hist) = state.gpu_histories.get(&gpu.id) {
+                    let gpu_paths = hist.build_chart_paths(
+                        now,
+                        CHART_WINDOW,
+                        CHART_VIEWBOX_W,
+                        CHART_VIEWBOX_H,
+                        0.0,
+                        100.0,
+                        max_gap,
+                    );
+                    let empty_msg = if gpu_paths.has_data {
+                        String::new()
+                    } else {
+                        match gpu.utilization_percent.status() {
+                            MetricStatus::Unsupported => loc.tr("status_unsupported").to_string(),
+                            MetricStatus::PermissionError => {
+                                loc.tr("status_permission_denied").to_string()
+                            }
+                            _ => loc.tr("status_unavailable").to_string(),
+                        }
+                    };
+                    (
+                        gpu_paths.line_commands,
+                        gpu_paths.area_commands,
+                        gpu_paths.has_data,
+                        empty_msg,
+                    )
+                } else {
+                    (
+                        String::new(),
+                        String::new(),
+                        false,
+                        loc.tr("status_sampling").to_string(),
+                    )
+                }
+            } else {
+                (
+                    String::new(),
+                    String::new(),
+                    false,
+                    loc.tr("gpu_none_detected").to_string(),
+                )
+            };
 
-    if state.render_cache.gpu_line != gpu_line {
-        window.set_gpu_line_commands(SharedString::from(gpu_line.as_str()));
-        state.render_cache.gpu_line = gpu_line;
+        if state.render_cache.gpu_line != gpu_line {
+            window.set_gpu_line_commands(SharedString::from(gpu_line.as_str()));
+            state.render_cache.gpu_line = gpu_line;
+        }
+        if state.render_cache.gpu_area != gpu_area {
+            window.set_gpu_area_commands(SharedString::from(gpu_area.as_str()));
+            state.render_cache.gpu_area = gpu_area;
+        }
+        if state.render_cache.gpu_has != Some(gpu_has) {
+            window.set_gpu_has_history(gpu_has);
+            state.render_cache.gpu_has = Some(gpu_has);
+        }
+        if !gpu_empty.is_empty() && state.render_cache.gpu_empty != gpu_empty {
+            window.set_gpu_chart_empty_text(SharedString::from(gpu_empty.as_str()));
+            state.render_cache.gpu_empty = gpu_empty;
+        }
     }
-    if state.render_cache.gpu_area != gpu_area {
-        window.set_gpu_area_commands(SharedString::from(gpu_area.as_str()));
-        state.render_cache.gpu_area = gpu_area;
-    }
-    if state.render_cache.gpu_has != Some(gpu_has) {
-        window.set_gpu_has_history(gpu_has);
-        state.render_cache.gpu_has = Some(gpu_has);
-    }
-    if !gpu_empty.is_empty() && state.render_cache.gpu_empty != gpu_empty {
-        window.set_gpu_chart_empty_text(SharedString::from(gpu_empty.as_str()));
-        state.render_cache.gpu_empty = gpu_empty;
+}
+
+fn gpu_metric_text(text: SharedString, status: i32, android: bool) -> SharedString {
+    if android && status != MetricStatus::Available.as_code() {
+        "N/A".into()
+    } else {
+        text
     }
 }
 
@@ -942,24 +1601,40 @@ fn gpu_to_ui_item(gpu: &GpuTelemetry, loc: &Localizer, temp_unit: TemperatureUni
         pci_slot: SharedString::from(gpu.pci_slot.clone().unwrap_or_default()),
         driver_text,
         driver_status,
-        util_text,
+        util_text: gpu_metric_text(util_text, util_status, cfg!(target_os = "android")),
         util_percent: gpu.utilization_percent.copied().unwrap_or(0.0) as f32,
         util_status,
-        vram_text,
+        vram_text: gpu_metric_text(vram_text, vram_status, cfg!(target_os = "android")),
         vram_subtext: SharedString::from(vram_subtext),
         vram_percent: gpu.vram_utilization_percent.copied().unwrap_or(0.0) as f32,
         vram_status,
-        temp_text,
+        temp_text: gpu_metric_text(temp_text, temp_status, cfg!(target_os = "android")),
         temp_status,
-        core_clock_text,
+        core_clock_text: gpu_metric_text(
+            core_clock_text,
+            core_clock_status,
+            cfg!(target_os = "android"),
+        ),
         core_clock_status,
-        mem_clock_text,
+        mem_clock_text: gpu_metric_text(
+            mem_clock_text,
+            mem_clock_status,
+            cfg!(target_os = "android"),
+        ),
         mem_clock_status,
-        power_draw_text,
+        power_draw_text: gpu_metric_text(
+            power_draw_text,
+            power_draw_status,
+            cfg!(target_os = "android"),
+        ),
         power_draw_status,
-        power_limit_text,
+        power_limit_text: gpu_metric_text(
+            power_limit_text,
+            power_limit_status,
+            cfg!(target_os = "android"),
+        ),
         power_limit_status,
-        fan_text,
+        fan_text: gpu_metric_text(fan_text, fan_status, cfg!(target_os = "android")),
         fan_status,
     }
 }
@@ -973,24 +1648,24 @@ fn empty_gpu_item(loc: &Localizer) -> GpuItem {
         pci_slot: SharedString::default(),
         driver_text: unavail.clone(),
         driver_status: 1,
-        util_text: unavail.clone(),
+        util_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         util_percent: 0.0,
         util_status: 1,
-        vram_text: unavail.clone(),
+        vram_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         vram_subtext: SharedString::default(),
         vram_percent: 0.0,
         vram_status: 1,
-        temp_text: unavail.clone(),
+        temp_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         temp_status: 1,
-        core_clock_text: unavail.clone(),
+        core_clock_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         core_clock_status: 1,
-        mem_clock_text: unavail.clone(),
+        mem_clock_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         mem_clock_status: 1,
-        power_draw_text: unavail.clone(),
+        power_draw_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         power_draw_status: 1,
-        power_limit_text: unavail.clone(),
+        power_limit_text: gpu_metric_text(unavail.clone(), 1, cfg!(target_os = "android")),
         power_limit_status: 1,
-        fan_text: unavail,
+        fan_text: gpu_metric_text(unavail, 1, cfg!(target_os = "android")),
         fan_status: 1,
     }
 }
@@ -1043,6 +1718,9 @@ fn build_gpu_notice(gpu: Option<&GpuTelemetry>, loc: &Localizer) -> String {
     let Some(gpu) = gpu else {
         return String::new();
     };
+    if cfg!(target_os = "android") {
+        return loc.tr("android_gpu_na_note").into();
+    }
     let mut notes = Vec::new();
     if gpu.utilization_percent.status() == MetricStatus::PermissionError
         || gpu.core_clock_mhz.status() == MetricStatus::PermissionError
@@ -1085,5 +1763,165 @@ fn build_storage_notice(storage: &[StorageDeviceTelemetry], loc: &Localizer) -> 
         loc.tr("diag_storage_note").to_string()
     } else {
         String::new()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn update_mangohud_manager(window: &AppWindow, state: &crate::mangohud::Manager) {
+    let values = crate::mangohud::parse(&state.profile.config).unwrap_or_default();
+    window.set_manager_config(state.profile.config.clone().into());
+    window.set_manager_review_before(state.review_before.clone().into());
+    window.set_manager_review_after(state.review_after.clone().into());
+    let detection = if crate::overlay::mangohud_available() {
+        "MangoHud launcher detected; layer/library compatibility is checked by the game."
+    } else {
+        "MangoHud launcher missing. Install MangoHud before launching a game."
+    };
+    let status = format!(
+        "{detection}\n{}\n{}",
+        crate::mangohud::components(),
+        state.status
+    );
+    let loc = Localizer::new(crate::localization::LocaleCode::from_locale_tag(
+        window.global::<I18n>().get_locale().as_str(),
+    ));
+    window.set_manager_status_source(status.clone().into());
+    window.set_overlay_copy_status(
+        loc.diagnostic(window.get_overlay_copy_source().as_str())
+            .into(),
+    );
+    window.set_manager_status(loc.diagnostic(&status).into());
+    let preview = state.preview();
+    window.set_manager_preview_source(preview.clone().into());
+    window.set_manager_preview(loc.diagnostic(&preview).into());
+    let size = values
+        .get("font_size")
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(24.0);
+    let scale = values
+        .get("font_scale")
+        .and_then(|v| v.parse::<f32>().ok())
+        .unwrap_or(1.0);
+    window.set_manager_preview_size((size * scale * 0.6).clamp(8.0, 36.0));
+    window.set_manager_target(state.target.display().to_string().into());
+    window.set_manager_game(state.profile.game.clone().into());
+    window.set_manager_profiles(ModelRc::new(VecModel::from(
+        state
+            .names()
+            .into_iter()
+            .map(SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_flags(ModelRc::new(VecModel::from(
+        crate::mangohud::METRICS
+            .iter()
+            .map(|key| values.get(*key).is_some_and(|v| v == "1"))
+            .collect::<Vec<_>>(),
+    )));
+    window.set_manager_values(ModelRc::new(VecModel::from(
+        crate::mangohud::APPEARANCE
+            .iter()
+            .map(|key| SharedString::from(values.get(*key).map_or("", String::as_str)))
+            .collect::<Vec<_>>(),
+    )));
+    let color = |key: &str, fallback: u32| {
+        let rgb = values
+            .get(key)
+            .and_then(|s| u32::from_str_radix(s, 16).ok())
+            .unwrap_or(fallback);
+        let alpha = values
+            .get(if key == "text_color" {
+                "alpha"
+            } else {
+                "background_alpha"
+            })
+            .and_then(|s| s.parse::<f32>().ok())
+            .unwrap_or(1.0);
+        slint::Color::from_argb_u8(
+            (alpha * 255.0) as u8,
+            (rgb >> 16) as u8,
+            (rgb >> 8) as u8,
+            rgb as u8,
+        )
+    };
+    window.set_manager_color(color("text_color", 0xffffff));
+    window.set_manager_background(color("background_color", 0x020202));
+}
+
+#[cfg(test)]
+mod model_update_tests {
+    use super::*;
+    #[test]
+    fn android_gpu_na_keeps_values_statuses_and_desktop_labels() {
+        for status in [
+            MetricStatus::Unavailable,
+            MetricStatus::Unsupported,
+            MetricStatus::PermissionError,
+        ] {
+            assert_eq!(
+                gpu_metric_text("Restricted".into(), status.as_code(), true).as_str(),
+                "N/A"
+            );
+            assert_eq!(
+                gpu_metric_text("Restricted".into(), status.as_code(), false).as_str(),
+                "Restricted"
+            );
+        }
+        assert_eq!(
+            gpu_metric_text("0%".into(), MetricStatus::Available.as_code(), true).as_str(),
+            "0%"
+        );
+        assert_eq!(
+            gpu_metric_text("847 MHz".into(), MetricStatus::Available.as_code(), true).as_str(),
+            "847 MHz"
+        );
+    }
+
+    #[test]
+    fn stale_gpu_histories_are_pruned_without_losing_recent_samples() {
+        let earlier = std::time::Instant::now();
+        let now = earlier + Duration::from_secs(66);
+        let mut recent = BoundedHistory::new(4);
+        recent.push(now - Duration::from_secs(60), Some(42.0));
+        let mut stale = BoundedHistory::new(4);
+        stale.push(earlier, Some(20.0));
+        let mut histories = HashMap::from([
+            ("recent".to_string(), recent),
+            ("stale".to_string(), stale),
+            ("empty".to_string(), BoundedHistory::new(4)),
+        ]);
+        prune_stale_gpu_histories(&mut histories, now);
+        assert_eq!(histories.len(), 1);
+        assert_eq!(
+            histories["recent"].samples().back().unwrap().value,
+            Some(42.0)
+        );
+    }
+
+    #[test]
+    fn chart_visibility_tracks_page_and_mode() {
+        use crate::settings::InterfaceMode::{Gaming, Modern, Professional};
+        assert_eq!(visible_charts(0, Modern), (true, true, true));
+        assert_eq!(visible_charts(0, Gaming), (true, false, true));
+        assert_eq!(visible_charts(0, Professional), (true, false, true));
+        assert_eq!(visible_charts(1, Modern), (true, false, false));
+        assert_eq!(visible_charts(2, Modern), (false, false, true));
+        assert_eq!(visible_charts(3, Modern), (false, true, false));
+        assert_eq!(visible_charts(6, Modern), (false, false, false));
+    }
+
+    #[test]
+    fn updates_rows_and_handles_growth_and_shrinkage() {
+        let rows = Rc::new(VecModel::from(vec![1, 2, 3]));
+        let model = ModelRc::from(rows.clone());
+        update_vec_model(model.clone(), vec![1, 4, 3, 5]);
+        assert_eq!(rows.row_count(), 4);
+        assert_eq!(rows.row_data(1), Some(4));
+        assert_eq!(rows.row_data(3), Some(5));
+        update_vec_model(model.clone(), vec![7]);
+        assert_eq!(rows.row_count(), 1);
+        assert_eq!(rows.row_data(0), Some(7));
+        update_vec_model(model, Vec::new());
+        assert_eq!(rows.row_count(), 0);
     }
 }

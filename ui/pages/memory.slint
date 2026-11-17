@@ -5,6 +5,8 @@ import { Card, DiagnosticNotice, KeyValueRow, SummaryCard } from "../components/
 import { TelemetryChart } from "../components/chart.slint";
 
 export component MemoryPage inherits Rectangle {
+    in property <string> pressure;
+    in property <bool> android-platform;
     in property <bool> compact: false;
     in property <bool> narrow: false;
     in property <length> left-inset: 0px;
@@ -38,13 +40,15 @@ export component MemoryPage inherits Rectangle {
         height: 100%;
 
         VerticalLayout {
-            width: root.compact ? root.width : max(280px, root.width - 14px);
+            width: max(0px, min(1200px, root.width - 14px));
             alignment: start;
-            padding-top: root.compact ? 12px : 20px;
+            padding-top: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 24px);
             padding-bottom: root.compact ? 16px : 20px;
             padding-left: (root.compact ? 12px : 20px) + root.left-inset;
             padding-right: (root.compact ? 12px : 20px) + root.right-inset;
             spacing: root.compact ? 12px : 16px;
+            Card { VerticalLayout { padding: 14px; KeyValueRow { compact: root.compact; label: root.android-platform ? I18n.cc-low-memory : I18n.cc-pressure; value: root.pressure; show-divider: false; } } }
+
 
             if !root.compact : HorizontalLayout {
                 spacing: 12px;

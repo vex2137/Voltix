@@ -1,7 +1,9 @@
 pub mod cpu;
 pub mod disk;
+pub mod extended;
 pub mod gpu;
 pub mod memory;
+pub mod processes;
 pub mod system;
 
 use std::time::Instant;
@@ -19,6 +21,9 @@ pub struct MonitoringEngine {
     memory: MemoryMonitor,
     gpu: GpuMonitor,
     disk: DiskMonitor,
+    extended: extended::ExtendedMonitor,
+    pub want_processes: bool,
+    pub selected_process: Option<processes::ProcessKey>,
 }
 
 impl Default for MonitoringEngine {
@@ -35,13 +40,25 @@ impl MonitoringEngine {
             memory: MemoryMonitor::new(),
             gpu: GpuMonitor::new(),
             disk: DiskMonitor::new(),
+            extended: extended::ExtendedMonitor::default(),
+            want_processes: false,
+            selected_process: None,
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn resume_after_pause(&mut self) {
+        self.cpu.resume_after_pause();
+        self.extended = extended::ExtendedMonitor::default();
     }
 
     pub fn collect_snapshot(&mut self) -> TelemetrySnapshot {
         let sampled_at = Instant::now();
         TelemetrySnapshot {
             sampled_at,
+            extended: self
+                .extended
+                .collect(self.want_processes, self.selected_process),
             system: self.system.collect(),
             cpu: self.cpu.collect(),
             memory: self.memory.collect(),

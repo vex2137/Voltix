@@ -21,3 +21,7 @@ android/app/src/main/jniLibs/
 *.jks
 *.keystore
 keystore.properties
+
+# Local test packaging
+/AppDir/
+/dist/

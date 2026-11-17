@@ -33,10 +33,44 @@ pub enum TemperatureUnit {
     Fahrenheit,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InterfaceMode {
+    #[default]
+    Modern,
+    Professional,
+    Gaming,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PalettePreset {
+    #[default]
+    VoltixDefault,
+    Cyberpunk,
+    Emerald,
+    Minimal,
+    Custom,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UserSettings {
+    pub last_page: i32,
+    pub settings_category: i32,
+    pub history_source: i32,
+    pub history_range: i32,
+    pub process_sort: i32,
+    pub process_descending: bool,
+    pub process_quick_filter: i32,
+    pub process_own_user: bool,
     pub theme: ThemePreference,
+    pub interface_mode: InterfaceMode,
+    pub palette: PalettePreset,
+    pub custom_theme: crate::custom_theme::CustomTheme,
+    pub saved_themes: std::collections::BTreeMap<String, crate::custom_theme::CustomTheme>,
+    pub overlay: crate::overlay::OverlaySettings,
+    pub accent: u8,
     pub language: LanguagePreference,
     pub polling_interval_ms: u64,
     pub temperature_unit: TemperatureUnit,
@@ -45,7 +79,21 @@ pub struct UserSettings {
 impl Default for UserSettings {
     fn default() -> Self {
         Self {
+            last_page: 0,
+            settings_category: 0,
+            history_source: 0,
+            history_range: 0,
+            process_sort: 0,
+            process_descending: true,
+            process_quick_filter: 0,
+            process_own_user: false,
             theme: ThemePreference::Dark,
+            interface_mode: InterfaceMode::Modern,
+            palette: PalettePreset::VoltixDefault,
+            custom_theme: crate::custom_theme::CustomTheme::default(),
+            saved_themes: std::collections::BTreeMap::new(),
+            overlay: crate::overlay::OverlaySettings::default(),
+            accent: 0,
             language: LanguagePreference::System,
             polling_interval_ms: DEFAULT_POLLING_INTERVAL_MS,
             temperature_unit: TemperatureUnit::Celsius,
@@ -55,6 +103,25 @@ impl Default for UserSettings {
 
 impl UserSettings {
     pub fn validate(&mut self) {
+        self.last_page = self.last_page.clamp(0, 13);
+        self.settings_category = self.settings_category.clamp(-1, 6);
+        self.history_source = self.history_source.clamp(0, 9);
+        self.history_range = self.history_range.clamp(0, 2);
+        self.process_sort = self.process_sort.clamp(0, 3);
+        self.process_quick_filter = self.process_quick_filter.clamp(0, 2);
+        if self.custom_theme.validate().is_err() {
+            self.custom_theme = crate::custom_theme::CustomTheme::default();
+            if self.palette == PalettePreset::Custom {
+                self.palette = PalettePreset::VoltixDefault;
+            }
+        }
+        self.saved_themes
+            .retain(|name, theme| name == &theme.name && theme.validate().is_ok());
+        while self.saved_themes.len() > 32 {
+            self.saved_themes.pop_last();
+        }
+        self.accent = self.accent.min(3);
+        self.overlay.validate();
         self.polling_interval_ms = self
             .polling_interval_ms
             .clamp(MIN_POLLING_INTERVAL_MS, MAX_POLLING_INTERVAL_MS);
@@ -125,6 +192,61 @@ mod tests {
     use super::*;
 
     #[test]
+    fn old_preferences_migrate_and_mode_roundtrips() {
+        let old = UserSettings::from_json_str(r#"{"theme":"light"}"#).unwrap();
+        assert_eq!(old.interface_mode, InterfaceMode::Modern);
+        assert_eq!(old.accent, 0);
+        assert!(!old.overlay.enabled);
+        let bounded = UserSettings::from_json_str(
+            r#"{"overlay":{"enabled":true,"font_size":255,"opacity":255}}"#,
+        )
+        .unwrap();
+        assert_eq!(bounded.overlay.font_size, 48);
+        assert_eq!(bounded.overlay.opacity, 100);
+        for mode in [
+            InterfaceMode::Modern,
+            InterfaceMode::Professional,
+            InterfaceMode::Gaming,
+        ] {
+            let settings = UserSettings {
+                interface_mode: mode,
+                accent: 3,
+                ..UserSettings::default()
+            };
+            let restored =
+                UserSettings::from_json_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(restored, settings);
+        }
+        assert_eq!(
+            UserSettings::from_json_str(r#"{"accent":255}"#)
+                .unwrap()
+                .accent,
+            3
+        );
+    }
+
+    #[test]
+    fn palette_presets_roundtrip_and_legacy_settings_default() {
+        let legacy = UserSettings::from_json_str(r#"{"theme":"dark"}"#).unwrap();
+        assert_eq!(legacy.palette, PalettePreset::VoltixDefault);
+        for palette in [
+            PalettePreset::VoltixDefault,
+            PalettePreset::Cyberpunk,
+            PalettePreset::Emerald,
+            PalettePreset::Minimal,
+            PalettePreset::Custom,
+        ] {
+            let settings = UserSettings {
+                palette,
+                ..UserSettings::default()
+            };
+            let encoded = serde_json::to_string(&settings).unwrap();
+            assert_eq!(UserSettings::from_json_str(&encoded).unwrap(), settings);
+        }
+        assert!(UserSettings::from_json_str(r#"{"palette":"unknown"}"#).is_err());
+    }
+
+    #[test]
     fn settings_clamp_polling_interval() {
         let mut too_low = UserSettings {
             polling_interval_ms: 50,
@@ -154,16 +276,46 @@ mod tests {
     }
 
     #[test]
+    fn mobile_settings_home_survives_persistence() {
+        let tmp =
+            std::env::temp_dir().join(format!("voltix-mobile-home-{}.json", std::process::id()));
+        let settings = UserSettings {
+            settings_category: -1,
+            last_page: 6,
+            ..Default::default()
+        };
+        settings.save_to(&tmp).unwrap();
+        assert_eq!(UserSettings::load_or_default(Some(&tmp)), settings);
+        let _ = std::fs::remove_file(tmp);
+    }
+
+    #[test]
     fn settings_roundtrip_save_and_load() {
         let tmp = std::env::temp_dir().join("voltix_test_roundtrip_settings.json");
         let _ = fs::remove_file(&tmp);
 
-        let initial = UserSettings {
+        let mut initial = UserSettings {
+            last_page: 0,
+            settings_category: 0,
+            history_source: 0,
+            history_range: 0,
+            process_sort: 0,
+            process_descending: true,
+            process_quick_filter: 0,
+            process_own_user: false,
             theme: ThemePreference::Light,
             language: LanguagePreference::Polish,
             polling_interval_ms: 500,
             temperature_unit: TemperatureUnit::Fahrenheit,
+            interface_mode: InterfaceMode::Gaming,
+            palette: PalettePreset::Cyberpunk,
+            custom_theme: crate::custom_theme::CustomTheme::default(),
+            saved_themes: std::collections::BTreeMap::new(),
+            overlay: crate::overlay::OverlaySettings::default(),
+            accent: 2,
         };
+        let custom = crate::custom_theme::CustomTheme::default();
+        initial.saved_themes.insert(custom.name.clone(), custom);
         initial.save_to(&tmp).expect("save should succeed");
         let reloaded = UserSettings::load_or_default(Some(&tmp));
         assert_eq!(reloaded, initial);

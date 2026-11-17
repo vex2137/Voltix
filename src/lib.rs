@@ -1,8 +1,15 @@
 pub mod app;
+pub mod build_info;
+pub mod control_center;
+pub mod custom_theme;
+pub mod diagnostics;
 pub mod localization;
+pub mod mangohud;
 pub mod models;
 pub mod monitoring;
+pub mod overlay;
 pub mod platform;
+pub mod process_ui;
 pub mod settings;
 pub mod utils;
 
@@ -24,3 +31,5 @@ pub fn android_main(app: slint::android::AndroidApp) {
         log::error!("Voltix Android exited with UI error: {err}");
     }
 }
+
+pub mod desktop_sensors;

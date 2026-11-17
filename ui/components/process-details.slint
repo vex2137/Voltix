@@ -1,0 +1,24 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { ControlRow } from "../models.slint";
+import { Card, SectionTitle } from "common.slint";
+import { TelemetryRows } from "telemetry-rows.slint";
+export component ProcessDetails inherits Card {
+    in property <[ControlRow]> rows;
+    in property <string> note;
+    callback close();
+    TouchArea { }
+    VerticalLayout {
+        padding: 12px; spacing: 12px;
+        HorizontalLayout {
+            SectionTitle { text: I18n.proc-details; }
+            Button { text: "×"; accessible-label: I18n.proc-close; width: 32px; height: 32px; clicked => { root.close(); } }
+        }
+        Text { text: root.note; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+        ScrollView {
+            vertical-stretch: 1;
+            TelemetryRows { width: max(0px, parent.width - 14px); rows: root.rows; }
+        }
+    }
+}

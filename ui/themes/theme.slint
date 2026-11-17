@@ -1,33 +1,46 @@
 export global Theme {
+    in-out property <int> interface-mode: 0;
+    in-out property <int> accent-index: 0;
+    in-out property <int> palette: 0;
+    in-out property <bool> polish: false;
     in-out property <bool> dark-mode: true;
+    in-out property <color> custom-background: #0b1019;
+    in-out property <color> custom-surface: #192637;
+    in-out property <color> custom-text: #f1f5f9;
+    in-out property <color> custom-accent: #38bdf8;
+    in-out property <color> custom-on-accent: #000000;
+    in-out property <color> custom-cpu: #38bdf8;
+    in-out property <color> custom-gpu: #a78bfa;
+    in-out property <color> custom-ram: #4ade80;
+    in-out property <color> custom-vram: #f59e0b;
+    in-out property <bool> custom-dark: true;
+    out property <bool> use-dark-controls: root.palette == 4 ? root.custom-dark : (root.palette != 0 || root.dark-mode);
 
-    out property <color> bg-app: root.dark-mode ? #0b0f17 : #f4f7fb;
-    out property <color> bg-sidebar: root.dark-mode ? #0e1420 : #ffffff;
-    out property <color> bg-header: root.dark-mode ? #0e1420 : #ffffff;
-    out property <color> bg-card: root.dark-mode ? #131b2b : #ffffff;
-    out property <color> bg-elevated: root.dark-mode ? #192336 : #eef2f8;
-    out property <color> bg-hover: root.dark-mode ? #1f2b42 : #e2e9f4;
-
-    out property <color> border-subtle: root.dark-mode ? #222e44 : #dbe3ef;
-    out property <color> border-strong: root.dark-mode ? #2f405e : #cbd5e1;
-
-    out property <color> text-primary: root.dark-mode ? #f1f5f9 : #0f172a;
-    out property <color> text-secondary: root.dark-mode ? #94a3b8 : #475569;
-    out property <color> text-muted: root.dark-mode ? #64748b : #64748b;
-
-    out property <color> accent: root.dark-mode ? #38bdf8 : #0284c7;
-    out property <color> accent-soft: root.dark-mode ? #38bdf824 : #0284c71c;
-
-    out property <color> accent-emerald: root.dark-mode ? #22c55e : #16a34a;
-    out property <color> accent-emerald-soft: root.dark-mode ? #22c55e24 : #16a34a1c;
-
-    out property <color> accent-amber: root.dark-mode ? #f59e0b : #d97706;
-    out property <color> accent-amber-soft: root.dark-mode ? #f59e0b24 : #d977061c;
-
-    out property <color> accent-red: root.dark-mode ? #ef4444 : #dc2626;
-    out property <color> chart-grid: root.dark-mode ? #1f2b40 : #e2e8f0;
-    out property <color> track-bg: root.dark-mode ? #1e293b : #e2e8f0;
-
-    out property <length> radius-card: 10px;
+    private property <bool> minimal: root.palette == 3;
+    private property <bool> palette-dark: root.palette != 0 || root.dark-mode;
+    out property <color> bg-app: root.palette == 4 ? root.custom-background : (root.palette == 1 ? #111015 : (root.palette == 2 ? #071812 : (root.minimal ? #101010 : (root.dark-mode ? #0b1019 : #f4f7fb))));
+    out property <color> bg-sidebar: root.palette == 4 ? root.custom-background : (root.palette == 1 ? #111015 : (root.palette == 2 ? #071812 : (root.minimal ? #101010 : (root.dark-mode ? #0e1420 : #ffffff))));
+    out property <color> bg-header: root.bg-sidebar;
+    out property <color> bg-card: root.palette == 4 ? root.custom-surface : (root.palette == 1 ? #25212a : (root.palette == 2 ? #142a23 : (root.minimal ? #101010 : (root.dark-mode ? #192637 : #ffffff))));
+    out property <color> bg-elevated: root.palette == 4 ? root.custom-surface : (root.palette == 1 ? #25212a : (root.palette == 2 ? #142a23 : (root.minimal ? #101010 : (root.dark-mode ? #192637 : #eef2f8))));
+    out property <color> bg-hover: root.palette == 4 ? root.custom-surface : (root.minimal ? #101010 : (root.palette == 1 ? #25212a : (root.palette == 2 ? #142a23 : (root.dark-mode ? #1f2b42 : #e2e9f4))));
+    out property <color> border-subtle: root.minimal ? #777777 : (root.palette-dark ? #405064 : #dbe3ef);
+    out property <color> border-strong: root.minimal ? #777777 : (root.palette-dark ? #607088 : #cbd5e1);
+    out property <color> text-primary: root.palette == 4 ? root.custom-text : (root.minimal ? #f5f5f5 : (root.palette-dark ? #f1f5f9 : #0f172a));
+    out property <color> text-secondary: root.palette == 4 ? root.custom-text : (root.minimal ? #777777 : (root.palette-dark ? #b5c4d6 : #475569));
+    out property <color> text-muted: root.palette == 4 ? root.custom-text : (root.minimal ? #777777 : (root.palette-dark ? #a2b2c5 : #64748b));
+    out property <color> accent: root.palette == 4 ? root.custom-accent : (root.palette == 1 ? #fcee0a : (root.palette == 2 ? #10b981 : (root.minimal ? #f5f5f5 : (root.accent-index == 1 ? #a78bfa : (root.accent-index == 2 ? #10b981 : (root.accent-index == 3 ? #f97316 : (root.dark-mode ? #38bdf8 : #0284c7)))))));
+    out property <color> on-accent: root.palette == 4 ? root.custom-on-accent : (root.minimal ? #101010 : #0b1019);
+    out property <color> accent-soft: root.minimal ? #101010 : root.accent.with-alpha(0.14);
+    out property <color> cpu-color: root.palette == 4 ? root.custom-cpu : (root.palette == 2 ? #34d399 : root.accent);
+    out property <color> gpu-color: root.palette == 4 ? root.custom-gpu : (root.palette == 1 ? #ff365a : (root.palette == 2 ? #2dd4bf : (root.minimal ? #f5f5f5 : (root.dark-mode ? #a78bfa : #6d28d9))));
+    out property <color> accent-emerald: root.palette == 4 ? root.custom-ram : (root.palette == 1 ? #00e5ff : (root.palette == 2 ? #a3e635 : (root.minimal ? #f5f5f5 : (root.dark-mode ? #4ade80 : #16a34a))));
+    out property <color> accent-emerald-soft: root.minimal ? #101010 : root.accent-emerald.with-alpha(0.14);
+    out property <color> accent-amber: root.palette == 4 ? root.custom-vram : (root.palette == 1 ? #c084fc : (root.palette == 2 ? #60a5fa : (root.minimal ? #f5f5f5 : (root.dark-mode ? #f59e0b : #d97706))));
+    out property <color> accent-amber-soft: root.minimal ? #101010 : root.accent-amber.with-alpha(0.14);
+    out property <color> accent-red: root.palette == 4 ? root.custom-text : (root.minimal ? #f5f5f5 : (root.palette-dark ? #ef4444 : #dc2626));
+    out property <color> chart-grid: root.minimal ? #777777 : (root.palette-dark ? #405064 : #e2e8f0);
+    out property <color> track-bg: root.minimal ? #777777 : (root.palette-dark ? #344459 : #e2e8f0);
+    out property <length> radius-card: root.interface-mode == 1 ? 10px : 12px;
     out property <length> radius-sm: 6px;
 }

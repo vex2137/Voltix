@@ -1,6 +1,6 @@
 # Voltix
 
-**Version:** `0.1.0-alpha.2`  
+**Version:** `0.1.0-alpha.4`
 **License:** MIT  
 **Repository:** `vex2137/Voltix`
 
@@ -88,22 +88,25 @@ cargo run
 - **Minimum SDK:** API 26 (Android 8.0)
 - **Slint Backend:** `backend-android-activity-06` via `android.app.NativeActivity` (`src/lib.rs`)
 - **Responsive UI:** Automatically switches from the desktop sidebar to a touch-friendly bottom navigation bar and stacked card grids on narrow screens.
-- **Unprivileged Telemetry:** Uses Bionic system properties (`__system_property_get`), `libc::uname`, `libc::sysinfo`, `statvfs`, and readable thermal zones without requiring root access. On Android 8+, SELinux restricts `/proc/stat`, `/proc/meminfo` (on some devices), and vendor GPU counters; restricted values are explicitly shown as `Permission Denied` or `Unsupported` rather than fabricated.
+- **Unprivileged Telemetry:** Uses Bionic system properties (`__system_property_get`), `libc::uname`, `libc::sysinfo`, `statvfs`, and readable thermal zones without requiring root access. On Android 8+, SELinux restricts `/proc/stat`, `/proc/meminfo` (on some devices), and vendor GPU counters; unavailable GPU measurements are shown as `N/A`, with permission and driver restrictions explained in Diagnostics.
 
 Build the Android native library and debug APK locally (requires Android SDK 35, NDK r27, `cargo-ndk`, and Gradle 8.9):
 
 ```bash
 rustup target add aarch64-linux-android
-cargo ndk -t arm64-v8a -p 26 -o android/app/src/main/jniLibs build --lib --release
+cargo ndk -t arm64-v8a -p 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
 gradle -p android assembleDebug --no-daemon
 ```
+
+Android uses a dedicated size profile; Linux release defaults remain unchanged.
+See [APK size investigation and verification](docs/ANDROID-APK-SIZE.md).
 
 ## Continuous Integration
 
 GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 
-1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-0.1.0-alpha.2-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-linux-x86_64-appimage`).
-2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --release` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.2-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
+1. **Linux x86_64 (`ubuntu-22.04`):** `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo build --release`, `desktop-file-validate`, `linuxdeploy` AppImage packaging (`Voltix-Alpha4-test-x86_64.AppImage`), headless `xvfb-run` launch verification, and artifact uploads (`voltix-linux-x86_64`, `voltix-alpha4-test-linux-x86_64`).
+2. **Android ARM64-v8a:** `cargo ndk` Clippy check and `--lib --profile android-apk` build, Gradle `assembleDebug` (`Voltix-0.1.0-alpha.4-arm64.apk`), APK native `.so` verification, and artifact upload (`voltix-android-arm64-apk`).
 
 ## Known Limitations (Alpha 1)
 
@@ -114,3 +117,78 @@ GitHub Actions (`.github/workflows/ci.yml`) runs two automated jobs:
 ## License
 
 Licensed under the [MIT License](LICENSE).
+
+## Android Alpha 2 updates
+
+The package ID remains `com.voltix.monitor`; Alpha 3 development uses version code 4.
+Release builds require the same private signing keystore used for the installed
+release. Configure all four CI secrets: `VOLTIX_KEYSTORE_BASE64`,
+`VOLTIX_KEYSTORE_PASSWORD`, `VOLTIX_KEY_ALIAS`, and `VOLTIX_KEY_PASSWORD`.
+Local release builds use `VOLTIX_KEYSTORE_PATH` instead of the Base64 secret.
+Keep this key backed up securely and reuse it for every release.
+
+CI verifies the APK signature, package ID, version code and ARM64 library.
+Without signing secrets, CI produces an explicitly named `-debug.apk` for testing;
+fresh runners generate different debug certificates, so these APKs cannot be
+relied on for in-place updates. Partial signing configuration fails the build.
+An installed APK signed with another key cannot be updated while preserving its
+data unless the original key (or a supported signing-key rotation) is available.
+A higher version code alone cannot resolve a certificate mismatch.
+
+## Alpha 3 development — interface milestone
+
+Interface Mode in Appearance switches immediately between Modern (balanced cards),
+Professional (dense current readings, GPU clocks/power and CPU core rows) and Gaming
+(performance summary and larger CPU/GPU history charts). All modes share the same
+monitoring engine. Four accent choices and interface mode persist in settings;
+older settings files migrate to Modern. Desktop content is capped at 1200 logical
+pixels and key/value groups keep readings near their labels. Existing mobile
+navigation, scrolling and safe-area handling remain in place.
+
+Gaming FPS/frametime explicitly show unavailable: no game telemetry provider is
+connected. The MangoHud backend, dedicated overlay editor, game launch integration,
+metric ordering, min/max tables and reduced-animation preference are **not yet
+implemented** in this milestone. No overlay controls pretend to enable injection.
+These remain work within Alpha 3. Existing UI uses no graph interpolation animation.
+
+For opt-in development timing, run `VOLTIX_PROFILE_STARTUP=1 cargo run --release`.
+Logs distinguish process entry, Slint component creation, monitoring-engine creation,
+event-loop entry and first telemetry applied to the UI. These are initialization
+milestones, **not first-frame presentation** or an actual usable-interface benchmark.
+No first-frame or sub-500ms claim is made. Normal runs do not emit timing logs.
+NVIDIA power draw uses NVML `power_usage` (mW converted to W), separately from the
+enforced/management power limit. Unsupported measurements remain unavailable;
+validation on real NVIDIA hardware is still required.
+
+### MangoHud clipboard export (Linux)
+
+AppImages bundle clipboard helpers. For development builds, install `wl-clipboard` for Wayland or `xclip` for X11 (`sudo pacman -S wl-clipboard xclip` on CachyOS).
+In Settings, “Include MangoHud in launch options” enables MangoHud and copies the command.
+After changing metrics or position, use “Copy command” again. Keep `%command%` for Steam;
+for other launchers enter the game command with its arguments and shell quoting.
+Voltix copies text only and never executes it or writes MangoHud configuration files.
+Clipboard failures are shown in Settings rather than reported as success.
+
+The AppImage uses the `voltix` desktop/application ID and the official bundled icon.
+On Plasma Wayland, install/integrate the bundled `voltix.desktop` and icon through your
+AppImage manager so Plasma can resolve that ID to its desktop entry.
+
+MangoHud file profiles, safe application, appearance controls and reload behavior are documented in [MangoHud Studio](docs/MANGOHUD.md).
+
+## Unified Alpha 4 control center
+
+Modern, Professional and Gaming now share real telemetry with distinct layouts.
+Desktop has permanent page navigation and category-based Settings. Android uses
+Dashboard / CPU / GPU / Battery / More, with foreground-only BatteryManager,
+ActivityManager, TrafficStats, Display and sensor-inventory integration.
+
+Linux adds network and physical-disk rates, read-only process sorting/filtering,
+accessible hwmon/thermal values, PSI and power-supply battery data. Detailed
+history is bounded and selectable; snapshots can be exported locally as JSON.
+Unavailable data remains explicit. See [sources, API limits and lifecycle behavior](docs/CONTROL-CENTER.md).
+MangoHud Studio retains its profiles and reviewed atomic writes, organized into
+Profiles, Metrics, Appearance, Preview and Editor & Apply sections.
+
+Linux defaults to the software UI renderer and offers a virtualized Processes
+view with resource bars, lifetime-safe selection and read-only details.
+See [renderer overrides, process sources and performance tradeoffs](docs/RENDERER-PROCESSES.md).

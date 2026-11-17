@@ -1,3 +1,4 @@
+import { Button } from "std-widgets.slint";
 import { Theme } from "../themes/theme.slint";
 
 export component Card inherits Rectangle {
@@ -8,6 +9,7 @@ export component Card inherits Rectangle {
 }
 
 export component SectionTitle inherits Text {
+    wrap: word-wrap;
     color: Theme.text-primary;
     font-size: 14px;
     font-weight: 600;
@@ -34,6 +36,7 @@ export component ProgressBar inherits Rectangle {
 }
 
 export component SummaryCard inherits Card {
+    min-width: 0px;
     in property <string> label;
     in property <string> primary-value;
     in property <string> secondary-value: "";
@@ -44,7 +47,7 @@ export component SummaryCard inherits Card {
     in property <bool> compact: false;
 
     VerticalLayout {
-        padding: root.compact ? 12px : 14px;
+        padding: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 16px);
         spacing: root.compact ? 5px : 7px;
 
         Text {
@@ -58,14 +61,14 @@ export component SummaryCard inherits Card {
         Text {
             text: root.primary-value;
             color: root.status == 0 ? Theme.text-primary : (root.status == 3 ? Theme.accent-amber : Theme.text-muted);
-            font-size: root.status == 0 ? (root.compact ? 18px : 20px) : 13px;
+            font-size: root.status == 0 ? (Theme.interface-mode == 2 ? 28px : (root.compact ? 18px : 22px)) : 13px;
             font-weight: 700;
             wrap: word-wrap;
         }
 
         if root.show-progress && root.status == 0 : ProgressBar {
             value: root.progress;
-            bar-color: root.progress > 92.0 ? Theme.accent-red : (root.progress > 80.0 ? Theme.accent-amber : root.accent-color);
+            bar-color: root.accent-color;
             available: true;
         }
 
@@ -85,7 +88,7 @@ export component KeyValueRow inherits Rectangle {
     in property <bool> show-divider: true;
     in property <bool> compact: false;
 
-    min-height: 36px;
+    min-height: root.compact ? 64px : (Theme.interface-mode == 1 ? 28px : 36px);
 
     VerticalLayout {
         if !root.compact : HorizontalLayout {
@@ -98,7 +101,8 @@ export component KeyValueRow inherits Rectangle {
                 color: Theme.text-secondary;
                 font-size: 13px;
                 vertical-alignment: center;
-                horizontal-stretch: 1;
+                width: 42%;
+                max-width: 220px;
                 wrap: word-wrap;
             }
 
@@ -108,7 +112,8 @@ export component KeyValueRow inherits Rectangle {
                 font-size: 13px;
                 font-weight: root.status == 0 ? 600 : 500;
                 vertical-alignment: center;
-                horizontal-alignment: right;
+                horizontal-alignment: left;
+                horizontal-stretch: 1;
                 wrap: word-wrap;
             }
         }
@@ -158,7 +163,7 @@ export component DiagnosticNotice inherits Card {
 
         VerticalLayout {
             horizontal-stretch: 1;
-            padding: root.compact ? 12px : 14px;
+            padding: Theme.interface-mode == 1 ? 8px : (root.compact ? 12px : 16px);
             spacing: 4px;
 
             Text {
@@ -179,33 +184,12 @@ export component DiagnosticNotice inherits Card {
     }
 }
 
-export component SegmentedOption inherits TouchArea {
+export component SegmentedOption inherits Button {
     in property <string> label;
     in property <bool> active: false;
     in property <bool> compact: false;
-
-    height: root.compact ? 42px : 32px;
-    mouse-cursor: pointer;
-
-    Rectangle {
-        border-radius: Theme.radius-sm;
-        background: root.active ? Theme.accent-soft : (root.has-hover ? Theme.bg-hover : Theme.bg-elevated);
-        border-width: 1px;
-        border-color: root.active ? Theme.accent : Theme.border-subtle;
-
-        HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            alignment: center;
-
-            Text {
-                text: root.label;
-                color: root.active ? Theme.accent : Theme.text-primary;
-                font-size: 12px;
-                font-weight: root.active ? 600 : 500;
-                vertical-alignment: center;
-                overflow: elide;
-            }
-        }
-    }
+    text: root.label;
+    primary: root.active;
+    min-width: 0px;
+    height: root.compact ? 44px : 36px;
 }

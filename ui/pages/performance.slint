@@ -1,0 +1,87 @@
+import { I18n } from "../i18n/strings.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { GpuItem, CoreRowItem } from "../models.slint";
+import { Card, KeyValueRow, SectionTitle, SummaryCard, SegmentedOption } from "../components/common.slint";
+import { TelemetryChart } from "../components/chart.slint";
+
+export component PerformancePage inherits Rectangle {
+    callback open-overlay();
+    in property <bool> compact;
+    in property <string> cpu;
+    in property <float> cpu-percent;
+    in property <int> cpu-status;
+    in property <string> temperature;
+    in property <string> frequency;
+    in property <string> ram;
+    in property <string> vram;
+    in property <GpuItem> gpu;
+    in property <[CoreRowItem]> cores;
+    in property <string> cpu-line;
+    in property <string> cpu-area;
+    in property <bool> cpu-data;
+    in property <string> gpu-line;
+    in property <string> gpu-area;
+    in property <bool> gpu-data;
+
+    ScrollView {
+        width: 100%; height: 100%;
+        VerticalLayout {
+            width: min(root.width, 1200px);
+            padding: root.compact ? 12px : 24px;
+            spacing: 12px;
+            alignment: start;
+            SectionTitle { text: Theme.interface-mode == 1 ? (I18n.messages[1]) : (I18n.messages[2]); }
+            if Theme.interface-mode == 2 : HorizontalLayout {
+                spacing: 10px;
+                SummaryCard {
+                    label: "CPU"; primary-value: root.cpu; accent-color: Theme.cpu-color;
+                    secondary-value: root.temperature; progress: root.cpu-percent;
+                    status: root.cpu-status; compact: root.compact;
+                }
+                SummaryCard {
+                    label: "GPU"; primary-value: root.gpu.util-text; accent-color: Theme.gpu-color;
+                    secondary-value: root.gpu.temp-text; progress: root.gpu.util-percent;
+                    status: root.gpu.util-status; compact: root.compact;
+                }
+            }
+            Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 4px;
+                    KeyValueRow { compact: root.compact; label: "CPU"; value: root.cpu; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[3]; value: root.temperature; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[4]; value: root.frequency; }
+                    KeyValueRow { compact: root.compact; label: "GPU"; value: root.gpu.util-text; status: root.gpu.util-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[5]; value: root.gpu.temp-text; status: root.gpu.temp-status; }
+                    KeyValueRow { compact: root.compact; label: "RAM"; value: root.ram; }
+                    KeyValueRow { compact: root.compact; label: "VRAM"; value: root.vram == "" ? I18n.status-unavailable : root.vram; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[6]; value: root.gpu.core-clock-text; status: root.gpu.core-clock-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[7]; value: root.gpu.power-draw-text; status: root.gpu.power-draw-status; }
+                    KeyValueRow { compact: root.compact; label: I18n.messages[8]; value: root.gpu.power-limit-text; status: root.gpu.power-limit-status; }
+                }
+            }
+            if Theme.interface-mode == 1 : Card {
+                VerticalLayout {
+                    padding: 12px; spacing: 4px;
+                    SectionTitle { text: I18n.messages[9]; }
+                    for core in root.cores : KeyValueRow {
+                        compact: root.compact;
+                        label: core.left-label + "  " + core.left-freq-text;
+                        value: core.left-value-text + (core.has-right ? "   •   " + core.right-label + "  " + core.right-value-text : "");
+                        status: core.left-status;
+                    }
+                }
+            }
+            if Theme.interface-mode == 2 : Card {
+                VerticalLayout {
+                    padding: 16px; spacing: 8px;
+                    SectionTitle { text: I18n.messages[151]; }
+                    Text { text: I18n.messages[10]; color: Theme.text-muted; wrap: word-wrap; }
+                    SegmentedOption { label: I18n.messages[11]; clicked => { root.open-overlay(); } }
+                }
+            }
+            TelemetryChart { line-color: Theme.cpu-color; area-color: Theme.cpu-color.with-alpha(0.14); title: "CPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.cpu; line-commands: root.cpu-line; area-commands: root.cpu-area; has-data: root.cpu-data; }
+            TelemetryChart { line-color: Theme.gpu-color; area-color: Theme.gpu-color.with-alpha(0.14); title: "GPU • 60 s"; compact: root.compact; min-height: Theme.interface-mode == 2 ? 280px : 210px; current-value-text: root.gpu.util-text; line-commands: root.gpu-line; area-commands: root.gpu-area; has-data: root.gpu-data; empty-text: I18n.status-unavailable; }
+        }
+    }
+}

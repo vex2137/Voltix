@@ -10,8 +10,9 @@ android {
         applicationId = "com.voltix.monitor"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.0-alpha.2"
+        versionCode = 11
+        versionName = rootProject.file("../Cargo.toml").readLines()
+            .first { it.startsWith("version = ") }.substringAfter("=").trim().trim('"')
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -27,6 +28,14 @@ android {
         !ksAlias.isNullOrBlank() &&
         !keyPass.isNullOrBlank() &&
         file(ksPath).exists()
+
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) }) {
+            require(hasReleaseSigning) {
+                "Release APKs require the existing Voltix signing key: set all VOLTIX_KEYSTORE_* and VOLTIX_KEY_* variables."
+            }
+        }
+    }
 
     signingConfigs {
         if (hasReleaseSigning) {
@@ -47,6 +56,11 @@ android {
             }
         }
         debug {
+            // Validation APKs coexist with installed Voltix when an old CI signing
+            // key is unavailable. Never require clearing the existing app's data.
+            if (providers.gradleProperty("voltixPreview").orNull == "true") {
+                applicationIdSuffix = ".alpha4test"
+            }
             isDebuggable = true
         }
     }

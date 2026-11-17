@@ -1,0 +1,13 @@
+import { Theme } from "../themes/theme.slint";
+import { ControlRow } from "../models.slint";
+export component TelemetryRows inherits VerticalLayout {
+    in property <[ControlRow]> rows;
+    alignment: start; spacing: 6px;
+    for row in root.rows : VerticalLayout {
+        alignment: start; vertical-stretch: 0; spacing: 3px;
+        Text { vertical-stretch: 0; text: row.label; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+        Text { vertical-stretch: 0; text: row.value; color: Theme.text-primary; font-size: 14px; font-weight: 600; wrap: word-wrap; }
+        if row.detail != "" : Text { vertical-stretch: 0; text: row.detail; color: Theme.text-muted; font-size: 12px; wrap: word-wrap; }
+        Rectangle { height: 1px; background: Theme.border-subtle; }
+    }
+}

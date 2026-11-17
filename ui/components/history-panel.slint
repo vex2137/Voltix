@@ -1,0 +1,36 @@
+import { ComboBox } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { Card } from "common.slint";
+import { TelemetryChart } from "chart.slint";
+export component HistoryPanel inherits Card {
+    in-out property <int> source;
+    in-out property <int> range;
+    in property <string> line;
+    in property <string> area;
+    in property <bool> has-data;
+    in property <string> current;
+    in property <string> maximum;
+    in property <string> minimum;
+    min-height: 335px;
+    VerticalLayout {
+        padding: 12px; spacing: 8px;
+        if root.width > 650px : HorizontalLayout {
+            ComboBox { model: ["CPU", "GPU", "RAM", I18n.cc-download, I18n.cc-upload, I18n.cc-disk-read, I18n.cc-disk-write, I18n.cc-battery-percent, I18n.cc-battery-power, I18n.cc-battery-temp]; current-index <=> root.source; }
+            ComboBox { model: [I18n.cc-one-min, I18n.cc-five-min, I18n.cc-fifteen-min]; current-index <=> root.range; }
+        }
+        if root.width <= 650px : VerticalLayout {
+            ComboBox { model: ["CPU", "GPU", "RAM", I18n.cc-download, I18n.cc-upload, I18n.cc-disk-read, I18n.cc-disk-write, I18n.cc-battery-percent, I18n.cc-battery-power, I18n.cc-battery-temp]; current-index <=> root.source; }
+            ComboBox { model: [I18n.cc-one-min, I18n.cc-five-min, I18n.cc-fifteen-min]; current-index <=> root.range; }
+        }
+        TelemetryChart {
+            title: I18n.cc-history; current-value-text: root.current;
+            line-commands: root.line; area-commands: root.area; has-data: root.has-data;
+            empty-text: I18n.cc-sample-wait; y-max-label: root.maximum; y-min-label: root.minimum; y-mid-label: "";
+            start-label: root.range == 0 ? "−60 s" : (root.range == 1 ? "−5 min" : "−15 min");
+            middle-label: root.range == 0 ? "−30 s" : (root.range == 1 ? "−2.5 min" : "−7.5 min");
+            compact: root.width < 650px;
+        }
+        Text { text: I18n.cc-history-note; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+    }
+}

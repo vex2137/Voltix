@@ -1,6 +1,6 @@
 [package]
 name = "voltix"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.4"
 edition = "2021"
 license = "MIT"
 description = "Native hardware monitoring, diagnostics, and telemetry application"
@@ -16,17 +16,18 @@ name = "voltix"
 path = "src/main.rs"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 log = "0.4"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-slint = "1.9"
+slint = { version = "1.9", features = ["backend-winit", "renderer-software"] }
 env_logger = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
-slint = { version = "1.9", features = ["backend-android-activity-06"] }
+slint = { version = "1.9", default-features = false, features = ["std", "compat-1-2", "backend-android-activity-06"] }
 android_logger = "0.14"
+jni = "0.21.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -36,3 +37,12 @@ nvml-wrapper = "0.10"
 
 [build-dependencies]
 slint-build = "1.9"
+
+# Opt in only for Android APKs; Linux release settings stay unchanged.
+[profile.android-apk]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

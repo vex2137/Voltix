@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - feat/alpha4-performance-ui
   pull_request:
   workflow_dispatch:
 
@@ -12,7 +13,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # This existing workflow is discoverable from the default branch on mobile.
+  # Select feat/alpha4-performance-ui in Run workflow to build only the pinned APK.
+  # An opt-in [alpha4-apk] commit marker also launches it without API dispatch.
+  alpha4-apk-download:
+    if: >-
+      github.ref_name == 'feat/alpha4-performance-ui' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
+    permissions:
+      contents: read
+    uses: ./.github/workflows/android-alpha4-apk.yml
+
   linux-build-and-appimage:
+    if: >-
+      github.ref_name != 'feat/alpha4-performance-ui' ||
+      (github.event_name != 'workflow_dispatch' &&
+       !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]')))
     name: Linux x86_64 (Build, Test, AppImage)
     runs-on: ubuntu-22.04
 
@@ -47,6 +64,8 @@ jobs:
             desktop-file-utils \
             xvfb \
             xauth \
+            xclip \
+            wl-clipboard \
             libgl1-mesa-dri
 
       - name: Install stable Rust toolchain
@@ -63,19 +82,23 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy lints
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Run unit and integration tests
-        run: cargo test
+        run: cargo test --locked
+
+      - name: Verify native X11 clipboard export
+        run: xvfb-run -a cargo test overlay::tests::native_clipboard_round_trip --lib -- --ignored
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --locked --release
 
       - name: Validate desktop entry
         run: desktop-file-validate packaging/linux/voltix.desktop
 
       - name: Package Linux AppImage
         run: |
+          umask 022
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
           mkdir -p AppDir/usr/share/licenses/voltix
@@ -85,6 +108,13 @@ jobs:
           cp assets/icons/voltix.svg \
             AppDir/usr/share/icons/hicolor/scalable/apps/voltix.svg
           cp LICENSE AppDir/usr/share/licenses/voltix/LICENSE
+          # AppImage root metadata and the Wayland app ID must share this basename.
+          cp packaging/linux/voltix.desktop AppDir/voltix.desktop
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png AppDir/voltix.png
+          ln -sfn voltix.png AppDir/.DirIcon
+          mkdir -p AppDir/usr/bin
+          install -m 755 target/release/voltix AppDir/usr/bin/voltix
+          chmod -R a+rX AppDir
 
           curl -fsSL -o linuxdeploy-x86_64.AppImage \
             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -92,28 +122,52 @@ jobs:
 
           ARCH=x86_64 \
           APPIMAGE_EXTRACT_AND_RUN=1 \
-            OUTPUT="Voltix-0.1.0-alpha.2-x86_64.AppImage" \
+            OUTPUT="Voltix-Alpha4-test-x86_64.AppImage" \
             ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --executable target/release/voltix \
+            --executable /usr/bin/wl-copy \
+            --executable /usr/bin/xclip \
             --desktop-file packaging/linux/voltix.desktop \
             --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/voltix.png \
             --output appimage
 
-          chmod +x Voltix-0.1.0-alpha.2-x86_64.AppImage
-          ls -lh Voltix-0.1.0-alpha.2-x86_64.AppImage
-          file Voltix-0.1.0-alpha.2-x86_64.AppImage
+          desktop-file-validate AppDir/voltix.desktop
+          test -s AppDir/voltix.png
+          test "$(readlink AppDir/.DirIcon)" = voltix.png
+          cmp assets/icons/voltix.svg AppDir/usr/share/icons/hicolor/scalable/apps/voltix.svg
+          chmod +x Voltix-Alpha4-test-x86_64.AppImage
+          ls -lh Voltix-Alpha4-test-x86_64.AppImage
+          file Voltix-Alpha4-test-x86_64.AppImage
+          ./Voltix-Alpha4-test-x86_64.AppImage --appimage-extract
+          desktop-file-validate squashfs-root/voltix.desktop
+          cmp AppDir/voltix.png squashfs-root/voltix.png
+          cmp assets/icons/voltix.svg squashfs-root/usr/share/icons/hicolor/scalable/apps/voltix.svg
+          test -s squashfs-root/.DirIcon
+          test -x squashfs-root/usr/bin/wl-copy
+          test -x squashfs-root/usr/bin/xclip
 
       - name: Verify AppImage launch in virtual display
         run: |
           set +e
           APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 \
-            timeout 5s xvfb-run -a ./Voltix-0.1.0-alpha.2-x86_64.AppImage
+            timeout 5s xvfb-run -a ./Voltix-Alpha4-test-x86_64.AppImage
           code=$?
           set -e
           echo "Xvfb launch exit code: $code"
           if [ "$code" -ne 124 ] && [ "$code" -ne 0 ]; then
             echo "AppImage failed to stay running in virtual display"
+            exit "$code"
+          fi
+
+      - name: Verify explicit OpenGL renderer override
+        run: |
+          set +e
+          SLINT_BACKEND=winit-femtovg APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 \
+            timeout 5s xvfb-run -a ./Voltix-Alpha4-test-x86_64.AppImage
+          code=$?
+          set -e
+          if [ "$code" -ne 124 ] && [ "$code" -ne 0 ]; then
             exit "$code"
           fi
 
@@ -125,15 +179,50 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload Voltix Linux AppImage
+      - name: Record test-build checksum and source
+        run: |
+          sha256sum Voltix-Alpha4-test-x86_64.AppImage > SHA256SUMS
+          echo "::notice title=AppImage SHA-256::$(cat SHA256SUMS)"
+          {
+            echo "Voltix Alpha 4 pre-release test build"
+            echo "Source: $(git rev-parse HEAD)"
+            echo "Cargo profile: release"
+            cargo pkgid --offline
+            rustc --version
+          } > BUILD-INFO.txt
+
+      - name: Upload Voltix Alpha 4 test AppImage
+        id: appimage
         uses: actions/upload-artifact@v4
         with:
-          name: voltix-linux-x86_64-appimage
-          path: Voltix-0.1.0-alpha.2-x86_64.AppImage
+          name: voltix-alpha4-test-linux-x86_64
+          path: |
+            Voltix-Alpha4-test-x86_64.AppImage
+            SHA256SUMS
+            BUILD-INFO.txt
           if-no-files-found: error
           retention-days: 14
 
+      - name: Link downloadable test artifact
+        env:
+          ARTIFACT_URL: ${{ steps.appimage.outputs.artifact-url }}
+        run: |
+          echo "::notice title=Download Linux AppImage::$ARTIFACT_URL"
+          {
+            echo "### Voltix Alpha 4 pre-release test build"
+            echo "[Download AppImage, checksum and source information]($ARTIFACT_URL)"
+            echo '```text'
+            cat SHA256SUMS
+            echo '```'
+            echo "Wayland and MangoHud gameplay integration are not verified by this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   android-arm64-apk:
+    if: >-
+      !(github.event_name == 'push' && contains(github.event.head_commit.message, '[linux-ui]')) &&
+      (github.ref_name != 'feat/alpha4-performance-ui' ||
+       (github.event_name != 'workflow_dispatch' &&
+        !(github.event_name == 'push' && contains(github.event.head_commit.message, '[alpha4-apk]'))))
     name: Android ARM64-v8a (API 26+ APK)
     runs-on: ubuntu-latest
 
@@ -193,11 +282,11 @@ jobs:
           key: android-arm64
 
       - name: Run Clippy lints for Android target
-        run: cargo ndk -t arm64-v8a --platform 26 clippy --lib -- -D warnings
+        run: cargo ndk -t arm64-v8a --platform 26 clippy --locked --lib -- -D warnings
 
       - name: Build native Android library (arm64-v8a)
         run: |
-          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --lib --release
+          cargo ndk -t arm64-v8a --platform 26 -o android/app/src/main/jniLibs build --locked --lib --profile android-apk
           ls -lh android/app/src/main/jniLibs/arm64-v8a/libvoltix.so
 
       - name: Set up Gradle
@@ -206,31 +295,53 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build Android APK
+        id: apk
         env:
           VOLTIX_KEYSTORE_BASE64: ${{ secrets.VOLTIX_KEYSTORE_BASE64 }}
           VOLTIX_KEYSTORE_PASSWORD: ${{ secrets.VOLTIX_KEYSTORE_PASSWORD }}
           VOLTIX_KEY_ALIAS: ${{ secrets.VOLTIX_KEY_ALIAS }}
           VOLTIX_KEY_PASSWORD: ${{ secrets.VOLTIX_KEY_PASSWORD }}
         run: |
+          configured=0
+          for name in VOLTIX_KEYSTORE_BASE64 VOLTIX_KEYSTORE_PASSWORD VOLTIX_KEY_ALIAS VOLTIX_KEY_PASSWORD; do
+            if [ -n "${!name}" ]; then configured=$((configured + 1)); fi
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo "Incomplete release signing configuration; refusing a debug fallback."
+            exit 1
+          fi
           if [ -n "$VOLTIX_KEYSTORE_BASE64" ] && [ -n "$VOLTIX_KEYSTORE_PASSWORD" ] && [ -n "$VOLTIX_KEY_ALIAS" ] && [ -n "$VOLTIX_KEY_PASSWORD" ]; then
             export VOLTIX_KEYSTORE_PATH="$RUNNER_TEMP/voltix-release.keystore"
             trap 'rm -f "$VOLTIX_KEYSTORE_PATH"' EXIT
             printf '%s' "$VOLTIX_KEYSTORE_BASE64" | base64 -d > "$VOLTIX_KEYSTORE_PATH"
             chmod 600 "$VOLTIX_KEYSTORE_PATH"
             gradle -p android assembleRelease --no-daemon
-            cp android/app/build/outputs/apk/release/app-release.apk Voltix-0.1.0-alpha.2-arm64.apk
+            apk_name=Voltix-0.1.0-alpha.4-arm64.apk
+            cp android/app/build/outputs/apk/release/app-release.apk "$apk_name"
           else
             echo "Android signing secrets not configured; falling back to debug APK build."
             gradle -p android assembleDebug --no-daemon
-            cp android/app/build/outputs/apk/debug/app-debug.apk Voltix-0.1.0-alpha.2-arm64.apk
+            apk_name=Voltix-0.1.0-alpha.4-arm64-debug.apk
+            cp android/app/build/outputs/apk/debug/app-debug.apk "$apk_name"
           fi
-          ls -lh Voltix-0.1.0-alpha.2-arm64.apk
-          unzip -l Voltix-0.1.0-alpha.2-arm64.apk | grep "lib/arm64-v8a/libvoltix.so"
+          echo "path=$apk_name" >> "$GITHUB_OUTPUT"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk_name"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk_name" | grep "package: name='com.voltix.monitor' versionCode='11'"
+          unzip -l "$apk_name" | grep "lib/arm64-v8a/libvoltix.so"
+          unzip -l "$apk_name" | grep 'classes.dex'
+          sha256sum "$apk_name" > SHA256SUMS-android
+          echo "::notice title=Android APK SHA-256::$(cat SHA256SUMS-android)"
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" -D android/app/src/main/jniLibs/arm64-v8a/libvoltix.so > android-symbols.txt
+          for symbol in nativeSnapshot nativeCommand nativePollingInterval nativeExportJson; do
+            grep "Java_com_voltix_monitor_VoltixActivity_$symbol" android-symbols.txt
+          done
 
       - name: Upload Voltix Android APK
         uses: actions/upload-artifact@v4
         with:
           name: voltix-android-arm64-apk
-          path: Voltix-0.1.0-alpha.2-arm64.apk
+          path: |
+            ${{ steps.apk.outputs.path }}
+            SHA256SUMS-android
           if-no-files-found: error
           retention-days: 14

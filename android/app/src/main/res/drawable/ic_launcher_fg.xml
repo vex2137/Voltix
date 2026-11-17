@@ -1,21 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
-    <path
-        android:fillColor="#161F30"
-        android:pathData="M54,18 L85,36 L85,72 L54,90 L23,72 L23,36 Z"
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="2.5" />
-
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M37,35 L46.5,35 L54,59.5 L61.5,35 L71,35 L58.2,74 L49.8,74 Z" />
-
-    <path
-        android:fillColor="#0B0F17"
-        android:pathData="M51.5,43 L56.5,43 L54,52 L57.5,52 L51.2,64.5 L53,55.5 L49.5,55.5 Z" />
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="384" android:viewportHeight="384">
+    <!-- Desktop bolt silhouette inside the adaptive icon safe zone. -->
+    <group android:translateX="64" android:translateY="64">
+        <path android:fillColor="#0E1626" android:pathData="M64,12 L192,12 Q244,12 244,64 L244,192 Q244,244 192,244 L64,244 Q12,244 12,192 L12,64 Q12,12 64,12 Z" />
+        <path android:fillColor="#38BDF8" android:pathData="M144,44 L72,138 L122,138 L108,212 L184,114 L134,114 L144,44 Z" />
+    </group>
 </vector>

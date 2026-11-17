@@ -1,0 +1,166 @@
+import { I18n } from "../i18n/strings.slint";
+import { LineEdit, TextEdit, CheckBox, ComboBox } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { DesktopAction } from "desktop-controls.slint";
+import { Card, SectionTitle } from "common.slint";
+
+export component MangoHudManager inherits Rectangle {
+    in-out property <string> config;
+    in property <string> review-before;
+    in property <string> review-after;
+    in property <string> status;
+    in property <string> preview;
+    in property <float> preview-size: 14;
+    in property <[string]> profiles;
+    in property <[bool]> flags;
+    in property <[string]> values;
+    in property <string> target;
+    in property <string> game;
+    in property <color> preview-color: white;
+    in property <color> preview-background: black;
+    callback manage(string, string, string, string, bool);
+    private property <string> profile-name: "default";
+    private property <string> file-path: root.target;
+    private property <bool> confirmed: false;
+    changed target => { root.file-path = root.target; root.confirmed = false; }
+    changed config => { root.confirmed = false; }
+    private property <[string]> metric-keys: ["fps", "frametime", "frame_timing", "cpu_stats", "gpu_stats", "cpu_temp", "gpu_temp", "ram", "vram", "gpu_power", "cpu_power", "cpu_mhz", "core_load", "gpu_core_clock", "gpu_mem_clock", "gpu_mem_temp", "gpu_junction_temp", "gpu_fan", "gpu_voltage", "swap", "procmem", "io_read", "io_write", "battery", "battery_watt", "network", "wine", "engine_version", "resolution", "time", "horizontal", "no_small_font"];
+    private property <[string]> appearance-keys: ["position", "font_size", "font_scale", "font_file", "alpha", "background_alpha", "text_color", "background_color", "cpu_color", "gpu_color", "ram_color", "vram_color", "frametime_color", "width", "height", "table_columns", "legacy_layout", "reload_cfg"];
+    private property <[string]> metric-labels: ["FPS", I18n.messages[150], I18n.messages[73], I18n.messages[74], I18n.messages[75], I18n.messages[3], I18n.messages[5], "RAM", "VRAM", I18n.messages[76], I18n.messages[77], I18n.messages[4], I18n.messages[78], I18n.messages[6], I18n.messages[79], I18n.messages[80], I18n.messages[81], I18n.messages[82], I18n.messages[83], I18n.messages[84], I18n.messages[85], I18n.messages[86], I18n.messages[87], I18n.messages[88], I18n.messages[89], I18n.messages[90], "Wine / Proton", I18n.messages[91], I18n.messages[92], I18n.messages[93], I18n.messages[94], I18n.messages[95]];
+    private property <int> section: 0;
+    min-height: 0px;
+    min-width: 0px;
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+        alignment: start;
+        SectionTitle { text: I18n.messages[52]; }
+        Text { text: "MangoHud 0.8.4 · Linux · Vulkan / OpenGL / Proton"; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+        if root.status != "" : Text { text: root.status; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+        if root.width >= 650px : HorizontalLayout {
+            spacing: 6px;
+            for name[index] in [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply] : DesktopAction { label: name; kind: root.section == index ? 1 : 0; clicked => { root.section = index; } }
+        }
+        if root.width < 650px : ComboBox { model: [I18n.cc-profiles,I18n.cc-metrics,I18n.cc-appearance,I18n.cc-preview,I18n.cc-apply]; current-index <=> root.section; }
+        if root.section == 0 : VerticalLayout {
+            spacing: 10px;
+        Card { VerticalLayout { padding: 12px; spacing: 8px; alignment: start;
+            SectionTitle { text: I18n.cc-profiles; font-size: 12px; }
+            Text { text: I18n.messages[53]; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+            if root.width >= 500px : HorizontalLayout { spacing: 8px;
+                ComboBox { model: root.profiles; horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; height: 32px; selected(value) => { root.profile-name = value; } }
+                LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; height: 32px; }
+            }
+            if root.width < 500px : VerticalLayout { spacing: 6px;
+                ComboBox { model: root.profiles; selected(value) => { root.profile-name = value; } }
+                LineEdit { text <=> root.profile-name; placeholder-text: I18n.messages[54]; }
+            }
+            HorizontalLayout { spacing: 6px;
+                for action in ["load", "save", "duplicate"] : DesktopAction {
+                    label: action == "load" ? I18n.messages[96] : (action == "save" ? I18n.messages[97] : I18n.messages[98]);
+                    kind: action == "save" ? 1 : 0;
+                    clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+                }
+            }
+        } }
+        Card { border-color: Theme.accent-red.with-alpha(0.3); VerticalLayout { padding: 12px; spacing: 8px; alignment: start;
+            HorizontalLayout { spacing: 6px;
+                for action in ["review-save", "delete"] : DesktopAction {
+                    label: action == "review-save" ? I18n.messages[55] : I18n.messages[56]; kind: action == "delete" ? 2 : 0;
+                    clicked => { root.manage(action, root.profile-name, root.file-path, root.config, root.confirmed); root.confirmed = false; }
+                }
+            }
+            Text { text: I18n.messages[68]; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; }
+            CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
+            DesktopAction { label: I18n.messages[69]; kind: 2; max-width: 280px; enabled: root.confirmed; clicked => { root.manage("confirm", "", root.file-path, root.config, root.confirmed); root.confirmed = false; } }
+        } }
+
+        }
+        if root.section == 1 : VerticalLayout {
+            spacing: 10px;
+        Text { text: I18n.messages[57]; color: Theme.text-secondary; wrap: word-wrap; }
+        for row in (root.width < 600px ? 32 : (root.width < 950px ? 16 : 8)) : HorizontalLayout {
+            spacing: 10px;
+            for column in (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) : CheckBox {
+                text: root.metric-labels[row * (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) + column]; checked: root.flags[row * (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) + column];
+                toggled => { root.manage("option", root.metric-keys[row * (root.width < 600px ? 1 : (root.width < 950px ? 2 : 4)) + column], "", self.checked ? "1" : "0", false); }
+            }
+        }
+
+        }
+        if root.section == 2 : VerticalLayout {
+            spacing: 10px;
+        Text { text: I18n.messages[58]; color: Theme.text-secondary; wrap: word-wrap; }
+        for row in (root.width < 700px ? 18 : 9) : HorizontalLayout {
+            spacing: 12px;
+            for column in (root.width < 700px ? 1 : 2) : HorizontalLayout {
+                min-width: 0px; spacing: 6px;
+                visible: row * (root.width < 700px ? 1 : 2) + column < 18;
+                Text { text: root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column]; color: Theme.text-secondary; width: 120px; font-size: 12px; vertical-alignment: center; overflow: elide; }
+                LineEdit {
+                    height: 32px; min-width: 0px; preferred-width: 0px; horizontal-stretch: 1;
+                    text: root.values[row * (root.width < 700px ? 1 : 2) + column];
+                    accepted => { root.manage("option", root.appearance-keys[row * (root.width < 700px ? 1 : 2) + column], "", self.text, false); }
+                }
+            }
+        }
+
+        }
+        if root.section == 3 : VerticalLayout {
+            spacing: 10px;
+        Text { text: I18n.messages[59]; color: Theme.text-secondary; wrap: word-wrap; }
+        Rectangle {
+            height: 170px; background: Theme.bg-app; border-radius: 8px; clip: true;
+            Rectangle {
+                x: root.values[0] == "top-right" || root.values[0] == "bottom-right" ? max(0px, parent.width - self.width - 8px) : (root.values[0] == "top-center" || root.values[0] == "bottom-center" ? (parent.width - self.width) / 2 : 8px);
+                y: root.values[0] == "bottom-left" || root.values[0] == "bottom-right" || root.values[0] == "bottom-center" ? max(0px, parent.height - self.height - 8px) : (root.values[0] == "middle-left" || root.values[0] == "middle-right" ? (parent.height - self.height) / 2 : 8px);
+                width: min(parent.width - 16px, 440px); height: 150px;
+                background: root.preview-background; border-radius: 6px;
+                Text { x: 8px; y: 8px; width: parent.width - 16px; height: parent.height - 16px; text: root.preview; color: root.preview-color; font-size: root.preview-size * 1px; wrap: word-wrap; overflow: elide; }
+            }
+        }
+
+        }
+        if root.section == 4 : VerticalLayout {
+            spacing: 10px;
+        Card { VerticalLayout { padding: 12px; spacing: 8px;
+        Text { text: I18n.messages[60]; color: Theme.text-secondary; wrap: word-wrap; }
+        editor := TextEdit { height: 190px; text <=> root.config; }
+        DesktopAction { kind: 1; label: I18n.messages[61]; clicked => { root.manage("edit", "", "", editor.text, false); } }
+        } }
+        Card { VerticalLayout { padding: 12px; spacing: 8px;
+        Text { text: I18n.messages[62]; color: Theme.text-secondary; wrap: word-wrap; }
+        game-input := LineEdit { height: 32px; text: root.game; accepted => { root.manage("game", "", "", self.text, false); } }
+        HorizontalLayout {
+            spacing: 6px;
+            DesktopAction { label: I18n.messages[63]; clicked => { root.manage("game", "", "", game-input.text, false); } }
+            DesktopAction { label: I18n.messages[64]; clicked => { root.manage("copy", "", "", "", false); } }
+        }
+        } }
+        Card { VerticalLayout { padding: 12px; spacing: 8px;
+        Text { text: I18n.messages[65]; color: Theme.text-secondary; wrap: word-wrap; }
+        LineEdit { height: 32px; text <=> root.file-path; }
+        for pair in 2 : HorizontalLayout { spacing: 6px;
+            for c in 2 : DesktopAction {
+                private property <string> action: ["import", "export", "review", "target"][pair * 2 + c];
+                label: self.action == "review" ? I18n.messages[66] : (self.action == "target" ? I18n.messages[67] : (self.action == "import" ? I18n.messages[99] : I18n.messages[100]));
+                kind: self.action == "review" ? 1 : 0;
+                clicked => { root.manage(self.action, "", root.file-path, editor.text, false); root.confirmed = false; }
+            }
+        }
+        if root.status != "" : Text { text: root.status; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; }
+        if root.review-after != "" : VerticalLayout {
+            Text { text: I18n.messages[70]; color: Theme.text-secondary; }
+            TextEdit { height: 100px; text: root.review-before; read-only: true; }
+            Text { text: I18n.messages[71]; color: Theme.text-secondary; }
+            TextEdit { height: 100px; text: root.review-after; read-only: true; }
+        }
+        Text { text: I18n.messages[68]; color: Theme.text-secondary; wrap: word-wrap; }
+        CheckBox { text: I18n.messages[152]; checked <=> root.confirmed; }
+        DesktopAction { label: I18n.messages[69]; kind: 2; max-width: 280px; enabled: root.confirmed; clicked => { root.manage("confirm", "", root.file-path, editor.text, root.confirmed); root.confirmed = false; } }
+        } }
+        Text { text: I18n.messages[72]; color: Theme.text-secondary; wrap: word-wrap; }
+        }
+
+    }
+}

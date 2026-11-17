@@ -58,6 +58,11 @@ impl Default for CpuMonitor {
 }
 
 impl CpuMonitor {
+    #[cfg(target_os = "android")]
+    pub fn resume_after_pause(&mut self) {
+        self.prev_stat = None;
+        self.prev_proc_usage = None;
+    }
     pub fn new() -> Self {
         let static_info = read_static_cpu_info();
         // Capture initial /proc/stat and process CPU baselines so the first UI sample

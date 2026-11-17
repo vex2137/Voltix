@@ -2,21 +2,21 @@ use std::time::Instant;
 
 use crate::models::metrics::MetricValue;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum CpuUtilizationScope {
     SystemWide,
     ProcessOnly,
     Unavailable,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct LogicalCpuTelemetry {
     pub id: usize,
     pub utilization_percent: MetricValue<f64>,
     pub frequency_mhz: MetricValue<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct CpuTelemetry {
     pub model_name: MetricValue<String>,
     pub vendor: MetricValue<String>,
@@ -32,7 +32,7 @@ pub struct CpuTelemetry {
     pub per_core: Vec<LogicalCpuTelemetry>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct MemoryTelemetry {
     pub total_bytes: MetricValue<u64>,
     pub available_bytes: MetricValue<u64>,
@@ -43,7 +43,7 @@ pub struct MemoryTelemetry {
     pub swap_utilization_percent: MetricValue<f64>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum GpuVendor {
     Nvidia,
     Amd,
@@ -51,7 +51,7 @@ pub enum GpuVendor {
     Other,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct GpuTelemetry {
     pub id: String,
     pub name: String,
@@ -72,7 +72,7 @@ pub struct GpuTelemetry {
     pub fan_speed_percent: MetricValue<u32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct StorageDeviceTelemetry {
     pub device: String,
     pub mount_point: String,
@@ -83,7 +83,7 @@ pub struct StorageDeviceTelemetry {
     pub utilization_percent: MetricValue<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SystemInfo {
     pub os_name: MetricValue<String>,
     pub kernel_version: MetricValue<String>,
@@ -92,9 +92,11 @@ pub struct SystemInfo {
     pub uptime_seconds: MetricValue<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct TelemetrySnapshot {
+    #[serde(skip)]
     pub sampled_at: Instant,
+    pub extended: crate::monitoring::extended::Extended,
     pub system: SystemInfo,
     pub cpu: CpuTelemetry,
     pub memory: MemoryTelemetry,

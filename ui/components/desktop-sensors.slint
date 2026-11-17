@@ -1,0 +1,38 @@
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { DesktopSensorGroup } from "../models.slint";
+import { Card, SectionTitle } from "common.slint";
+export component DesktopSensors inherits VerticalLayout {
+    in property <[DesktopSensorGroup]> groups;
+    in property <bool> overview;
+    private property <int> group-columns: self.width >= 760px ? 2 : 1;
+    alignment: start; spacing: 10px;
+    if root.groups.length == 0 : Text { text: I18n.cc-sample-wait; color: Theme.text-muted; font-size: 12px; }
+    for r in ceil(root.groups.length / root.group-columns) : HorizontalLayout {
+        spacing: 10px; vertical-stretch: 0;
+        for c in root.group-columns : section := Card {
+            private property <int> index: r * root.group-columns + c;
+            private property <DesktopSensorGroup> group: root.groups[self.index];
+            private property <int> columns: self.group.rows.length > 1 && root.width / root.group-columns >= 340px ? 2 : 1;
+            visible: self.index < root.groups.length;
+            min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; vertical-stretch: 0;
+            VerticalLayout { padding: 10px; spacing: 8px; alignment: start;
+                SectionTitle { text: section.group.title; font-size: 13px; color: section.index == 0 ? Theme.cpu-color : (section.index == 1 ? Theme.gpu-color : Theme.text-secondary); }
+                for row in ceil((root.overview ? min(4,section.group.rows.length) : section.group.rows.length) / section.columns) : HorizontalLayout {
+                    spacing: 6px; vertical-stretch: 0;
+                    for column in section.columns : cell := Rectangle {
+                        private property <int> metric: row * section.columns + column;
+                        visible: self.metric < section.group.rows.length && (!root.overview || self.metric < 4);
+                        min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; vertical-stretch: 0;
+                        border-radius: Theme.radius-sm; border-width: 1px; border-color: Theme.border-subtle.with-alpha(0.3); background: Theme.bg-app.with-alpha(0.45);
+                        VerticalLayout { padding: 8px; spacing: 4px; alignment: start;
+                            Text { text: section.group.rows[cell.metric].label; color: Theme.text-secondary; font-size: 12px; wrap: word-wrap; vertical-stretch: 0; }
+                            Text { text: section.group.rows[cell.metric].value; color: section.group.rows[cell.metric].value == I18n.status-unavailable ? Theme.text-muted : Theme.text-primary; font-size: 18px; font-weight: 600; wrap: word-wrap; vertical-stretch: 0; }
+                            if section.group.rows[cell.metric].detail != "" : Text { text: section.group.rows[cell.metric].detail; color: Theme.text-muted; font-size: 11px; wrap: word-wrap; vertical-stretch: 0; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -133,18 +133,28 @@ fn read_android_thermal_zone(keywords: &[&str]) -> (MetricValue<f64>, Option<Str
     };
 
     let mut saw_permission_denied = false;
+    let mut saw_read_failure = false;
     for entry in entries.flatten() {
         let dir = entry.path();
         let name = entry.file_name();
         if !name.to_string_lossy().starts_with("thermal_zone") {
             continue;
         }
-        let Ok(zone_type) = fs::read_to_string(dir.join("type")) else {
-            continue;
+        let zone_type = match fs::read_to_string(dir.join("type")) {
+            Ok(value) => value,
+            Err(err) => {
+                saw_permission_denied |= err.kind() == ErrorKind::PermissionDenied;
+                continue;
+            }
         };
         let zt = zone_type.trim();
         let lower = zt.to_ascii_lowercase();
         if !keywords.iter().any(|kw| lower.contains(kw)) {
+            continue;
+        }
+        if keywords.iter().any(|k| *k == "gpu" || *k == "gpuss")
+            && !crate::platform::gpu_probe::gpu_thermal_type(&lower)
+        {
             continue;
         }
 
@@ -161,18 +171,28 @@ fn read_android_thermal_zone(keywords: &[&str]) -> (MetricValue<f64>, Option<Str
                         return (MetricValue::Available(celsius), Some(zt.to_string()));
                     }
                 }
+                saw_read_failure = true;
             }
             Err(err) if err.kind() == ErrorKind::PermissionDenied => {
                 saw_permission_denied = true;
             }
-            Err(_) => {}
+            Err(_) => {
+                saw_read_failure = true;
+            }
         }
     }
 
-    if saw_permission_denied {
+    if saw_read_failure {
+        (
+            MetricValue::Unavailable(
+                "Sensor read failure: GPU/thermal zone returned invalid data or I/O failure".into(),
+            ),
+            None,
+        )
+    } else if saw_permission_denied {
         (
             MetricValue::PermissionError(
-                "Thermal sensor restricted by Android SELinux".to_string(),
+                "Permission denied reading thermal sysfs; Android sandbox or SELinux may restrict access".to_string(),
             ),
             None,
         )
@@ -632,98 +652,89 @@ unsafe fn query_egl_strings(
 }
 
 fn read_android_gpu_utilization() -> MetricValue<f64> {
-    // Qualcomm KGSL 3D GPU busy/total microseconds
-    match fs::read_to_string("/sys/class/kgsl/kgsl-3d0/gpubusy") {
-        Ok(raw) => {
-            let mut parts = raw.split_whitespace();
-            if let (Some(b_s), Some(t_s)) = (parts.next(), parts.next()) {
-                if let (Ok(busy), Ok(total)) = (b_s.parse::<u64>(), t_s.parse::<u64>()) {
-                    if total > 0 {
-                        let pct = ((busy as f64) / (total as f64)) * 100.0;
-                        return MetricValue::Available(pct.clamp(0.0, 100.0));
-                    }
-                }
-            }
-        }
-        Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-            return MetricValue::PermissionError(
-                "GPU utilization counter restricted by Android SELinux".to_string(),
-            );
-        }
-        Err(_) => {}
+    use crate::platform::gpu_probe::{kgsl_busy, read_metric};
+    if cached_android_gpu_identity().vendor_name == "Qualcomm" {
+        return read_metric("/sys/class/kgsl/kgsl-3d0/gpubusy", kgsl_busy);
     }
-
-    // ARM Mali utilization sysfs fallback
-    match fs::read_to_string("/sys/class/misc/mali0/device/utilization") {
-        Ok(raw) => {
-            if let Ok(val) = raw.trim().parse::<f64>() {
-                return MetricValue::Available(val.clamp(0.0, 100.0));
-            }
-        }
-        Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-            return MetricValue::PermissionError(
-                "GPU utilization counter restricted by Android SELinux".to_string(),
-            );
-        }
-        Err(_) => {}
-    }
-
-    MetricValue::PermissionError("GPU utilization restricted on unprivileged Android".to_string())
+    // Mali sysfs formats are vendor-specific: a bare number may be a
+    // utilization scale other than percent. Do not guess or clamp it.
+    read_metric("/sys/class/misc/mali0/device/utilization", |_| {
+        MetricValue::Unsupported("Mali utilization interface exists, but its units and sampling semantics are not verified for this driver".into())
+    })
 }
 
 fn read_android_gpu_clock_mhz() -> MetricValue<u32> {
-    for path in [
-        "/sys/class/kgsl/kgsl-3d0/clock_mhz",
-        "/sys/class/kgsl/kgsl-3d0/gpuclk",
+    use crate::platform::gpu_probe::read_metric;
+    let mut failure = MetricValue::Unsupported(
+        "No supported GPU clock interface exposed by device/driver".into(),
+    );
+    for (path, divisor) in [
+        ("/sys/class/kgsl/kgsl-3d0/clock_mhz", 1),
+        ("/sys/class/kgsl/kgsl-3d0/gpuclk", 1_000_000),
+        (
+            "/sys/class/misc/mali0/device/devfreq/mali0/cur_freq",
+            1_000_000,
+        ),
     ] {
-        match fs::read_to_string(path) {
-            Ok(raw) => {
-                if let Ok(val) = raw.trim().parse::<u64>() {
-                    let mhz = if path.ends_with("gpuclk") || val > 10_000 {
-                        (val / 1_000_000) as u32
-                    } else {
-                        val as u32
-                    };
-                    if mhz > 0 {
-                        return MetricValue::Available(mhz);
-                    }
-                }
+        let result = read_metric(path, |raw| {
+            match raw
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .and_then(|hz| u32::try_from(hz / divisor).ok())
+            {
+                Some(mhz) if mhz > 0 => MetricValue::Available(mhz),
+                Some(0) => MetricValue::Unavailable(
+                    "Temporarily unavailable: GPU clock is zero (possibly idle)".into(),
+                ),
+                _ => MetricValue::Unavailable(format!(
+                    "Sensor read failure: invalid GPU frequency in {path}"
+                )),
             }
-            Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-                return MetricValue::PermissionError(
-                    "GPU clock sysfs restricted by Android SELinux".to_string(),
-                );
-            }
-            Err(_) => {}
+        });
+        if result.is_available() {
+            return result;
+        }
+        if !matches!(result, MetricValue::Unsupported(_)) {
+            failure = result;
         }
     }
-
-    MetricValue::PermissionError("GPU clock restricted on unprivileged Android".to_string())
+    failure
 }
 
 fn read_android_gpu_temperature() -> MetricValue<f64> {
-    match fs::read_to_string("/sys/class/kgsl/kgsl-3d0/temp") {
-        Ok(raw) => {
-            if let Ok(val) = raw.trim().parse::<i64>() {
+    use crate::platform::gpu_probe::read_metric;
+    let direct = read_metric("/sys/class/kgsl/kgsl-3d0/temp", |raw| {
+        match raw.trim().parse::<i64>() {
+            Ok(val) => {
                 let celsius = if val > 200 {
                     val as f64 / 1000.0
                 } else {
                     val as f64
                 };
                 if (0.0..=140.0).contains(&celsius) {
-                    return MetricValue::Available(celsius);
+                    MetricValue::Available(celsius)
+                } else {
+                    MetricValue::Unavailable(
+                        "Sensor read failure: GPU temperature out of range".into(),
+                    )
                 }
             }
+            Err(_) => {
+                MetricValue::Unavailable("Sensor read failure: invalid GPU temperature".into())
+            }
         }
-        Err(err) if err.kind() == ErrorKind::PermissionDenied => {
-            return MetricValue::PermissionError(
-                "GPU thermal sensor restricted by Android SELinux".to_string(),
-            );
-        }
-        Err(_) => {}
+    });
+    if direct.is_available() {
+        return direct;
     }
-
-    read_android_thermal_zone(&["gpu", "gpuss"]).0
+    // GPU-specific zone names only. Never substitute CPU/SoC temperature.
+    let thermal = read_android_thermal_zone(&["gpu", "gpuss"]).0;
+    if thermal.is_available() || matches!(direct, MetricValue::Unsupported(_)) {
+        thermal
+    } else {
+        direct
+    }
 }
 
 pub fn collect_android_gpus() -> Vec<GpuTelemetry> {

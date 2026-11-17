@@ -1,0 +1,56 @@
+import { ScrollView, Button } from "std-widgets.slint";
+import { Theme } from "../themes/theme.slint";
+import { I18n } from "../i18n/strings.slint";
+import { ControlRow } from "../models.slint";
+import { Card, SectionTitle } from "../components/common.slint";
+component DiagnosticEntry inherits Rectangle {
+    in property <ControlRow> item;
+    private property <bool> expanded: false;
+    vertical-stretch: 0; min-width: 0px;
+    VerticalLayout {
+        alignment: start; spacing: 3px;
+        Rectangle {
+            min-height: 44px; vertical-stretch: 0;
+            HorizontalLayout {
+                padding-top: 6px; padding-bottom: 6px; spacing: 8px;
+                Text { text: root.item.label; horizontal-stretch: 1; min-width: 0px; vertical-stretch: 0; vertical-alignment: center; color: Theme.text-secondary; wrap: word-wrap; font-size: 12px; }
+                Text { text: root.item.value; max-width: root.width * 0.46; min-width: 0px; vertical-stretch: 0; vertical-alignment: center; horizontal-alignment: right; color: Theme.text-primary; wrap: word-wrap; font-size: 12px; font-weight: 600; }
+                if root.item.detail != "" : Image { source: @image-url("../../assets/icons/mobile/chevron.svg"); width: 16px; height: 20px; colorize: Theme.accent; transform-rotation: root.expanded ? 90deg : 0deg; }
+            }
+            TouchArea { enabled: root.item.detail != ""; accessible-role: button; accessible-label: root.item.label + ": " + root.item.value + ". " + I18n.hotfix-technical; clicked => { root.expanded = !root.expanded; } }
+        }
+        if root.expanded : Text { text: root.item.detail; font-size: 11px; color: Theme.text-muted; wrap: word-wrap; vertical-stretch: 0; }
+        Rectangle { height: 1px; background: Theme.border-subtle; }
+    }
+}
+component DiagnosticSection inherits Card {
+    in property <string> title;
+    in property <[ControlRow]> rows;
+    vertical-stretch: 0;
+    VerticalLayout { padding: 10px; spacing: 5px; alignment: start;
+        SectionTitle { text: root.title; }
+        for row in root.rows : DiagnosticEntry { item: row; }
+    }
+}
+export component DiagnosticsPage inherits Rectangle {
+    in property <length> left-inset;
+    in property <length> right-inset;
+    in property <bool> android-platform;
+    in property <[ControlRow]> permissions;
+    in property <[ControlRow]> gpu;
+    in property <[ControlRow]> platform;
+    in property <string> source-commit;
+    in property <string> build-short;
+    callback open-app-settings();
+    ScrollView { width: 100%; height: 100%;
+        VerticalLayout {
+            width: max(0px,root.width - 14px); alignment: start; padding: 12px;
+            padding-left: 12px + root.left-inset; padding-right: 12px + root.right-inset; spacing: 10px;
+            if root.android-platform : DiagnosticSection { title: I18n.hotfix-permissions; rows: root.permissions; }
+            DiagnosticSection { title: I18n.hotfix-gpu; rows: root.gpu; }
+            DiagnosticSection { title: I18n.hotfix-platform; rows: root.platform; }
+            DiagnosticSection { title: I18n.hotfix-build; rows: [{label: I18n.hotfix-source, value: root.build-short, detail: root.source-commit}]; }
+            if root.android-platform : Button { text: I18n.cc-app-settings; min-height: 44px; clicked => { root.open-app-settings(); } }
+        }
+    }
+}
